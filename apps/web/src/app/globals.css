@@ -1,5 +1,22 @@
 @import "tailwindcss";
 
+/* Tokens expostos ao Tailwind: sem este bloco, bg-bg / text-tinta / font-sans
+   não geram CSS nenhum. */
+@theme {
+  --color-cobalto: #2444C8;
+  --color-amarelo: #FFC61A;
+  --color-oxido: #BF3A21;
+  --color-tinta: #12163A;
+  --color-bg: #EDF0F2;
+  --color-surface: #FFFFFF;
+  --color-muted: #5B6472;
+  --color-line: #D5DAE0;
+  --color-brand: #2444C8;
+  --color-soft: #DCE3FA;
+  --font-display: var(--font-archivo), system-ui, sans-serif;
+  --font-sans: var(--font-atkinson), "Atkinson Hyperlegible", system-ui, sans-serif;
+}
+
 @layer base {
   :root {
     --cobalto: #2444C8;
@@ -124,11 +141,26 @@
   .nav .search3 input { height: 44px; font-size: 15px; border-width: 2px; transition: border-color 0.2s; }
   .nav .search3 input:focus { border-color: var(--cobalto); }
 
+  /* contentor: garante que todas as secções alinham à esquerda, em qualquer largura */
+  .shell { width: 100%; max-width: 1240px; margin-inline: auto; padding-inline: 40px; }
+  /* secções que passam a viver dentro de .shell e perdem o padding horizontal.
+     Selector duplo para vencer a media query do mobile. */
+  .nav.nav--flush, .cards.cards--flush, .h2s.h2s--flush { padding-left: 0; padding-right: 0; }
+
 
   /* 1. início */
-  .hero { display: grid; grid-template-columns: 5fr 7fr; gap: 44px; padding: 44px 40px 28px; align-items: center; }
+  .hero { display: grid; grid-template-columns: 5fr 7fr; gap: 44px; padding: 44px 0 28px; align-items: center; }
+  .hero-copy { display: grid; gap: 0; align-content: center; }
+  .kicker { font: 700 12px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--cobalto); margin-bottom: 14px; }
   .h1 { font: 800 clamp(38px, 4.4vw, 56px)/1 var(--display); font-stretch: 112%; letter-spacing: -.01em; margin-bottom: 22px; }
+  .hero-sub { color: var(--muted); font-size: 17px; margin-bottom: 20px; max-width: 46ch; }
   .search { background: var(--surface); border: 2px solid var(--ink); border-radius: 4px; padding: 16px; display: grid; gap: 10px; }
+  .search--row { grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
+  .search--row .b1 { grid-column: 1 / -1; }
+  .hero-stats { display: flex; flex-wrap: wrap; gap: 26px; margin-top: 22px; }
+  .hero-stats li { list-style: none; }
+  .hero-stats b { display: block; font: 800 24px/1 var(--display); font-stretch: 108%; }
+  .hero-stats span { font-size: 13px; color: var(--muted); }
   .wall { display: grid; grid-template-columns: repeat(12, 1fr); grid-auto-rows: 86px; gap: 10px; }
   .wall .placa { font-size: 38px; }
   .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; padding: 0 40px 10px; }
@@ -139,18 +171,36 @@
   .fi h3 { font: 800 20px/1.1 var(--display); font-stretch: 108%; }
   .pr { font-weight: 700; font-variant-numeric: tabular-nums; }
   .acts { display: grid; grid-template-columns: 1fr 1.25fr; gap: 8px; padding: 12px 14px 14px; }
-  .how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; padding: 6px 40px 26px; }
+  .how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; padding: 6px 0 26px; }
   .how b { font: 800 52px/1 var(--display); font-stretch: 105%; color: var(--brand); display: block; }
   .how h3 { font: 800 19px/1.15 var(--display); font-stretch: 108%; margin: 2px 0 4px; }
   .how p { color: var(--muted); font-size: 15px; }
-  .band { margin: 0 40px 30px; flex-direction: row; align-items: center; justify-content: space-between; gap: 20px; font-size: 38px; }
+  .band { margin: 0 0 30px; flex-direction: row; align-items: center; justify-content: space-between; gap: 20px; font-size: 38px; }
   .band .btn { width: auto; }
-  .foot { border-top: 2px solid var(--ink); padding: 16px 40px 14px; display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); background: var(--surface); }
+  .foot { border-top: 2px solid var(--ink); padding: 16px 0 14px; background: var(--surface); }
+  .foot-in { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); }
   .strip { height: 8px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='8'%3E%3Cpath d='M0 8L8 0L16 8Z' fill='%232444C8'/%3E%3Cpath d='M8 8L12 4L16 8Z' fill='%23FFC61A'/%3E%3C/svg%3E") repeat-x; }
+
+  /* publicidade */
+  .ads-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+  .ads-note { font-size: 13px; color: var(--muted); }
+  .ads-rail { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; scrollbar-width: none; }
+  .ads-rail::-webkit-scrollbar { display: none; }
+  .ad { position: relative; display: block; flex: 0 0 auto; width: 236px; scroll-snap-align: start; border: 2px solid var(--ink); border-radius: 4px; background: var(--surface); overflow: hidden; transition: transform .2s, box-shadow .2s; }
+  .ad:hover { transform: translateY(-3px); box-shadow: 0 12px 26px -16px rgba(18, 22, 58, .55); }
+  .ad-media { position: relative; display: block; height: 208px; }
+  .ad-media img { object-fit: cover; }
+  .ad-tag { position: absolute; top: 7px; left: 7px; z-index: 1; padding: 4px 7px; border-radius: 3px; background: rgba(18, 22, 58, .84); color: #fff; font: 700 10px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; }
+
+  @media (min-width: 901px) {
+    .search--row { grid-template-columns: 1fr 1fr auto; }
+    .search--row .b1 { grid-column: auto; }
+  }
 
   @media (max-width: 900px) {
     .hero, .res, .pf, .cards, .how, .revs { grid-template-columns: 1fr; }
-    .hero, .nav, .chips, .res, .pf, .cards, .h2s, .how, .foot { padding-left: 16px; padding-right: 16px; }
+    .shell { padding-left: 16px; padding-right: 16px; }
+    .nav, .chips, .res, .pf, .cards, .h2s, .foot { padding-left: 16px; padding-right: 16px; }
     .band { margin: 0 16px 24px; flex-direction: column; align-items: flex-start; }
     .nav { gap: 14px; flex-wrap: wrap; }
     .nav .search3 { flex-basis: 100%; max-width: none; }
@@ -160,5 +210,8 @@
     .pc { position: static; }
     .wall { grid-auto-rows: 70px; }
     .wall .placa { font-size: 26px; }
+    .hero-stats { gap: 18px; }
+    .ad { width: 200px; }
+    .ad-media { height: 178px; }
   }
 }
