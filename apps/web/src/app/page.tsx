@@ -115,7 +115,11 @@ export default async function HomePage() {
         </div>
       </div>
 
-      <AdsRail />
+      {/* Em ecrãs largos a publicidade vai para as colunas laterais
+          (ver AdColumn), por isso aqui esconde-se para não duplicar. */}
+      <div className="ads-home">
+        <AdsRail />
+      </div>
 
       <div className="shell">
         <h2 id="como-funciona" className="h2 h2s h2s--flush">Como funciona</h2>

@@ -9,14 +9,16 @@ export interface Ad {
   alt: string
   width: number
   height: number
-  /** Destino do clique. Ausente = anúncio decorativo, sem link */
+  /** Destino do clique. Sem valor = anúncio não clicável (página de destino por criar) */
   href?: string
   label: AdLabel
 }
 
 /**
  * Manifest de publicidade.
- * Para editar um anúncio: muda o `href`, `alt` ou a ordem do array.
+ * Para editar um anúncio: muda o `alt`, o `label` ou a ordem do array.
+ * Para ligar um anúncio a uma página, acrescenta `href: '/a-rota'` — sem
+ * `href` o cartão não é clicável e o Next não faz prefetch de rotas inexistentes.
  * As imagens vivem em apps/web/public/ads/.
  */
 export const ads: Ad[] = [
@@ -26,7 +28,6 @@ export const ads: Ad[] = [
     alt: 'Publicidade de uma empresa parceira',
     width: 608,
     height: 504,
-    href: '/publicidade/1',
     label: 'Patrocinado',
   },
   {
@@ -35,7 +36,6 @@ export const ads: Ad[] = [
     alt: 'Publicidade de uma empresa parceira',
     width: 447,
     height: 447,
-    href: '/publicidade/2',
     label: 'Patrocinado',
   },
   {
@@ -44,7 +44,6 @@ export const ads: Ad[] = [
     alt: 'Publicidade de uma empresa parceira',
     width: 426,
     height: 599,
-    href: '/publicidade/3',
     label: 'Anúncio',
   },
   {
@@ -53,7 +52,6 @@ export const ads: Ad[] = [
     alt: 'Publicidade de uma empresa parceira',
     width: 447,
     height: 447,
-    href: '/publicidade/5',
     label: 'Patrocinado',
   },
   {
@@ -62,7 +60,6 @@ export const ads: Ad[] = [
     alt: 'Publicidade de uma empresa parceira',
     width: 447,
     height: 447,
-    href: '/publicidade/6',
     label: 'Patrocinado',
   },
   {
@@ -71,7 +68,6 @@ export const ads: Ad[] = [
     alt: 'Publicidade de uma empresa parceira',
     width: 447,
     height: 447,
-    href: '/publicidade/7',
     label: 'Publicidade',
   },
   {
@@ -80,7 +76,6 @@ export const ads: Ad[] = [
     alt: 'Publicidade de uma empresa parceira',
     width: 447,
     height: 447,
-    href: '/publicidade/8',
     label: 'Patrocinado',
   },
   {
@@ -89,7 +84,6 @@ export const ads: Ad[] = [
     alt: 'Assistente Bué de Mestres',
     width: 1080,
     height: 720,
-    href: '/ajuda',
     label: 'Anúncio',
   },
 ]
