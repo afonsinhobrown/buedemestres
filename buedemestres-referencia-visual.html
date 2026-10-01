@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="pt-MZ">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bué de Mestres: direcção visual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..900&family=Atkinson+Hyperlegible+Next:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cobalto:#2444C8;--amarelo:#FFC61A;--oxido:#BF3A21;--tinta:#12163A;
+  --bg:#EDF0F2;--surface:#FFFFFF;--ink:#12163A;--muted:#5B6472;--line:#D5DAE0;
+  --brand:#2444C8;--on-brand:#FFFFFF;--soft:#DCE3FA;
+  --map-bg:#DDE2E6;--map-block:#EEF1F3;--map-road:#FFFFFF;
+  --display:"Archivo",system-ui,sans-serif;--sans:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E1230;--surface:#171C45;--ink:#EDF0F2;--muted:#A9B0C0;--line:#2A3060;
+  --brand:#7F98FF;--on-brand:#0E1230;--soft:#232A63;--map-bg:#1B2050;--map-block:#141945;--map-road:#2A3070;}}
+:root[data-theme="dark"]{
+  --bg:#0E1230;--surface:#171C45;--ink:#EDF0F2;--muted:#A9B0C0;--line:#2A3060;
+  --brand:#7F98FF;--on-brand:#0E1230;--soft:#232A63;--map-bg:#1B2050;--map-block:#141945;--map-road:#2A3070;}
+html{scroll-padding-top:env(safe-area-inset-top,0px);background:var(--bg)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 17px/1.5 var(--sans)}
+h1,h2,h3,p{margin:0}
+:focus-visible{outline:3px solid var(--amarelo);outline-offset:2px;box-shadow:0 0 0 2px var(--ink)}
+
+/* quadro de apresentação */
+.hd{max-width:1240px;margin:0 auto;padding:28px 16px 4px}
+.hd h2{font:800 28px/1.05 var(--display);font-stretch:112%;letter-spacing:-.01em}
+.hd p{max-width:68ch;color:var(--muted);margin-top:8px;font-size:15px}
+.sw{display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:16px;font-size:13px}
+.sw span{display:flex;align-items:center;gap:8px}
+.sw i{width:22px;height:22px;border-radius:4px;border:2px solid var(--ink);display:block}
+.board{display:grid;gap:28px;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),380px));justify-content:center;padding:24px 16px 48px;max-width:1240px;margin:0 auto}
+.cap{font:700 13px var(--sans);color:var(--muted);margin:0 0 8px 4px}
+.phone{background:var(--bg);border:2px solid var(--ink);border-radius:28px;overflow:hidden;display:flex;flex-direction:column;min-height:740px}
+
+/* placa de ofício */
+.placa{--c:var(--cobalto);--t:#fff;position:relative;display:flex;flex-direction:column;justify-content:center;padding:14px 16px;border-radius:4px;background-color:var(--c);color:var(--t);
+  font:800 26px/1 var(--display);font-stretch:72%;text-transform:uppercase;letter-spacing:.02em;transform:rotate(var(--r,0deg));
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Ccircle cx='1' cy='1' r='.6' fill='%23000' fill-opacity='.07'/%3E%3Ccircle cx='4' cy='4' r='.5' fill='%23fff' fill-opacity='.08'/%3E%3C/svg%3E")}
+.placa::before{content:"";position:absolute;inset:5px;border:2px solid currentColor;border-radius:2px;pointer-events:none}
+.placa small{font:700 11px/1.2 var(--display);font-stretch:85%;letter-spacing:.08em;margin-top:7px}
+.pb{--c:var(--cobalto);--t:#fff}.py{--c:var(--amarelo);--t:var(--tinta)}.po{--c:var(--oxido);--t:#fff}
+.pp{--c:#fff;--t:var(--tinta);border:2px solid var(--tinta)}.pp::before{border-color:var(--cobalto)}
+.sm{padding:8px 11px;font-size:15px}.sm::before{inset:3px;border-width:1.5px}
+.lg{padding:22px 20px;font-size:38px}
+
+/* animação única: pintar as placas */
+.wall .placa{animation:paint .6s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i)*70ms)}
+@keyframes paint{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0)}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* controlos */
+.btn{height:48px;border-radius:10px;border:2px solid transparent;font:700 17px var(--sans);padding:0 16px;cursor:pointer;width:100%}
+.b1{background:var(--brand);color:var(--on-brand)}
+.b2{background:var(--surface);color:var(--ink);border-color:var(--ink)}
+.bar{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 10px}
+.bar a{font-weight:700;color:var(--brand);text-decoration:none}
+.h1{font:800 34px/1.02 var(--display);font-stretch:112%;letter-spacing:-.01em;margin:10px 16px 16px}
+.search{margin:0 16px 20px;background:var(--surface);border:2px solid var(--ink);border-radius:4px;padding:14px;display:grid;gap:10px}
+label{display:block;font-size:14px;color:var(--muted);margin-bottom:4px}
+input{width:100%;height:52px;border:1px solid var(--line);border-radius:10px;padding:0 14px;font:inherit;background:var(--bg);color:var(--ink)}
+.wall{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;padding:0 16px}
+.h2{font:800 20px/1.15 var(--display);font-stretch:108%;margin:22px 16px 10px}
+
+/* selo e etiquetas */
+.selo{width:24px;height:24px;flex:none}
+.tags{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;font-weight:700}
+.dest{background:var(--amarelo);color:var(--tinta);border-radius:4px;padding:1px 7px;font-size:13px}
+
+/* ficha do mestre */
+.ficha{margin:0 16px 16px;background:var(--surface);border:2px solid var(--ink);border-radius:4px;overflow:hidden;display:grid;grid-template-columns:116px 1fr}
+.ficha .placa{border-radius:0;font-size:21px;height:100%;min-height:150px;padding:10px}
+.ficha .placa::before{inset:4px}
+.fi{padding:12px;display:grid;gap:4px;align-content:start}
+.fi h3{font:800 19px/1.1 var(--display);font-stretch:108%}
+.rt{display:flex;align-items:baseline;gap:6px}
+.rt b{font:800 26px/1 var(--display);font-variant-numeric:tabular-nums}
+.rt span,.fi p{color:var(--muted);font-size:14px}
+.pr{color:var(--ink)!important;font-weight:700;font-variant-numeric:tabular-nums}
+.acts{grid-column:1/3;display:grid;grid-template-columns:1fr 1.25fr;gap:8px;padding:10px;border-top:1px solid var(--line)}
+
+/* ecrã 2: mapa e folha */
+.map{display:block;width:100%;height:auto}
+.sheet{margin-top:-20px;background:var(--surface);border:2px solid var(--ink);border-bottom:0;border-radius:20px 20px 0 0;padding:10px 16px 18px;position:relative;flex:1;display:grid;gap:12px;align-content:start}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 2px}
+.eta{display:flex;align-items:baseline;gap:8px}
+.eta b{font:800 56px/.9 var(--display);font-stretch:105%;font-variant-numeric:tabular-nums}
+.eta span{color:var(--muted)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:13px;color:var(--muted)}
+.steps div{border-top:4px solid var(--line);padding-top:5px}
+.steps .on{border-color:var(--brand);color:var(--ink);font-weight:700}
+.who{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center}
+.who h3{font:800 18px/1.1 var(--display);font-stretch:108%}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.note{background:var(--soft);border-left:4px solid var(--brand);border-radius:4px;padding:10px 12px;font-size:14px}
+.req{font-size:14px;color:var(--muted)}
+
+/* ecrã 3: perfil e tabela de preços */
+.prof{padding:14px 16px 0;display:grid;gap:14px;flex:1;align-content:start}
+.big{display:flex;align-items:center;gap:14px}
+.big b{font:800 48px/.9 var(--display);font-stretch:105%;font-variant-numeric:tabular-nums}
+.big .st{color:var(--brand);letter-spacing:2px;font-size:15px}
+.big span{display:block;font-size:14px;color:var(--muted)}
+.tab{background:var(--surface);border:2px solid var(--ink);border-radius:4px;padding:6px 14px}
+.tab .row{display:flex;align-items:baseline;gap:8px;padding:9px 0}
+.tab .row+.row{border-top:1px solid var(--line)}
+.tab .dots{flex:1;border-bottom:2px dotted var(--line);transform:translateY(-4px)}
+.tab .p{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tab .q{color:var(--muted);white-space:nowrap}
+.rev{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px;font-size:15px;display:grid;gap:4px}
+.rev b{font-size:14px}.rev small{color:var(--muted)}
+.cta{position:sticky;bottom:0;display:grid;grid-template-columns:1fr 1.4fr;gap:8px;padding:10px 16px;background:var(--surface);border-top:2px solid var(--ink);margin-top:14px}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="selo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10.5" fill="#FFC61A" stroke="#12163A" stroke-width="2"/><circle cx="12" cy="12" r="7.6" fill="none" stroke="#12163A" stroke-width="1" stroke-dasharray="2 1.6"/><path d="M7.6 12.4l3 3 5.8-6.4" fill="none" stroke="#12163A" stroke-width="2.4" stroke-linecap="square"/></symbol>
+</svg>
+
+<header class="hd">
+  <h2>Bué de Mestres: direcção visual</h2>
+  <p>Referência para a implementação. As placas de ofício, a tabela de preços, o selo e a ficha são os componentes do sistema. Reproduzir estes três ecrãs com os mesmos tokens antes de avançar para os restantes.</p>
+  <div class="sw" aria-label="Paleta">
+    <span><i style="background:#2444C8"></i>Cobalto #2444C8</span>
+    <span><i style="background:#FFC61A"></i>Amarelo de placa #FFC61A</span>
+    <span><i style="background:#BF3A21"></i>Óxido #BF3A21</span>
+    <span><i style="background:#12163A"></i>Tinta #12163A</span>
+    <span><i style="background:#EDF0F2"></i>Cal #EDF0F2</span>
+    <span><i style="background:#5B6472"></i>Zinco #5B6472</span>
+  </div>
+</header>
+
+<main class="board">
+
+  <!-- ECRÃ 1: INÍCIO -->
+  <section aria-label="Início">
+    <p class="cap">1. Início do cliente</p>
+    <div class="phone">
+      <div class="bar">
+        <div class="placa pb sm">Bué de Mestres</div>
+        <a href="#">Entrar</a>
+      </div>
+      <h1 class="h1">Precisas de um mestre? Bué deles, no teu bairro.</h1>
+      <div class="search">
+        <div><label for="q">Preciso de</label><input id="q" placeholder="mecânico, explicador de Matemática…"></div>
+        <div><label for="w">Onde</label><input id="w" value="Polana, Maputo"></div>
+        <button class="btn b1">Procurar mestres</button>
+      </div>
+      <div class="wall" aria-label="Ofícios">
+        <div class="placa pb" style="grid-column:span 4;--r:-.7deg;--i:0;min-height:92px;font-size:34px">Mecânico<small>Pneus, travões, electricidade auto</small></div>
+        <div class="placa py" style="grid-column:span 2;--r:.8deg;--i:1;font-size:21px">Explicador<small>Todas as classes</small></div>
+        <div class="placa po" style="grid-column:span 3;--r:.5deg;--i:2;font-size:27px">Carpinteiro<small>Portas e móveis</small></div>
+        <div class="placa pp" style="grid-column:span 3;--r:-.6deg;--i:3;font-size:27px">Pedreiro<small>Obras e reparações</small></div>
+        <div class="placa pp" style="grid-column:span 2;--r:-.4deg;--i:4;font-size:19px">Canalizador</div>
+        <div class="placa pb" style="grid-column:span 4;--r:.6deg;--i:5;font-size:27px">Electricista<small>Instalações e avarias</small></div>
+      </div>
+      <h2 class="h2">Mestres verificados perto de ti</h2>
+      <article class="ficha">
+        <div class="placa pb">Mecânico<small>Pneus e rodas</small></div>
+        <div class="fi">
+          <h3>Oficina Mabunda</h3>
+          <div class="rt"><b>4,8</b><span>31 avaliações</span></div>
+          <p>Polana, a 1,8 km</p>
+          <div class="tags"><svg class="selo"><use href="#selo"/></svg>Verificado <span class="dest">Em destaque</span></div>
+          <p class="pr">desde 800 MT</p>
+        </div>
+        <div class="acts"><button class="btn b2">WhatsApp</button><button class="btn b1">Chamar agora</button></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ECRÃ 2: MESTRE A CAMINHO -->
+  <section aria-label="Mestre a caminho">
+    <p class="cap">2. Mestre a caminho (pedido imediato)</p>
+    <div class="phone">
+      <svg class="map" viewBox="0 0 360 320" role="img" aria-label="Mapa com o mestre a caminho do cliente">
+        <rect width="360" height="320" fill="var(--map-bg)"/>
+        <g fill="var(--map-block)">
+          <rect x="6" y="6" width="80" height="90" rx="3"/><rect x="100" y="6" width="56" height="90" rx="3"/><rect x="184" y="6" width="78" height="90" rx="3"/><rect x="288" y="6" width="66" height="90" rx="3"/>
+          <rect x="6" y="128" width="50" height="74" rx="3"/><rect x="100" y="128" width="56" height="74" rx="3"/><rect x="184" y="128" width="78" height="74" rx="3"/><rect x="288" y="150" width="66" height="52" rx="3"/>
+          <rect x="6" y="236" width="80" height="78" rx="3"/><rect x="100" y="236" width="56" height="78" rx="3"/><rect x="184" y="236" width="78" height="78" rx="3"/><rect x="288" y="236" width="66" height="78" rx="3"/>
+        </g>
+        <g stroke="var(--map-road)" stroke-width="14" stroke-linecap="butt" fill="none">
+          <path d="M0 112H360M0 218H360M70 0V320M170 0V320M275 0V320"/>
+        </g>
+        <g fill="var(--muted)" font-size="9" font-family="var(--sans)">
+          <text x="182" y="216" >Av. Julius Nyerere</text>
+          <text x="18" y="110">Av. 24 de Julho</text>
+        </g>
+        <path d="M70 282V218H170V112H275" fill="none" stroke="var(--brand)" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+        <g transform="translate(70 282)">
+          <rect x="-44" y="-14" width="88" height="28" rx="3" fill="#2444C8"/>
+          <rect x="-40" y="-10" width="80" height="20" rx="1.5" fill="none" stroke="#fff" stroke-width="1.5"/>
+          <text y="4" text-anchor="middle" fill="#fff" style="font:800 11px Archivo,sans-serif;font-stretch:72%;letter-spacing:.06em">MECÂNICO</text>
+        </g>
+        <g transform="translate(275 112)">
+          <circle r="15" fill="#FFC61A"/><circle r="10" fill="#2444C8"/><circle r="3.5" fill="#fff"/>
+        </g>
+        <g transform="translate(170 165)">
+          <rect x="-28" y="-12" width="56" height="24" rx="4" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>
+          <text y="4" text-anchor="middle" fill="var(--ink)" style="font:700 12px Atkinson Hyperlegible Next,sans-serif">1,8 km</text>
+        </g>
+      </svg>
+      <div class="sheet">
+        <div class="grab"></div>
+        <div class="eta"><b>6</b><span>minutos para chegar</span></div>
+        <div class="steps"><div>Aceite</div><div class="on">A caminho</div><div>Chegou</div></div>
+        <div class="who">
+          <div class="placa pb sm" style="font-size:14px">Mecânico</div>
+          <div>
+            <h3>Oficina Mabunda</h3>
+            <div class="tags" style="margin-top:3px"><svg class="selo" style="width:20px;height:20px"><use href="#selo"/></svg>Verificado<span style="font-weight:400;color:var(--muted)">4,8 de 31 avaliações</span></div>
+          </div>
+        </div>
+        <p class="req">O teu pedido: carro não pega, Toyota Hilux.</p>
+        <div class="two"><button class="btn b2">Ligar</button><button class="btn b2">Mensagem</button></div>
+        <div class="note">O preço ainda não foi combinado. Só pagas depois de o mestre propor e tu aceitares. O valor fica retido até confirmares o serviço.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ECRÃ 3: PERFIL -->
+  <section aria-label="Perfil do mestre">
+    <p class="cap">3. Perfil do mestre</p>
+    <div class="phone">
+      <div class="prof">
+        <div class="placa pb lg" style="--r:-.5deg">Oficina Mabunda<small>Mecânico, pneus e rodas</small></div>
+        <div class="tags"><svg class="selo"><use href="#selo"/></svg>Verificado <span style="font-weight:400;color:var(--muted)">Polana, Maputo</span></div>
+        <div class="big">
+          <b>4,8</b>
+          <div><div class="st" aria-hidden="true">★★★★★</div><span>31 avaliações</span><span>126 trabalhos concluídos</span></div>
+        </div>
+        <h2 class="h2" style="margin:4px 0 -6px">Tabela de preços</h2>
+        <div class="tab">
+          <div class="row"><span>Mudança de óleo e filtro</span><span class="dots"></span><span class="p">desde 1 500 MT</span></div>
+          <div class="row"><span>Diagnóstico electrónico</span><span class="dots"></span><span class="p">800 MT</span></div>
+          <div class="row"><span>Reparação de travões</span><span class="dots"></span><span class="q">sob orçamento</span></div>
+        </div>
+        <h2 class="h2" style="margin:4px 0 -6px">Avaliações</h2>
+        <div class="rev">
+          <b>Mudança de óleo, Setembro de 2026</b>
+          <span>Chegou a horas, explicou o que tinha de trocar e cumpriu o preço combinado.</span>
+          <small>Trabalho concluído pelo Bué de Mestres</small>
+        </div>
+      </div>
+      <div class="cta"><button class="btn b2">WhatsApp</button><button class="btn b1">Chamar agora</button></div>
+    </div>
+  </section>
+
+</main>
+</body>
+</html>

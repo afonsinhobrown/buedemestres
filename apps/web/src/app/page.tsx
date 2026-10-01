@@ -1,0 +1,128 @@
+import React from 'react';
+import Link from 'next/link';
+import { db } from '@/lib/db';
+
+export const dynamic = 'force-dynamic';
+
+export default async function HomePage() {
+  // Fetch real providers from the DB!
+  const res = await db.query(`
+    SELECT pp.slug, pp.business_name, pp.headline, pp.rating_avg, pp.rating_count, 
+           pp.verification, d.name as district_name, p.name as province_name,
+           c.name as category_name,
+           CASE c.slug
+             WHEN 'mecanico' THEN 'pb'
+             WHEN 'explicador' THEN 'py'
+             WHEN 'carpinteiro' THEN 'po'
+             ELSE 'pb'
+           END as color_class
+    FROM provider_profiles pp
+    JOIN districts d ON pp.district_id = d.id
+    JOIN provinces p ON d.province_id = p.id
+    JOIN categories c ON pp.primary_category_id = c.id
+    WHERE pp.is_published = true
+    ORDER BY pp.rating_avg DESC
+    LIMIT 3
+  `);
+  const providers = res.rows;
+
+  return (
+    <>
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+        <symbol id="selo" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10.5" fill="#FFC61A" stroke="#12163A" strokeWidth="2" />
+          <circle cx="12" cy="12" r="7.6" fill="none" stroke="#12163A" strokeWidth="1" strokeDasharray="2 1.6" />
+          <path d="M7.6 12.4l3 3 5.8-6.4" fill="none" stroke="#12163A" strokeWidth="2.4" strokeLinecap="square" />
+        </symbol>
+      </svg>
+
+      <div className="sites" style={{ padding: '0', maxWidth: 'none' }}>
+        <section aria-label="Início" className="bg-bg min-h-screen pb-12">
+          
+          <nav className="nav">
+            <Link href="/" className="placa pb sm" style={{ transform: 'none' }}>Bué de Mestres</Link>
+            <Link href="#como-funciona">Como funciona</Link>
+            <Link href="#para-mestres">Para mestres</Link>
+            <Link href="/ajuda">Ajuda</Link>
+            <span className="sp"></span>
+            <Link href="/entrar">Entrar</Link>
+            <Link href="/registo" className="btn b1 s">Criar a minha placa</Link>
+          </nav>
+
+          <div className="max-w-[1240px] mx-auto">
+            <div className="hero">
+              <div>
+                <h1 className="h1">Precisas de um mestre? Bué deles, no teu bairro.</h1>
+                <form className="search" action="/resultados" method="GET">
+                  <div>
+                    <label className="lbl" htmlFor="q1">Preciso de</label>
+                    <input className="inp" id="q1" name="q" placeholder="mecânico, explicador de Matemática…" required />
+                  </div>
+                  <div>
+                    <label className="lbl" htmlFor="w1">Onde</label>
+                    <input className="inp" id="w1" name="onde" defaultValue="Polana, Maputo" required />
+                  </div>
+                  <button type="submit" className="btn b1">Procurar mestres</button>
+                </form>
+              </div>
+              <Link href="/resultados" className="wall block" aria-label="Ofícios">
+                <div className="placa pb hover:scale-105 transition-transform" style={{ gridColumn: 'span 7', gridRow: 'span 2', '--r': '-.6deg', '--i': 0, fontSize: '58px' } as React.CSSProperties}>Mecânico<small>Pneus, travões, electricidade auto</small></div>
+                <div className="placa py hover:scale-105 transition-transform" style={{ gridColumn: 'span 5', gridRow: 'span 1', '--r': '.7deg', '--i': 1 } as React.CSSProperties}>Explicador<small>Todas as classes</small></div>
+                <div className="placa po hover:scale-105 transition-transform" style={{ gridColumn: 'span 5', gridRow: 'span 2', '--r': '.5deg', '--i': 2, fontSize: '44px' } as React.CSSProperties}>Carpinteiro<small>Portas e móveis</small></div>
+                <div className="placa pp hover:scale-105 transition-transform" style={{ gridColumn: 'span 4', '--r': '-.5deg', '--i': 3, fontSize: '34px' } as React.CSSProperties}>Pedreiro</div>
+                <div className="placa pb hover:scale-105 transition-transform" style={{ gridColumn: 'span 8', '--r': '.4deg', '--i': 4 } as React.CSSProperties}>Electricista<small>Instalações e avarias</small></div>
+                <div className="placa pp hover:scale-105 transition-transform" style={{ gridColumn: 'span 7', '--r': '-.4deg', '--i': 5, fontSize: '34px' } as React.CSSProperties}>Canalizador</div>
+              </Link>
+            </div>
+
+            <h2 className="h2 h2s">Mestres verificados perto de ti</h2>
+            <div className="cards">
+              {providers.length > 0 ? (
+                providers.map((p) => (
+                  <Link href={`/mestre/${p.slug}`} key={p.slug} className="ficha block cursor-pointer hover:shadow-lg transition-shadow">
+                    <div className={`placa ${p.color_class}`} style={{ transform: 'none' }}>{p.category_name}<small>{p.headline}</small></div>
+                    <div className="fi">
+                      <h3>{p.business_name}</h3>
+                      <div className="rt"><b>{p.rating_avg}</b><span>{p.rating_count} avaliações</span></div>
+                      <p className="mut">{p.district_name}</p>
+                      {p.verification === 'approved' && (
+                        <div className="tags">
+                          <svg className="selo"><use href="#selo"/></svg>Verificado
+                        </div>
+                      )}
+                      <p className="pr">Ver perfil</p>
+                    </div>
+                    <div className="acts">
+                      <span className="btn b2 s">WhatsApp</span>
+                      <span className="btn b1 s">Chamar agora</span>
+                    </div>
+                  </Link>
+                ))
+              ) : (
+                <p>Nenhum mestre encontrado.</p>
+              )}
+            </div>
+
+            <h2 id="como-funciona" className="h2 h2s mt-8">Como funciona</h2>
+            <div className="how">
+              <div><b>1</b><h3>Descreve o que precisas</h3><p>Indica o problema e onde estás. Se for urgente, o pedido segue logo para os mestres mais próximos.</p></div>
+              <div><b>2</b><h3>Um mestre aceita</h3><p>Vês quem é, a avaliação e a chegada no mapa. O preço é combinado na aplicação.</p></div>
+              <div><b>3</b><h3>Pagas e avaliaste</h3><p>O valor fica retido até confirmares o serviço. Depois, avalias o mestre.</p></div>
+            </div>
+
+            <div id="para-mestres" className="placa py band mt-12" style={{ transform: 'rotate(-.5deg)' }}>
+              Tens um ofício? Cria a tua placa.
+              <Link href="/registo" className="btn b1 ml-4">Criar a minha placa</Link>
+            </div>
+            
+            <div className="strip"></div>
+            <footer className="foot">
+              <span>Bué de Mestres</span>
+              <span>Termos, privacidade e ajuda</span>
+            </footer>
+          </div>
+        </section>
+      </div>
+    </>
+  );
+}

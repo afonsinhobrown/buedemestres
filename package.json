@@ -1,0 +1,31 @@
+{
+  "name": "buedemestres-monorepo",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "bootstrap:superadmin": "tsx scripts/bootstrap-superadmin.ts"
+  },
+  "devDependencies": {
+    "prettier": "^3.2.5",
+    "tsx": "^4.19.2",
+    "turbo": "^2.1.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "dependencies": {
+    "dotenv": "^18.0.4",
+    "pg": "^8.23.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "electron-to-chromium": "1.5.442",
+      "ignore": "7.0.10"
+    }
+  }
+}

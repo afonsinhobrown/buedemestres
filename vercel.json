@@ -1,0 +1,5 @@
+{
+  "buildCommand": "pnpm run build --filter=web",
+  "outputDirectory": "apps/web/.next",
+  "framework": "nextjs"
+}

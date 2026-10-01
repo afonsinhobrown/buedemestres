@@ -1,0 +1,67 @@
+{
+  "expo": {
+    "name": "Bué de Mestres Pro",
+    "slug": "bue-de-mestres-pro",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#12163A"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "mz.buedemestres.pro",
+      "infoPlist": {
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Precisamos da tua localização em segundo plano para enviar pedidos próximos enquanto estás Online.",
+        "NSLocationAlwaysUsageDescription": "A localização em segundo plano é necessária para receber pedidos enquanto a app está fechada.",
+        "NSLocationWhenInUseUsageDescription": "Precisamos da tua localização para mostrar a tua posição aos clientes e calcular a distância.",
+        "NSCameraUsageDescription": "A câmara é necessária para verificar a tua identidade e fotografar trabalhos concluídos.",
+        "NSPhotoLibraryUsageDescription": "Permite-nos escolher fotos da tua galeria para a verificação e para os teus trabalhos."
+      },
+      "backgroundColor": "#12163A"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#12163A"
+      },
+      "package": "mz.buedemestres.pro",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "CAMERA",
+        "VIBRATE",
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "A localização em segundo plano é necessária para receber pedidos próximos."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#2444C8"
+        }
+      ]
+    ],
+    "scheme": "buedemestrespro",
+    "extra": {
+      "eas": {
+        "projectId": "TO_BE_CONFIGURED"
+      }
+    }
+  }
+}
