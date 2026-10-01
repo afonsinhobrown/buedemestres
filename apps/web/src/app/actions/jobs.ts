@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { pusherServer } from '@/lib/pusher';
+import { notify } from '@/lib/pusher';
 import { redirect } from 'next/navigation';
 
 export async function requestServiceAction(formData: FormData) {
@@ -18,7 +18,7 @@ export async function requestServiceAction(formData: FormData) {
   try {
     await db.transaction(async (client) => {
       // 1. Find or create the client profile
-      let profileRes = await client.query(
+      const profileRes = await client.query(
         `SELECT id FROM profiles WHERE phone = $1 LIMIT 1`,
         [clientPhone]
       );
@@ -42,20 +42,21 @@ export async function requestServiceAction(formData: FormData) {
       );
       
       jobId = jobRes.rows[0].id;
-
-      // 3. Alert the provider in real-time
-      await pusherServer.trigger(`provider-${providerId}`, 'new-job-request', {
-        jobId,
-        clientName,
-        problemDescription,
-        lat,
-        lng
-      });
     });
   } catch (error) {
     console.error("Error creating job request:", error);
     throw new Error('Falha ao pedir o serviço.');
   }
+
+  // 3. Avisar o mestre em tempo real. Fica fora da transacção: se o Pusher
+  //    falhar, o pedido já está criado na base de dados.
+  await notify(`provider-${providerId}`, 'new-job-request', {
+    jobId,
+    clientName,
+    problemDescription,
+    lat,
+    lng
+  });
 
   // Redirect client to a "waiting for provider" screen
   redirect(`/viagem/${jobId}?clientMode=true`);

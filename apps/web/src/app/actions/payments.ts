@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { pusherServer } from '@/lib/pusher';
+import { notify } from '@/lib/pusher';
 
 export async function processPaySuitePayment(jobId: string, phone: string, amount: number) {
   try {
@@ -35,7 +35,7 @@ export async function processPaySuitePayment(jobId: string, phone: string, amoun
     `, [jobId]);
 
     // 3. Inform Client and Provider via Pusher
-    await pusherServer.trigger(`job-${jobId}`, 'payment-approved', {
+    await notify(`job-${jobId}`, 'payment-approved', {
       jobId,
       status: 'em_deslocacao'
     });

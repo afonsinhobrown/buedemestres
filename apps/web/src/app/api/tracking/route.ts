@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { pusherServer } from '@/lib/pusher';
+import { notify } from '@/lib/pusher';
 
 export async function POST(req: Request) {
   try {
@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     }
 
     // Dispara o evento de localização pelo Pusher no canal específico deste serviço
-    await pusherServer.trigger(`job-${jobId}`, 'location-update', {
+    await notify(`job-${jobId}`, 'location-update', {
       lat,
       lng,
       status: status || 'driving',

@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -35,8 +35,12 @@ export default function TrackingMap({ jobId, initialLat, initialLng }: { jobId: 
   const [providerLocation, setProviderLocation] = useState<{lat: number, lng: number, status?: string} | null>(null);
 
   useEffect(() => {
+    // Sem Pusher configurado não há canal para assinar
+    if (!pusherClient) return;
+    const client = pusherClient;
+
     // Inscreve-se no canal exclusivo deste serviço
-    const channel = pusherClient.subscribe(`job-${jobId}`);
+    const channel = client.subscribe(`job-${jobId}`);
 
     // Fica à escuta de eventos 'location-update'
     channel.bind('location-update', (data: { lat: number, lng: number, status?: string }) => {
@@ -45,7 +49,7 @@ export default function TrackingMap({ jobId, initialLat, initialLng }: { jobId: 
     });
 
     return () => {
-      pusherClient.unsubscribe(`job-${jobId}`);
+      client.unsubscribe(`job-${jobId}`);
     };
   }, [jobId]);
 
