@@ -38,7 +38,9 @@
         "FOREGROUND_SERVICE_LOCATION",
         "CAMERA",
         "VIBRATE",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "plugins": [
@@ -59,8 +61,11 @@
     ],
     "scheme": "buedemestrespro",
     "extra": {
+      "router": {
+        "origin": false
+      },
       "eas": {
-        "projectId": "TO_BE_CONFIGURED"
+        "projectId": "6338d8c2-fc2e-42a3-ab7b-8244b7f93f38"
       }
     }
   }

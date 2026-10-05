@@ -23,6 +23,7 @@ export default function AProcurarMestreScreen() {
   const user = useAuthStore((s) => s.user)
   const [rondaAtual, setRondaAtual] = useState(0)
   const [esgotado, setEsgotado] = useState(false)
+  const [aceite, setAceite] = useState(false)
   const [requestId, setRequestId] = useState<string | null>(null)
   const pulseAnim = useRef(new Animated.Value(1)).current
 
@@ -85,6 +86,8 @@ export default function AProcurarMestreScreen() {
   useEffect(() => {
     if (!requestId) return;
 
+    let timer: NodeJS.Timeout;
+
     // Subscrição para ver se o estado muda para 'accepted'
     const channel = supabase
       .channel(`request_${requestId}`)
@@ -99,16 +102,15 @@ export default function AProcurarMestreScreen() {
         (payload) => {
           if (payload.new.status === 'accepted') {
             // Um mestre aceitou!
-            // TODO: Redirecionar para o acompanhamento do mestre (em_curso)
-            Alert.alert('Sucesso!', 'Um mestre aceitou o seu pedido!');
-            // router.replace(`/pedido/${requestId}/acompanhar`)
+            clearInterval(timer);
+            setAceite(true);
           }
         }
       )
       .subscribe();
 
     // Rondas (fallback caso ninguém aceite)
-    const timer = setInterval(() => {
+    timer = setInterval(() => {
       setRondaAtual((prev) => {
         if (prev >= RONDAS.length - 1) {
           clearInterval(timer);
@@ -124,6 +126,23 @@ export default function AProcurarMestreScreen() {
       clearInterval(timer);
     };
   }, [requestId]);
+
+  if (aceite) {
+    return (
+      <View style={[styles.container, { backgroundColor: '#4ADE80' }]}>
+        <Text style={{ fontSize: 60, marginBottom: 20 }}>🎉</Text>
+        <Text style={{ fontSize: 32, fontWeight: '900', color: '#0F2D1A', textAlign: 'center', marginBottom: 12 }}>
+          Mestre a Caminho!
+        </Text>
+        <Text style={{ fontSize: 18, color: '#0F2D1A', textAlign: 'center', marginBottom: 40, opacity: 0.8 }}>
+          O seu pedido foi aceite e o profissional já está a preparar-se para ir ao seu encontro.
+        </Text>
+        <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: '#0F2D1A', borderColor: '#0F2D1A' }]} onPress={() => router.replace('/')}>
+          <Text style={[styles.btnText, { color: '#4ADE80' }]}>VER DETALHES</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
 
   if (esgotado) {
     return (

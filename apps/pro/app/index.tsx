@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, Platform } from 'react-native'
+import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, Platform, Modal, Animated } from 'react-native'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../lib/useAuthStore'
@@ -6,6 +6,7 @@ import { useAuthStore } from '../lib/useAuthStore'
 export default function ProHomeScreen() {
   const [isOnline, setIsOnline] = useState(false)
   const [newRequest, setNewRequest] = useState<any>(null)
+  const [trabalhosHoje, setTrabalhosHoje] = useState(0)
   const user = useAuthStore(s => s.user)
 
   // Ouve novos pedidos na base de dados em tempo real
@@ -35,8 +36,13 @@ export default function ProHomeScreen() {
   const aceitarTrabalho = async (requestId: string) => {
     await supabase.from('service_requests').update({ status: 'accepted' }).eq('id', requestId);
     setNewRequest(null);
+    setTrabalhosHoje(prev => prev + 1); // Atualiza a estatística
+    
     if (Platform.OS !== 'web') {
       Alert.alert('Trabalho aceite!', 'O cliente foi notificado.');
+    } else {
+      // Pequeno feedback visual subtil para a web
+      console.log('Trabalho aceite! Estatística atualizada.');
     }
   }
 
@@ -54,38 +60,40 @@ export default function ProHomeScreen() {
     }
   }
 
-  if (newRequest) {
-    return (
-      <View style={[styles.container, { backgroundColor: '#EF4444', justifyContent: 'center' }]}>
-        <Text style={{ fontSize: 40, color: 'white', fontWeight: 'bold', textAlign: 'center', marginBottom: 20 }}>
-          🚨 NOVO TRABALHO!
-        </Text>
-        <Text style={{ fontSize: 24, color: 'white', textAlign: 'center', marginBottom: 40 }}>
-          {newRequest.description || 'Alguém precisa dos seus serviços agora!'}
-        </Text>
-        <TouchableOpacity 
-          style={{ backgroundColor: 'white', padding: 20, borderRadius: 10, marginBottom: 20 }}
-          onPress={() => aceitarTrabalho(newRequest.id)}
-        >
-          <Text style={{ color: '#EF4444', fontSize: 24, fontWeight: 'bold', textAlign: 'center' }}>
-            ACEITAR TRABALHO
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={{ backgroundColor: 'transparent', padding: 20, borderRadius: 10, borderWidth: 2, borderColor: 'white' }}
-          onPress={() => setNewRequest(null)}
-        >
-          <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold', textAlign: 'center' }}>
-            RECUSAR
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
   return (
     <View style={[styles.container, { backgroundColor: isOnline ? '#0F2D1A' : '#1A1A2E' }]}>
       <Text style={styles.logo}>🔨 Bué de Mestres Pro</Text>
+
+      {/* Modal Elegante para o Novo Pedido */}
+      <Modal visible={!!newRequest} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Novo Pedido Disponível</Text>
+              <Text style={styles.pulseIndicator}>🟢</Text>
+            </View>
+            
+            <View style={styles.modalBody}>
+              <Text style={styles.modalCategory}>{newRequest?.title || 'Serviço Solicitado'}</Text>
+              <Text style={styles.modalDescription}>
+                {newRequest?.description || 'O cliente precisa da sua ajuda nesta área o mais rápido possível.'}
+              </Text>
+              <View style={styles.distanceBadge}>
+                <Text style={styles.distanceText}>📍 Na sua área</Text>
+              </View>
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.btnRecusar} onPress={() => setNewRequest(null)}>
+                <Text style={styles.btnRecusarText}>Recusar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.btnAceitar} onPress={() => aceitarTrabalho(newRequest?.id)}>
+                <Text style={styles.btnAceitarText}>ACEITAR</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <View style={styles.statusCard}>
         <View style={styles.statusRow}>
@@ -112,7 +120,7 @@ export default function ProHomeScreen() {
 
       <View style={styles.statsRow}>
         <View style={styles.statBox}>
-          <Text style={styles.statNumber}>0</Text>
+          <Text style={styles.statNumber}>{trabalhosHoje}</Text>
           <Text style={styles.statLabel}>Hoje</Text>
         </View>
         <View style={styles.statBox}>
@@ -145,76 +153,92 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     letterSpacing: -0.5,
   },
-  statusCard: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 8,
-    padding: 20,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
   },
-  statusRow: {
+  modalContent: {
+    backgroundColor: '#1A1A2E',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 20,
   },
-  statusLabel: {
+  modalTitle: {
     color: '#9CA3AF',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 4,
   },
-  statusValue: {
-    fontSize: 20,
-    fontWeight: '800',
+  pulseIndicator: {
+    fontSize: 12,
   },
-  onlineHint: {
-    marginTop: 12,
-    color: '#4ADE80',
+  modalBody: {
+    marginBottom: 28,
+  },
+  modalCategory: {
+    color: '#F5F0E8',
+    fontSize: 24,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  modalDescription: {
+    color: '#D1D5DB',
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 16,
+  },
+  distanceBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(242, 201, 76, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  distanceText: {
+    color: '#F2C94C',
     fontSize: 13,
-    opacity: 0.8,
+    fontWeight: '700',
   },
-  statsRow: {
+  modalActions: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 24,
   },
-  statBox: {
+  btnRecusar: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    paddingVertical: 16,
     borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#374151',
+    alignItems: 'center',
   },
-  statNumber: {
-    color: '#F2C94C',
-    fontSize: 22,
-    fontWeight: '900',
-    marginBottom: 4,
-  },
-  statLabel: {
+  btnRecusarText: {
     color: '#9CA3AF',
-    fontSize: 11,
-    textTransform: 'uppercase',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  btnAceitar: {
+    flex: 2,
+    backgroundColor: '#4ADE80',
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  btnAceitarText: {
+    color: '#0F2D1A',
+    fontSize: 15,
+    fontWeight: '800',
     letterSpacing: 0.5,
   },
-  btnVerificacao: {
-    backgroundColor: '#F2C94C',
-    borderRadius: 6,
-    paddingVertical: 16,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#1A1A2E',
-  },
-  btnVerificacaoText: {
-    color: '#1A1A2E',
-    fontWeight: '900',
-    fontSize: 14,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-})
+
+
+});

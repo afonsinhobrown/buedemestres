@@ -42,10 +42,5 @@
       ]
     ],
     "scheme": "buedemestres",
-    "extra": {
-      "eas": {
-        "projectId": "62e05d63-f796-43e7-bd5d-574419f7d502"
-      }
-    }
   }
 }
