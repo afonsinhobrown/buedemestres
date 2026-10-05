@@ -1,8 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import { auth, db } from '../lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
 
 // Behavior when app is in foreground
 Notifications.setNotificationHandler({
@@ -43,10 +42,10 @@ export async function registerForPushNotificationsAsync() {
       const projectId = process.env.EXPO_PUBLIC_PROJECT_ID; // From app.json or env
       token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
       
-      // Update token in Firebase provider profile
-      const user = auth.currentUser;
+      // Update token in Supabase provider profile
+      const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await updateDoc(doc(db, 'providers', user.uid), { fcm_token: token });
+        await supabase.from('providers').update({ fcm_token: token }).eq('id', user.id);
       }
     } catch (e) {
       console.log('Error getting push token', e);

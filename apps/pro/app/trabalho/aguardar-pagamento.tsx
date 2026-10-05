@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { db } from '../../lib/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { supabase } from '../../lib/supabase';
 
 export default function AguardarPagamentoScreen() {
   const router = useRouter();
@@ -10,23 +9,30 @@ export default function AguardarPagamentoScreen() {
   const [status, setStatus] = useState<'pending' | 'held'>('pending');
 
   useEffect(() => {
-    if (!offerId || typeof offerId !== 'string') return;
-
-    // Listen for changes in the offers table
-    const unsubscribe = onSnapshot(doc(db, 'offers', offerId), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.status === 'held' || data.payment_status === 'held') {
-          setStatus('held');
-          setTimeout(() => {
-            router.replace(`/trabalho/em-curso?offerId=${offerId}`);
-          }, 2000);
+    // Listen for changes in the job_payments table or offer status
+    const channel = supabase
+      .channel('payment_status')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'job_payments',
+          filter: `offer_id=eq.${offerId}`,
+        },
+        (payload) => {
+          if (payload.new.status === 'held') {
+            setStatus('held');
+            setTimeout(() => {
+              router.replace(`/trabalho/em-curso?offerId=${offerId}`);
+            }, 2000);
+          }
         }
-      }
-    });
+      )
+      .subscribe();
 
     return () => {
-      unsubscribe();
+      supabase.removeChannel(channel);
     };
   }, [offerId]);
 
