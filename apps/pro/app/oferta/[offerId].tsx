@@ -28,7 +28,7 @@ export default function OfertaPedidoScreen() {
 
   const handleAceitar = () => {
     setRespondido(true)
-    // TODO: chamar accept_offer() via Supabase RPC
+    // TODO: atualizar documento da oferta no Firestore e mudar status para 'accepted'
     router.replace({ pathname: '/trabalho/a-caminho', params: { jobId: 'demo', ...params } })
   }
 

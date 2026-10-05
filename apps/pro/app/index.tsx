@@ -1,12 +1,29 @@
 import { View, Text, StyleSheet, Switch, TouchableOpacity } from 'react-native'
 import { useState } from 'react'
+import { auth, db } from '../lib/firebase'
+import { doc, setDoc } from 'firebase/firestore'
 
 export default function ProHomeScreen() {
   const [isOnline, setIsOnline] = useState(false)
 
-  const toggleOnline = () => {
-    setIsOnline(prev => !prev)
-    // TODO: Atualizar provider_presence na DB via Supabase
+  const toggleOnline = async () => {
+    const newState = !isOnline
+    setIsOnline(newState)
+    
+    try {
+      // Enviar os dados para o Firebase Firestore!
+      // Se ainda não fez login, usa um ID de teste para ver a funcionar
+      const uid = auth.currentUser?.uid || 'mestre-teste-123';
+      
+      await setDoc(doc(db, 'provider_presence', uid), {
+        provider_id: uid,
+        is_online: newState,
+        last_seen: new Date().toISOString()
+      }, { merge: true });
+      
+    } catch (error) {
+      console.error("Erro a enviar para o Firebase:", error);
+    }
   }
 
   return (

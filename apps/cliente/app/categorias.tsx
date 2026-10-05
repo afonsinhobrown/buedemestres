@@ -1,83 +1,109 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, StatusBar } from 'react-native'
 import { router } from 'expo-router'
 import { useAuthStore } from '@/lib/useAuthStore'
 
 const categorias = [
-  { id: 'eletricista', nome: 'Eletricista', icone: '⚡', desc: 'Instalações, reparos, quadros elétricos' },
-  { id: 'canalizador', nome: 'Canalizador', icone: '🔧', desc: 'Vazamentos, desentupimentos, instalações' },
-  { id: 'pintor', nome: 'Pintor', icone: '🎨', desc: 'Interiores, exteriores, retoques' },
-  { id: 'carpinteiro', nome: 'Carpinteiro', icone: '🪚', desc: 'Móveis, portas, decks, reparos em madeira' },
-  { id: 'jardineiro', nome: 'Jardineiro', icone: '🌿', desc: 'Poda, plantio, manutenção, paisagismo' },
-  { id: 'limpeza', nome: 'Limpeza', icone: '🧹', desc: 'Residencial, pós-obra, escritórios' },
-  { id: 'mudancas', nome: 'Mudanças', icone: '📦', desc: 'Transporte, embalagem, montagem' },
-  { id: 'outros', nome: 'Outros serviços', icone: '🔨', desc: 'Pequenos reparos, montagens, instalações' },
+  { id: 'eletricista', nome: 'Eletricista', icone: '⚡', desc: 'Instalações, reparos, quadros elétricos', cor: '#2444C8', text: '#FFF' },
+  { id: 'canalizador', nome: 'Canalizador', icone: '🔧', desc: 'Vazamentos, desentupimentos, instalações', cor: '#FFC61A', text: '#12163A' },
+  { id: 'pintor', nome: 'Pintor', icone: '🎨', desc: 'Interiores, exteriores, retoques', cor: '#2444C8', text: '#FFF' },
+  { id: 'carpinteiro', nome: 'Carpinteiro', icone: '🪚', desc: 'Móveis, portas, decks', cor: '#FFFFFF', text: '#12163A', border: '#2444C8' },
+  { id: 'jardineiro', nome: 'Jardineiro', icone: '🌿', desc: 'Poda, plantio, manutenção', cor: '#BF3A21', text: '#FFF' },
+  { id: 'limpeza', nome: 'Limpeza', icone: '🧹', desc: 'Residencial, pós-obra, escritórios', cor: '#FFC61A', text: '#12163A' },
+  { id: 'mudancas', nome: 'Mudanças', icone: '📦', desc: 'Transporte, embalagem, montagem', cor: '#2444C8', text: '#FFF' },
+  { id: 'outros', nome: 'Outros serviços', icone: '🔨', desc: 'Pequenos reparos, montagens', cor: '#FFFFFF', text: '#12163A', border: '#12163A' },
 ]
 
 export default function CategoriasScreen() {
   const { user, signOut } = useAuthStore()
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Categorias</Text>
-        {user && (
-          <TouchableOpacity onPress={signOut} style={styles.logoutBtn}>
-            <Text style={styles.logoutText}>Sair</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#EDF0F2" />
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Text style={styles.backArrow}>←</Text>
           </TouchableOpacity>
-        )}
-      </View>
+          <Text style={styles.title}>Categorias</Text>
+          {user ? (
+            <TouchableOpacity onPress={signOut} style={styles.logoutBtn}>
+              <Text style={styles.logoutText}>Sair</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 40 }} />
+          )}
+        </View>
 
-      <Text style={styles.subtitle}>Escolhe o tipo de serviço que precisas</Text>
+        <Text style={styles.subtitle}>Escolhe o tipo de serviço que precisas</Text>
 
-      <View style={styles.list}>
-        {categorias.map((cat) => (
-          <TouchableOpacity
-            key={cat.id}
-            style={styles.categoryCard}
-            onPress={() => router.push(`/pedido/novo?categoria=${cat.id}`)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.iconWrapper}>
-              <Text style={styles.categoryIcon}>{cat.icone}</Text>
-            </View>
-            <View style={styles.info}>
-              <Text style={styles.categoryName}>{cat.nome}</Text>
-              <Text style={styles.categoryDesc}>{cat.desc}</Text>
-            </View>
-            <Text style={styles.arrow}>›</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </ScrollView>
+        <View style={styles.list}>
+          {categorias.map((cat) => (
+            <TouchableOpacity
+              key={cat.id}
+              style={[
+                styles.categoryCard, 
+                { backgroundColor: cat.cor, borderColor: cat.border || '#12163A' }
+              ]}
+              onPress={() => router.push(`/pedido/novo?categoria=${cat.id}`)}
+              activeOpacity={0.9}
+            >
+              <View style={[styles.iconWrapper, { backgroundColor: cat.cor === '#FFFFFF' ? '#EDF0F2' : 'rgba(255,255,255,0.2)' }]}>
+                <Text style={styles.categoryIcon}>{cat.icone}</Text>
+              </View>
+              <View style={styles.info}>
+                <Text style={[styles.categoryName, { color: cat.text }]}>{cat.nome.toUpperCase()}</Text>
+                <Text style={[styles.categoryDesc, { color: cat.text, opacity: 0.8 }]}>{cat.desc}</Text>
+              </View>
+              <Text style={[styles.arrow, { color: cat.text }]}>→</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#EDF0F2', // Cal
+  },
   container: {
     flex: 1,
-    backgroundColor: '#F5F0E8',
   },
   content: {
     padding: 24,
+    paddingTop: 16,
     paddingBottom: 40,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+  },
+  backArrow: {
+    fontSize: 28,
+    color: '#12163A',
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '900',
-    color: '#1A1A2E',
+    color: '#12163A',
     letterSpacing: -1,
   },
   logoutBtn: {
-    backgroundColor: '#E74C3C',
+    backgroundColor: '#BF3A21',
     borderRadius: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
+    borderWidth: 2,
+    borderColor: '#12163A',
   },
   logoutText: {
     color: '#FFFFFF',
@@ -85,50 +111,56 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   subtitle: {
-    fontSize: 15,
-    color: '#5C5C7A',
+    fontSize: 17,
+    color: '#5B6472',
     marginBottom: 24,
+    fontWeight: '500',
   },
   list: {
-    gap: 12,
+    gap: 16,
   },
   categoryCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    borderRadius: 4, // radius-placa
     padding: 16,
     borderWidth: 2,
-    borderColor: '#E8E8E8',
+    shadowColor: '#12163A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 0,
   },
   iconWrapper: {
-    width: 52,
-    height: 52,
-    borderRadius: 10,
-    backgroundColor: '#F5F0E8',
+    width: 56,
+    height: 56,
+    borderRadius: 8, // radius-foto
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   categoryIcon: {
-    fontSize: 24,
+    fontSize: 28,
   },
   info: {
     flex: 1,
   },
   categoryName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1A1A2E',
-    marginBottom: 2,
+    fontSize: 17,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
   categoryDesc: {
-    fontSize: 13,
-    color: '#5C5C7A',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '500',
   },
   arrow: {
     fontSize: 24,
-    color: '#A0A0A0',
-    fontWeight: '300',
+    fontWeight: '900',
+    marginLeft: 16,
   },
 })

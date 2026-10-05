@@ -1,6 +1,7 @@
 import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
-import { supabase } from './supabase';
+import { auth, db } from './firebase';
+import { doc, setDoc, updateDoc } from 'firebase/firestore';
 
 const LOCATION_TASK_NAME = 'background-location-task';
 
@@ -15,18 +16,18 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
     if (locations && locations.length > 0) {
       const location = locations[0];
       
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = auth.currentUser;
       if (!user) return;
 
       // Actualizar a presença do provedor na base de dados
-      await supabase.from('provider_presence').upsert({
-        provider_id: user.id,
-        // Conforme a tabela PostGIS, pode ser necessário ajustar se usar st_point, mas lat/lng é o mais comum no cliente
+      const presenceRef = doc(db, 'provider_presence', user.uid);
+      await setDoc(presenceRef, {
+        provider_id: user.uid,
         lat: location.coords.latitude,
         lng: location.coords.longitude,
         last_seen: new Date().toISOString(),
         is_online: true
-      });
+      }, { merge: true });
     }
   }
 });
@@ -58,9 +59,10 @@ export const stopLocationTracking = async () => {
     await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
     
     // Marcar como offline quando parar
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = auth.currentUser;
     if (user) {
-      await supabase.from('provider_presence').update({ is_online: false }).eq('provider_id', user.id);
+      const presenceRef = doc(db, 'provider_presence', user.uid);
+      await updateDoc(presenceRef, { is_online: false });
     }
   }
 };

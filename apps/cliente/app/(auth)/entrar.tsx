@@ -1,16 +1,14 @@
 import { useState } from 'react'
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, SafeAreaView, StatusBar } from 'react-native'
 import { router } from 'expo-router'
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
-import { useAuthStore } from '@/lib/useAuthStore'
 
 export default function EntrarScreen() {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [carregando, setCarregando] = useState(false)
   const [isLogin, setIsLogin] = useState(true)
-  const { signOut } = useAuthStore()
 
   const handleAuth = async () => {
     if (!email || !senha) {
@@ -33,139 +31,168 @@ export default function EntrarScreen() {
     }
   }
 
-  const handleSair = async () => {
-    try {
-      await signOut()
-      router.replace('/(auth)/entrar')
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível sair')
-    }
-  }
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.logo}>🔨 Bué de Mestres</Text>
-      <Text style={styles.subtitle}>O mestre certo, onde precisas.</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#EDF0F2" />
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.logo}>Bué de Mestres</Text>
+          <Text style={styles.subtitle}>A sua oficina digital</Text>
+        </View>
 
-      <View style={styles.form}>
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          autoComplete="email"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Senha"
-          value={senha}
-          onChangeText={setSenha}
-          secureTextEntry
-          autoComplete={isLogin ? 'current-password' : 'new-password'}
-        />
+        <View style={styles.formCard}>
+          <Text style={styles.formTitle}>{isLogin ? 'Entrar na conta' : 'Criar nova conta'}</Text>
+          
+          <View style={styles.form}>
+            <Text style={styles.label}>E-mail</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="exemplo@email.com"
+              placeholderTextColor="#5B6472"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+            />
+            
+            <Text style={styles.label}>Senha</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Sua senha"
+              placeholderTextColor="#5B6472"
+              value={senha}
+              onChangeText={setSenha}
+              secureTextEntry
+              autoComplete={isLogin ? 'current-password' : 'new-password'}
+            />
+          </View>
+
+          {carregando ? (
+            <ActivityIndicator size="large" color="#2444C8" style={styles.spinner} />
+          ) : (
+            <TouchableOpacity style={styles.btnPrimary} onPress={handleAuth}>
+              <Text style={styles.btnText}>
+                {isLogin ? 'ENTRAR' : 'CRIAR CONTA'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity style={styles.btnLink} onPress={() => setIsLogin(!isLogin)}>
+            <Text style={styles.linkText}>
+              {isLogin ? 'Não tem conta? Criar uma' : 'Já tem conta? Entrar'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        
+        <TouchableOpacity style={styles.backLink} onPress={() => router.replace('/')}>
+          <Text style={styles.backText}>Voltar ao início</Text>
+        </TouchableOpacity>
       </View>
-
-      {carregando ? (
-        <ActivityIndicator size="large" color="#1A1A2E" style={styles.spinner} />
-      ) : (
-        <TouchableOpacity style={styles.btnPrimary} onPress={handleAuth}>
-          <Text style={styles.btnText}>
-            {isLogin ? 'ENTRAR' : 'CRIAR CONTA'}
-          </Text>
-        </TouchableOpacity>
-      )}
-
-      <TouchableOpacity style={styles.btnLink} onPress={() => setIsLogin(!isLogin)}>
-        <Text style={styles.linkText}>
-          {isLogin ? 'Não tem conta? Criar uma' : 'Já tem conta? Entrar'}
-        </Text>
-      </TouchableOpacity>
-
-      {!isLogin && (
-        <TouchableOpacity style={styles.btnSecondary} onPress={handleSair}>
-          <Text style={styles.btnTextSecondary}>Sair</Text>
-        </TouchableOpacity>
-      )}
-    </View>
+    </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#EDF0F2', // Cal
+  },
   container: {
     flex: 1,
-    backgroundColor: '#F5F0E8',
-    alignItems: 'center',
-    justifyContent: 'center',
     padding: 24,
+    justifyContent: 'center',
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 40,
   },
   logo: {
-    fontSize: 32,
+    fontSize: 33,
     fontWeight: '900',
-    color: '#1A1A2E',
-    marginBottom: 8,
+    color: '#12163A', // Tinta
     letterSpacing: -1,
+    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#5C5C7A',
-    marginBottom: 48,
-    textAlign: 'center',
+    fontSize: 17,
+    color: '#5B6472', // Zinco
+    fontWeight: '500',
+  },
+  formCard: {
+    backgroundColor: '#FFFFFF', // Papel
+    borderRadius: 10,
+    padding: 24,
+    borderWidth: 2,
+    borderColor: '#12163A',
+    shadowColor: '#12163A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  formTitle: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: '#12163A',
+    marginBottom: 24,
   },
   form: {
     width: '100%',
-    marginBottom: 24,
-    gap: 12,
+    marginBottom: 32,
+    gap: 8,
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#12163A',
+    marginBottom: 4,
+    marginTop: 8,
   },
   input: {
     height: 52,
     backgroundColor: '#FFFFFF',
-    borderRadius: 6,
+    borderRadius: 4,
     paddingHorizontal: 16,
-    fontSize: 16,
-    color: '#1A1A2E',
-    borderWidth: 1,
-    borderColor: '#D1D1D1',
+    fontSize: 17,
+    color: '#12163A',
+    borderWidth: 2,
+    borderColor: '#D5DAE0', // Zinco-200
   },
   btnPrimary: {
     width: '100%',
-    backgroundColor: '#1A1A2E',
-    borderRadius: 6,
-    paddingVertical: 18,
-    alignItems: 'center',
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: '#F2C94C',
-  },
-  btnText: {
-    color: '#F5F0E8',
-    fontWeight: '800',
-    fontSize: 16,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  btnSecondary: {
-    width: '100%',
-    backgroundColor: 'transparent',
-    borderRadius: 6,
+    backgroundColor: '#2444C8', // Cobalto
+    borderRadius: 4, // radius-placa
     paddingVertical: 16,
     alignItems: 'center',
+    marginBottom: 16,
     borderWidth: 2,
-    borderColor: '#E74C3C',
+    borderColor: '#12163A',
   },
-  btnTextSecondary: {
-    color: '#E74C3C',
-    fontWeight: '700',
-    fontSize: 15,
+  btnText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 16,
+    letterSpacing: 1,
   },
   btnLink: {
-    marginTop: 16,
+    alignItems: 'center',
+    paddingVertical: 8,
   },
   linkText: {
-    color: '#1A1A2E',
-    fontSize: 14,
-    fontWeight: '600',
+    color: '#2444C8',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  backLink: {
+    marginTop: 32,
+    alignItems: 'center',
+  },
+  backText: {
+    color: '#5B6472',
+    fontSize: 15,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   },
   spinner: {
     marginVertical: 16,

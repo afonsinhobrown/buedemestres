@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { supabase } from '../../lib/supabase';
+import { db } from '../../lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 export default function EmCursoScreen() {
   const router = useRouter();
@@ -11,12 +12,18 @@ export default function EmCursoScreen() {
   const finishJob = async () => {
     try {
       setIsFinishing(true);
-      // RPC to release payment and mark job as completed
-      const { error } = await supabase.rpc('release_job_payment', {
-        p_offer_id: offerId
-      });
+      
+      if (!offerId || typeof offerId !== 'string') {
+        Alert.alert('Erro', 'ID da oferta inválido.');
+        return;
+      }
 
-      if (error) throw error;
+      // Mark job as completed
+      const offerRef = doc(db, 'offers', offerId);
+      await updateDoc(offerRef, {
+        status: 'completed',
+        completed_at: new Date().toISOString()
+      });
 
       Alert.alert('Sucesso', 'Serviço concluído com sucesso!');
       router.replace('/'); // Back to home

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { supabase } from '../../lib/supabase';
+import { db } from '../../lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 interface ServiceLine {
   id: string;
@@ -44,14 +45,19 @@ export default function ProporPrecoScreen() {
         return;
       }
 
-      // RPC call to agree_price or direct insert, depending on the DB schema
-      const { error } = await supabase.rpc('agree_price', {
-        p_offer_id: offerId,
-        p_total_price: total,
-        p_items: validLines
-      });
+      if (!offerId || typeof offerId !== 'string') {
+        Alert.alert('Erro', 'ID da oferta inválido.');
+        return;
+      }
 
-      if (error) throw error;
+      // Update the offer document in Firestore directly
+      const offerRef = doc(db, 'offers', offerId);
+      await updateDoc(offerRef, {
+        status: 'awaiting_payment',
+        total_price: total,
+        items: validLines,
+        updated_at: new Date().toISOString()
+      });
 
       router.push(`/trabalho/aguardar-pagamento?offerId=${offerId}`);
     } catch (error: any) {
