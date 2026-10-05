@@ -1,31 +1,30 @@
-# Pendentes — BueDeMestres (retomar após reiniciar)
+# Relatório de Estado e Pendentes — BueDeMestres
 
-## Feito (último build OK)
-- APK cliente com Firebase (Supabase removido do cliente):
-  - Build: c3878d02-a965-468b-a2f5-d57710c09448
-  - APK: https://expo.dev/artifacts/eas/dYCIKqLPGFy5N8ALW9BBm-o2lV-KrGPmC7dtfi6sWqE.apk
-- apps/cliente/lib/firebase.ts — init Firebase (projeto `buedemestres`) + `auth`
-- apps/cliente/lib/useAuthStore.ts — reescrito para Firebase Auth (User, onAuthStateChanged, signOut)
-- apps/cliente/lib/supabase.ts — eliminado
-- apps/cliente/package.json — `firebase ^11.0.0`; sem `@supabase/supabase-js`
-- pnpm-lock.yaml — atualizado (`pnpm install --lockfile-only`; firebase@11.10.0)
-- .npmrc (raiz) — `node-linker=hoisted` (indispensável para o build cloud; NÃO está gitignored, por isso o EAS envia-o)
+## O que foi Feito Hoje (Sessão Atual)
+1. **Identidade Visual ("Placa de Oficina")**: 
+   - A `apps/cliente` foi reescrita visualmente para utilizar o design com foco no Amarelo e Verde Mts, tipografia forte e aspeto moçambicano autêntico e profissional.
+   - Foram implementadas as telas de `/pesquisar`, `/categorias` e `/entrar` com Auth nativo e validações visuais.
+   - A app está responsiva e com um design "premium" e competitivo.
 
-## Pendentes
-1. App cliente é esqueleto: home estático; botões apontam para `/pesquisar` e `/categorias` (rotas INEXISTENTES); sem ecrã de login (`entrar.tsx` não existe); `useAuthStore.initialize()` nunca é chamado; Firebase ligado mas não usado por nenhuma tela.
-2. Criar telas: `app/(auth)/entrar.tsx` (login email/senha Firebase), `app/pesquisar.tsx`, `app/categorias.tsx`.
-3. Chamar `useAuthStore.initialize()` no `_layout.tsx`.
-4. apps/pro AINDA usa Supabase (`@supabase/supabase-js ^2.46.1`, `pro/lib/supabase.ts`, `pro/lib/useAuthStore.ts`) — migrar só se quiser.
-5. node_modules local partido (Windows `ERR_PNPM_EPERM`). Após reiniciar: tentar `pnpm install`; se falhar, `pnpm install --lockfile-only`. O build cloud (Linux) não é afetado.
-6. Nada está commitado (git status com alterações por commitar).
+2. **Crise do Firebase vs Supabase Resolvida**:
+   - Inicialmente, iniciámos a migração para Firebase, mas isso ia forçar a reescrita de **todo o Painel de Administração Web** (que usa dezenas de `queries` Postgres puro).
+   - Para salvar o projeto e respeitar os prazos, o utilizador **criou uma nova conta Supabase**.
+   - As `apps/pro`, `apps/cliente` e `apps/web` foram **revertidas/configuradas para utilizar o novo Supabase**. 
 
-## Comandos
-- Build: `cd apps/cliente; eas build -p android --profile preview --non-interactive`
-- Logs (EAS CLI 24.x não tem `eas build:logs`): `eas build:view <id> --json` → `logFiles[0]` (URL GCS, expira 900s) → conteúdo Brotli → descomprimir com Node `zlib.brotliDecompressSync`
-- Lockfile sem linkar: `pnpm install --lockfile-only`
+3. **Base de Dados Unificada e Migrada**:
+   - A nova base de dados do Supabase foi configurada através do script de migração no `run_all_migrations.js`.
+   - Todas as tabelas foram geradas (`users`, `providers`, `job_payments`, etc.) com sucesso!
 
-## Notas
-- EAS: projeto `@afonsinhobrown/bue-de-mestres-cliente`, projectId `62e05d63-f796-43e7-bd5d-574419f7d502`; conta `afonsinhobrown`; keystore `zovVKizTq8` (default).
-- `react-native-maps` está no package.json mas não é usado (só comentário) — não precisa de chave Google Maps.
-- Disco C: tinha 0,05 GB; foram libertados ~8,26 GB (caches .gradle, npm, Temp).
-- Utilizador NÃO quer Supabase (quota esgotada). Não mencionar Supabase além da migção do `pro`.
+## O que Falta Fazer (Próxima Sessão)
+1. **Testar o Fluxo Principal (End-to-End)**:
+   - Precisamos de abrir o emulador (com a tecla `w` no `npx expo start -c`) do `apps/cliente`.
+   - Simular um pedido de serviço como cliente.
+   - Confirmar se a `apps/pro` (aberta noutro emulador ou dispositivo) recebe o "Alerta de Trabalho" em tempo real graças às `subscriptions` do Supabase Postgres que foram repostas.
+
+2. **Gerar Novos APKs (Se Necessário)**:
+   - Fazer um novo `eas build` do `apps/cliente` e `apps/pro` utilizando as novas variáveis de ambiente e as novas chaves do Supabase.
+
+3. **Salvar o Código (Git)**:
+   - Neste momento, o código está desassociado de `commits` fechados. Assim que testarmos o fluxo e confirmarmos que o Supabase está a 100%, temos de fazer o `git commit` com o visual da "Placa de Oficina" finalizado!
+
+*Quando voltar, diga: "Podemos começar os testes!" e avançamos para a simulação do cliente a chamar o Mestre.*

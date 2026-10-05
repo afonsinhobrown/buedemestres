@@ -1,31 +1,31 @@
 import { create } from 'zustand';
-import {
-  User,
-  onAuthStateChanged,
-  signOut as firebaseSignOut,
-} from 'firebase/auth';
-import { auth } from './firebase';
+import { Session, User } from '@supabase/supabase-js';
+import { supabase } from './supabase';
 
 interface AuthState {
+  session: Session | null;
   user: User | null;
   initialized: boolean;
-  setUser: (user: User | null) => void;
+  setSession: (session: Session | null) => void;
   initialize: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
+  session: null,
   user: null,
   initialized: false,
-  setUser: (user) => set({ user }),
+  setSession: (session) => set({ session, user: session?.user || null }),
   initialize: async () => {
-    set({ user: auth.currentUser ?? null, initialized: true });
-    onAuthStateChanged(auth, (user) => {
-      set({ user });
+    const { data: { session } } = await supabase.auth.getSession();
+    set({ session, user: session?.user || null, initialized: true });
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      set({ session, user: session?.user || null });
     });
   },
   signOut: async () => {
-    await firebaseSignOut(auth);
-    set({ user: null });
+    await supabase.auth.signOut();
+    set({ session: null, user: null });
   },
 }));

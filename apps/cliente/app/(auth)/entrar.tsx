@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, SafeAreaView, StatusBar } from 'react-native'
 import { router } from 'expo-router'
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth'
-import { auth } from '@/lib/firebase'
+import { supabase } from '@/lib/supabase'
 
 export default function EntrarScreen() {
-  const [email, setEmail] = useState('')
-  const [senha, setSenha] = useState('')
+  const [email, setEmail] = useState('cliente@teste.com')
+  const [senha, setSenha] = useState('password123')
   const [carregando, setCarregando] = useState(false)
-  const [isLogin, setIsLogin] = useState(true)
+  const [isLogin, setIsLogin] = useState(false) // Mudei para false para criar a conta à primeira
 
   const handleAuth = async () => {
     if (!email || !senha) {
@@ -17,14 +16,17 @@ export default function EntrarScreen() {
     }
     setCarregando(true)
     try {
-      if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, senha)
-      } else {
-        await createUserWithEmailAndPassword(auth, email, senha)
-      }
+      const authFunction = isLogin 
+        ? supabase.auth.signInWithPassword 
+        : supabase.auth.signUp;
+        
+      const { error } = await authFunction({ email, password: senha });
+      
+      if (error) throw error;
+      
       router.replace('/')
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Erro desconhecido'
+    } catch (error: any) {
+      const msg = error.message || 'Erro desconhecido'
       Alert.alert('Erro', msg)
     } finally {
       setCarregando(false)

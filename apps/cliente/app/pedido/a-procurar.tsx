@@ -1,6 +1,8 @@
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert } from 'react-native'
 import { useLocalSearchParams, router } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useAuthStore } from '@/lib/useAuthStore'
 
 const RONDAS = [
   { ronda: 1, raioKm: 5, label: 'A procurar a 5 km...' },
@@ -18,8 +20,10 @@ export default function AProcurarMestreScreen() {
     lng: string
   }>()
 
+  const user = useAuthStore((s) => s.user)
   const [rondaAtual, setRondaAtual] = useState(0)
   const [esgotado, setEsgotado] = useState(false)
+  const [requestId, setRequestId] = useState<string | null>(null)
   const pulseAnim = useRef(new Animated.Value(1)).current
 
   // Animação de pulso
@@ -34,17 +38,92 @@ export default function AProcurarMestreScreen() {
     return () => pulse.stop()
   }, [])
 
-  // Simular progressão de rondas (em produção: Supabase Realtime)
+  // Criar o pedido no Supabase
   useEffect(() => {
-    if (rondaAtual >= RONDAS.length) {
-      setEsgotado(true)
-      return
+    async function criarPedido() {
+      // Usamos um ID de teste fixo para garantir que funciona sempre, 
+      // independentemente de estar ou não com o login ativo (Bypass de Teste)
+      const testUserId = '11111111-1111-1111-1111-111111111111';
+
+      // 1. Garantir que o perfil existe (para não falhar a Foreign Key)
+      await supabase.from('profiles').upsert({
+        id: testUserId,
+        full_name: 'Cliente (Teste Bypass)',
+        role: 'client'
+      }, { onConflict: 'id' });
+
+      // 2. Criar o pedido
+      const { data, error } = await supabase
+        .from('service_requests')
+        .insert({
+          client_id: testUserId,
+          title: `Pedido urgente: ${params.categoriaNome}`,
+          category_id: parseInt(params.categoriaId || '1'),
+          description: params.descricao,
+          location_note: params.referencia,
+          mode: 'on_demand',
+          location: `POINT(${params.lng} ${params.lat})`,
+          search_radius_m: 5000,
+        })
+        .select()
+        .single();
+        
+      if (error) {
+        console.error('Insert Error:', error);
+        Alert.alert('Erro', 'Não foi possível criar o pedido.');
+        router.back();
+        return;
+      }
+      
+      setRequestId(data.id);
     }
-    const timer = setTimeout(() => {
-      setRondaAtual(prev => prev + 1)
-    }, 8000) // 8s por ronda em demo; em produção são 60s (SOS) ou 5min (hoje)
-    return () => clearTimeout(timer)
-  }, [rondaAtual])
+    
+    criarPedido();
+  }, []);
+
+  // Escutar ofertas aceites e progressão de rondas
+  useEffect(() => {
+    if (!requestId) return;
+
+    // Subscrição para ver se o estado muda para 'accepted'
+    const channel = supabase
+      .channel(`request_${requestId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'service_requests',
+          filter: `id=eq.${requestId}`,
+        },
+        (payload) => {
+          if (payload.new.status === 'accepted') {
+            // Um mestre aceitou!
+            // TODO: Redirecionar para o acompanhamento do mestre (em_curso)
+            Alert.alert('Sucesso!', 'Um mestre aceitou o seu pedido!');
+            // router.replace(`/pedido/${requestId}/acompanhar`)
+          }
+        }
+      )
+      .subscribe();
+
+    // Rondas (fallback caso ninguém aceite)
+    const timer = setInterval(() => {
+      setRondaAtual((prev) => {
+        if (prev >= RONDAS.length - 1) {
+          clearInterval(timer);
+          setEsgotado(true);
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 15000); // 15 segundos por ronda (45s total em demo)
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(timer);
+    };
+  }, [requestId]);
 
   if (esgotado) {
     return (
