@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bué de Mestres — Termos de Referência</title>
+<style>
+  :root{
+    --cobalto:#2444C8; --cobalto-100:#DCE3FA; --cobalto-700:#1A329A;
+    --amarelo:#FFC61A; --oxido:#BF3A21; --oxido-100:#F7DDD7;
+    --tinta:#12163A; --cal:#EDF0F2; --papel:#FFFFFF;
+    --zinco:#5B6472; --zinco-200:#D5DAE0; --verde:#1E7F4F;
+    --sans:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    --mono:"Cascadia Mono",Consolas,"Courier New",monospace;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--cal);color:var(--tinta);font-family:var(--sans);font-size:16.5px;line-height:1.6}
+  body{max-width:940px;margin:0 auto;padding:0 24px 80px}
+  header.cover{background:var(--tinta);color:var(--papel);border-radius:0 0 18px 18px;padding:52px 40px 40px;margin:0 -24px 36px;position:relative;overflow:hidden}
+  header.cover::after{content:"";position:absolute;right:-60px;top:-60px;width:250px;height:250px;background:var(--cobalto);border-radius:50%;opacity:.45}
+  .brand{font-size:.82rem;letter-spacing:.22em;text-transform:uppercase;color:var(--amarelo);font-weight:700;margin-bottom:12px;position:relative;z-index:1}
+  h1{font-size:2.5rem;line-height:1.1;margin:0 0 10px;position:relative;z-index:1}
+  .subtitle{font-size:1.1rem;color:#C9D0E8;max-width:660px;position:relative;z-index:1}
+  .meta{margin-top:22px;font-size:.85rem;color:#8E97B8;position:relative;z-index:1}
+  h2{font-size:1.42rem;margin:46px 0 6px;padding-top:20px;border-top:4px solid var(--tinta)}
+  h3{font-size:1.1rem;margin:24px 0 8px;color:var(--cobalto-700)}
+  h4{font-size:1rem;margin:18px 0 6px}
+  p{margin:9px 0}
+  ul,ol{margin:9px 0 9px 22px;padding:0}
+  li{margin:5px 0}
+  strong{color:var(--tinta)}
+  table{width:100%;border-collapse:collapse;margin:14px 0;background:var(--papel);font-size:.92rem}
+  th{background:var(--tinta);color:var(--papel);text-align:left;padding:8px 11px;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  td{padding:8px 11px;border-bottom:1px solid var(--zinco-200);vertical-align:top}
+  tr:nth-child(even) td{background:#F7F9FB}
+  code{font-family:var(--mono);font-size:.86em;background:var(--cobalto-100);color:var(--cobalto-700);padding:1px 5px;border-radius:4px}
+  blockquote{margin:14px 0;padding:13px 18px;background:var(--cobalto-100);border-left:5px solid var(--cobalto);border-radius:0 8px 8px 0}
+  .warn{background:var(--oxido-100);border-left:5px solid var(--oxido)}
+  .ok{background:#E3F3EA;border-left:5px solid var(--verde)}
+  .pill{display:inline-block;background:var(--amarelo);color:var(--tinta);font-weight:700;font-size:.7rem;padding:2px 9px;border-radius:999px;text-transform:uppercase}
+  .pill.red{background:var(--oxido);color:#fff}
+  .pill.blue{background:var(--cobalto);color:#fff}
+  .todo{color:var(--oxido);font-weight:700}
+  footer{margin-top:56px;padding-top:16px;border-top:2px solid var(--zinco-200);font-size:.82rem;color:var(--zinco)}
+  @media print{html{background:#fff;font-size:10.5pt}header.cover{margin:0 0 20px;border-radius:0}h2{page-break-after:avoid}table{page-break-inside:avoid}}
+</style>
+</head>
+<body>
+
+<header class="cover">
+  <div class="brand">Documento de especificação</div>
+  <h1>Termos de Referência</h1>
+  <div class="subtitle">Plataforma Bué de Mestres — conclusão até fase de piloto: âmbito, requisitos, entregáveis, prazos e critérios de aceitação.</div>
+  <div class="meta">Versão 1.0 · Outubro 2026 · Elaborado a partir da análise do código-fonte e da documentação do projecto</div>
+</header>
+
+<blockquote><strong>Nota:</strong> este documento traduz o estado real do projecto (fases 0–4 concluídas, pendências identificadas) em Termos de Referência executáveis. Os montantes e datas exactas são fixados em contrato; aqui ficam âmbito, requisitos e critérios objectivos de aceitação.</blockquote>
+
+<h2>1. Identificação e enquadramento</h2>
+<table>
+  <tr><th>Elemento</th><th>Descrição</th></tr>
+  <tr><td>Projecto</td><td>Bué de Mestres — marketplace de prestadores de serviços em Moçambique</td></tr>
+  <tr><td>Entidade promotora</td><td><span class="todo">[A designar — proprietário do projecto]</span></td></tr>
+  <tr><td>Objecto</td><td>Conclusão da plataforma até fase de piloto numa cidade</td></tr>
+  <tr><td>Estado na data</td><td>Fases 0–4 concluídas; monorepo, base de dados, site e 2 apps nativas existentes</td></tr>
+</table>
+<p><strong>Objectivo geral:</strong> disponibilizar plataforma de contratação de serviços (cliente ↔ mestre) com pesquisa por proximidade, verificação de identidade, pagamento protegido (escrow) e back-office de gestão, pronta para operação piloto.</p>
+<p><strong>Objectivos específicos:</strong></p>
+<ol>
+  <li>Eliminar as fragilidades críticas de segurança e consistência identificadas (Anexo A).</li>
+  <li>Ligar as funcionalidades em modo demonstração (chat, orçamentos, pesquisa) à base de dados real.</li>
+  <li>Implementar o despacho on-demand automático (atribuição por proximidade).</li>
+  <li>Integrar pagamentos mobile money (M-Pesa / e-Mola) e fornecedor de KYC.</li>
+  <li>Garantir testes automatizados, documentação operacional e conformidade legal.</li>
+  <li>Preparar publicação nas lojas e arranque do piloto.</li>
+</ol>
+
+<h2>2. Âmbulo</h2>
+<h3>2.1 Inclui</h3>
+<table>
+  <tr><th>#</th><th>Âmbito</th></tr>
+  <tr><td>1</td><td>Correcção das 3 ocorrências críticas (rota <code>/</code>, protecção do back-office, <code>globals.css</code>)</td></tr>
+  <tr><td>2</td><td>Verificação de sessão em todas as <em>server actions</em> e protecção de rotas staff</td></tr>
+  <tr><td>3</td><td>Unificação das tabelas de trabalhos e conclusão do modelo de dados</td></tr>
+  <tr><td>4</td><td>Ligação de chat, orçamentos e pesquisa à base de dados na web</td></tr>
+  <tr><td>5</td><td>Worker de despacho on-demand (<code>nearby_providers</code>, rondas, expiração de 60 s)</td></tr>
+  <tr><td>6</td><td>Integração de pagamentos com webhook assinado + modo manual mantido</td></tr>
+  <tr><td>7</td><td>Integração de KYC (OCR, selfie, prova de vida, comparação facial) + revisão humana</td></tr>
+  <tr><td>8</td><td>Row Level Security completa nas tabelas sensíveis</td></tr>
+  <tr><td>9</td><td>Testes automatizados (unidade/integração + ponta-a-ponta críticas)</td></tr>
+  <tr><td>10</td><td>SEO/PWA mínimos, páginas legais, correcção do push mobile</td></tr>
+  <tr><td>11</td><td>Documentação: API, decisões técnicas, manual operacional</td></tr>
+  <tr><td>12</td><td>Acompanhamento do piloto e garantia (correcções incluídas)</td></tr>
+</table>
+<h3>2.2 Exclui</h3>
+<ul>
+  <li>Custos de licenças e quotas externas (Neon, Supabase, Pusher, Vercel, EAS).</li>
+  <li>Apps para tablet/wearables; marketing e aquisição de utilizadores.</li>
+  <li>Constituição jurídica da entidade e contas comerciais (dependência externa, §7).</li>
+</ul>
+<h3>2.3 Pressupostos</h3>
+<ul>
+  <li>Acesso a repositório, variáveis de ambiente, bases de dados e contas cloud.</li>
+  <li>Decisões de negócio (Anexo B) tomadas até ao início das fases correspondentes.</li>
+  <li>Nenhuma reestruturação de identidade visual, salvo indicação em contrato.</li>
+</ul>
+
+<h2>3. Requisitos funcionais</h2>
+<p><strong>Legenda:</strong> <span class="pill red">R1</span> bloqueante para o piloto · <span class="pill">R2</span> importante · <span class="pill blue">R3</span> desejável</p>
+
+<h3>3.1 Segurança e plataforma</h3>
+<table>
+  <tr><th>ID</th><th>Requisito</th><th>Critério de aceitação</th><th>Prior.</th></tr>
+  <tr><td>RF-SEG-01</td><td>Corrigir conflito de rota <code>/</code></td><td>Página inicial única; build limpo</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-SEG-02</td><td>Proteger áreas admin/superadmin</td><td>Anónimo redirecionado de qualquer rota staff</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-SEG-03</td><td>Repor <code>globals.css</code> completo</td><td>Todos os tokens usados definidos; sem truncamento</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-SEG-04</td><td>Sessão obrigatória em todas as actions</td><td>Nenhuma <em>action</em> sensível sem sessão (teste)</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-SEG-05</td><td>RLS completa</td><td><code>wallets</code>, <code>payments</code>, <code>job_payments</code>, <code>payouts</code>, <code>verification_documents</code>, <code>messages</code> com políticas testadas</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-SEG-06</td><td>Webhook de pagamento assinado</td><td>Payloads inválidos e replays rejeitados; idempotente</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-SEG-07</td><td>Rate limiting</td><td>Limites por IP/conta em registo, entrada, mensagens, pedidos</td><td><span class="pill">R2</span></td></tr>
+  <tr><td>RF-SEG-08</td><td>Remover/condicionar <code>/dev/design</code></td><td>Indisponível em produção</td><td><span class="pill">R2</span></td></tr>
+  <tr><td>RF-SEG-09</td><td>Papéis staff no enum e na sessão</td><td><code>superadmin</code>/<code>finance</code> existem; guarda usa papel real</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-SEG-10</td><td>Auditoria de ações sensíveis</td><td>Ajustes de carteira e moderações em <code>audit_logs</code></td><td><span class="pill">R2</span></td></tr>
+</table>
+
+<h3>3.2 Cliente</h3>
+<table>
+  <tr><th>ID</th><th>Requisito</th><th>Critério de aceitação</th><th>Prior.</th></tr>
+  <tr><td>RF-CLI-01</td><td>Registo, entrada e recuperação de password</td><td>Fluxo completo validado</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-CLI-02</td><td>Publicar pedido (modo agendado)</td><td>Guardado com media, categoria e localização</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-CLI-03</td><td>Modo imediato com despacho</td><td>Rondas a mestres próximos; expiração automática</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-CLI-04</td><td>Chat com o mestre</td><td>Mensagens persistidas e em tempo real</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-CLI-05</td><td>Seguir mestre a caminho</td><td>Mapa com posição actualizada</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-CLI-06</td><td>Confirmar preço e conclusão</td><td>Escrow <code>held</code> → <code>released</code> só por confirmação</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-CLI-07</td><td>Avaliar e responder</td><td>Só com estado <code>completed</code>; uma por trabalho</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-CLI-08</td><td>Favoritos, denúncias, notificações</td><td>Ligados à BD</td><td><span class="pill">R2</span></td></tr>
+  <tr><td>RF-CLI-09</td><td>Tickets de ajuda</td><td>Abertura, acompanhamento e fecho com SLA</td><td><span class="pill">R2</span></td></tr>
+</table>
+
+<h3>3.3 Mestre</h3>
+<table>
+  <tr><th>ID</th><th>Requisito</th><th>Critério de aceitação</th><th>Prior.</th></tr>
+  <tr><td>RF-MES-01</td><td>Activação de perfil profissional</td><td>Perfil publicável com serviços e portefólio</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-MES-02</td><td>Presença online/offline</td><td>Refletido no despacho em &lt; 5 s</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-MES-03</td><td>Ofertas com contagem de 60 s</td><td>Notificação, aceitação e expiração registadas</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-MES-04</td><td>Propor e acordar preço</td><td>Aceitação origina pagamento retido</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-MES-05</td><td>Carteira, carregamentos e payouts</td><td>Saldos coerentes; extrato completo</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-MES-06</td><td>Planos, destaques e afiliados</td><td>Assinatura, efeito na pesquisa, comissão 10%/90 d</td><td><span class="pill">R2</span></td></tr>
+  <tr><td>RF-MES-07</td><td>KYC guiado</td><td>Documento + selfie + estados na BD</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-MES-08</td><td>Push mobile</td><td>Token na tabela correcta; entrega em dispositivo</td><td><span class="pill red">R1</span></td></tr>
+</table>
+
+<h3>3.4 Administração</h3>
+<table>
+  <tr><th>ID</th><th>Requisito</th><th>Critério de aceitação</th><th>Prior.</th></tr>
+  <tr><td>RF-ADM-01</td><td>Validação de pagamentos manuais</td><td>Aprovação credita carteira idempotente</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-ADM-02</td><td>Revisão de KYC</td><td>Fila com documentos, decisão e auditoria</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-ADM-03</td><td>Tickets com SLA</td><td>Escalonamento, macros, CSAT, crons</td><td><span class="pill">R2</span></td></tr>
+  <tr><td>RF-ADM-04</td><td>Relatórios operacionais</td><td>Pedidos, trabalhos, receita, mestres por zona</td><td><span class="pill">R2</span></td></tr>
+  <tr><td>RF-ADM-05</td><td>Equipa, permissões e MFA</td><td>30 permissões, convites, MFA, dupla aprovação</td><td><span class="pill">R2</span></td></tr>
+  <tr><td>RF-ADM-06</td><td>Moderação</td><td>Suspender/reativar com registo</td><td><span class="pill red">R1</span></td></tr>
+</table>
+
+<h3>3.5 Despacho (on-demand)</h3>
+<table>
+  <tr><th>ID</th><th>Requisito</th><th>Critério de aceitação</th><th>Prior.</th></tr>
+  <tr><td>RF-DES-01</td><td>Worker de despacho</td><td><code>nearby_providers()</code> invocada em cada pedido imediato</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-DES-02</td><td>Raio e escalonamento</td><td>Configurável por <code>feature_flags</code></td><td><span class="pill">R2</span></td></tr>
+  <tr><td>RF-DES-03</td><td>Expiração e re-oferta</td><td>Reencaminhado ou expirado conforme política</td><td><span class="pill red">R1</span></td></tr>
+  <tr><td>RF-DES-04</td><td>Presença e posições</td><td><code>provider_presence</code> e <code>job_location_log</code> actualizados</td><td><span class="pill">R2</span></td></tr>
+  <tr><td>RF-DES-05</td><td>Crons operacionais</td><td>SLA de tickets e expirações a correr e monitorizados</td><td><span class="pill">R2</span></td></tr>
+</table>
+
+<h2>4. Requisitos não funcionais</h2>
+<table>
+  <tr><th>Área</th><th>Requisito</th><th>Critério</th></tr>
+  <tr><td>Desempenho</td><td>Páginas &lt; 2,5 s em 4G; pesquisa &lt; 1,5 s</td><td>Lighthouse/medida real</td></tr>
+  <tr><td>Disponibilidade</td><td>99,5% mensal no piloto</td><td>Monitorização activa</td></tr>
+  <tr><td>Segurança</td><td>OWASP Top 10; secrets em env vars; HTTPS</td><td>Auditoria leve + checklist</td></tr>
+  <tr><td>Privacidade</td><td>Dados minimizados; GPS só com o mestre aceite; acesso/eliminação</td><td>Política + funcionalidade</td></tr>
+  <tr><td>Acessibilidade</td><td>Teclado, contraste, labels</td><td>Checklist WCAG AA nos fluxos críticos</td></tr>
+  <tr><td>Localização</td><td>Português de Moçambique; formatação MT; 11 províncias</td><td>Sem texto por traduzir</td></tr>
+  <tr><td>Compatibilidade</td><td>Android 10+ · iOS 15+ · browsers actuais</td><td>Dispositivos-alvo</td></tr>
+  <tr><td>Manutenção</td><td><code>lint</code>/<code>typecheck</code> verdes no CI</td><td>Pipeline obrigatório</td></tr>
+  <tr><td>Observabilidade</td><td>Erros capturados + métricas de negócio</td><td>Alertas configurados</td></tr>
+</table>
+
+<h2>5. Entregáveis</h2>
+<table>
+  <tr><th>#</th><th>Entregável</th><th>Formato</th></tr>
+  <tr><td>E1</td><td>Código corrigido em <code>master</code> com histórico</td><td>Repositório Git</td></tr>
+  <tr><td>E2</td><td>Migrações SQL novas/alteradas e documentadas</td><td><code>migrations/</code></td></tr>
+  <tr><td>E3</td><td>APKs de piloto + configuração EAS</td><td>Artefacto</td></tr>
+  <tr><td>E4</td><td>Suíte de testes automatizados</td><td>Código + relatório</td></tr>
+  <tr><td>E5</td><td>Documentação técnica (API, decisões, runbook)</td><td>Markdown em <code>docs/</code></td></tr>
+  <tr><td>E6</td><td>Manual operacional do back-office</td><td>Markdown/PDF</td></tr>
+  <tr><td>E7</td><td>Relatórios de aceitação por fase</td><td>Documento por fase</td></tr>
+  <tr><td>E8</td><td>Plano de instrumentação de KPIs do piloto</td><td>Documento + dashboards</td></tr>
+  <tr><td>E9</td><td>Relatório final e transferência de conhecimento</td><td>Documento + sessão</td></tr>
+</table>
+
+<h2>6. Cronograma e fases</h2>
+<table>
+  <tr><th>Fase</th><th>Conteúdo</th><th>Prazo indicativo</th></tr>
+  <tr><td><strong>F1 — Emergência</strong></td><td>RF-SEG-01, 02, 03, 04, 09; remoção de rotas mortas</td><td>Semanas 1–2</td></tr>
+  <tr><td><strong>F2 — Consolidação</strong></td><td>RLS, webhook, chat/orçamentos/pesquisa ligados, unificação de tabelas, push</td><td>Semanas 3–5</td></tr>
+  <tr><td><strong>F3 — Operação</strong></td><td>Despacho on-demand, crons, relatórios e moderação</td><td>Semanas 6–8</td></tr>
+  <tr><td><strong>F4 — Dinheiro</strong></td><td>Pagamentos + webhook, payouts, planos/destaques/afiliados ponta-a-ponta</td><td>Semanas 9–10</td></tr>
+  <tr><td><strong>F5 — Confiança</strong></td><td>KYC integrado, revisão humana, denúncias e auditoria</td><td>Semanas 11–12</td></tr>
+  <tr><td><strong>F6 — Qualidade</strong></td><td>Testes E2E, acessibilidade, observabilidade, segurança, SEO/PWA, legais</td><td>Semanas 13–14</td></tr>
+  <tr><td><strong>F7 — Entrega</strong></td><td>APKs, manual, formação, relatório final</td><td>Semana 15</td></tr>
+  <tr><td><strong>F8 — Garantia</strong></td><td>Acompanhamento do piloto e correcções</td><td>8 semanas após entrega</td></tr>
+</table>
+<p><strong>Marcos de pagamento associados</strong> (a detalhar em contrato): F1, F3, F5, F7 e fim de F8.</p>
+
+<h2>7. Dependências e decisões externas</h2>
+<table>
+  <tr><th>#</th><th>Dependência</th><th>Bloqueia</th><th>Responsável</th></tr>
+  <tr><td>D1</td><td>Fornecedor de KYC escolhido e contratado</td><td>F5</td><td>Promotor</td></tr>
+  <tr><td>D2</td><td>Contrato M-Pesa/e-Mola (ou modo manual para piloto)</td><td>F4</td><td>Promotor</td></tr>
+  <tr><td>D3</td><td>Comissões e preços finais</td><td>F4</td><td>Promotor</td></tr>
+  <tr><td>D4</td><td>Enquadramento legal da retenção de valores (custódia)</td><td>Piloto com escrow real</td><td>Promotor + jurídico</td></tr>
+  <tr><td>D5</td><td>Contas Google Play / Apple Developer</td><td>F7</td><td>Promotor</td></tr>
+  <tr><td>D6</td><td>Decisão: dinheiro em mão no piloto</td><td>F3</td><td>Promotor</td></tr>
+  <tr><td>D7</td><td>Acesso a contas e secrets</td><td>F1</td><td>Promotor</td></tr>
+</table>
+<blockquote class="warn"><strong>Risco regulatório:</strong> reter dinheiro de terceiros pode exigir entidade legal autorizada e conta de custódia em Moçambique. Enquanto D4 não estiver resolvida, manter <code>PAYMENT_PROVIDER=manual</code> e limitar o piloto a montantes baixos.</blockquote>
+
+<h2>8. Governança e reportagem</h2>
+<table>
+  <tr><th>Aspecto</th><th>Regra</th></tr>
+  <tr><td>Cadência</td><td>Reunião semanal de estado (15 min) + relatório escrito por fase</td></tr>
+  <tr><td>Repositório</td><td>Commits pequenos e descritivos; <code>master</code> sempre compilável</td></tr>
+  <tr><td>Qualidade</td><td><code>lint</code>, <code>typecheck</code> e testes antes de cada merge</td></tr>
+  <tr><td>Mudanças</td><td>Alterações de âmbito registadas com impacto e aprovadas por escrito</td></tr>
+  <tr><td>Aceitação</td><td>Fase só aceite com relatório contra os critérios da secção 3</td></tr>
+  <tr><td>Escalação</td><td>Bloqueios de dependências escalados em 48 h</td></tr>
+</table>
+
+<h2>9. Propriedade intelectual, confidencialidade e garantia</h2>
+<ol>
+  <li><strong>Propriedade:</strong> todo o código, documentação e design pertencem à entidade promotora, entregue continuamente no repositório.</li>
+  <li><strong>Confidencialidade:</strong> informações de negócio, métricas e credenciais são confidenciais; credenciais nunca em código.</li>
+  <li><strong>Garantia:</strong> 8 semanas sobre defeitos, com SLA por severidade (crítico 24 h, alto 3 dias, médio 10 dias úteis).</li>
+  <li><strong>Terceiros:</strong> bibliotecas open-source sob licenças compatíveis com exploração comercial.</li>
+</ol>
+
+<h2>10. Critérios gerais de aceitação (Definition of Done)</h2>
+<blockquote class="ok">
+  <ul style="margin-left:18px">
+    <li>Requisito verificado com o critério objectivo da secção 3.</li>
+    <li><code>lint</code>, <code>typecheck</code> e build de produção verdes.</li>
+    <li>Testes automatizados correspondentes a passar.</li>
+    <li>Sem regressão nos fluxos críticos (registo, pedido, despacho, pagamento, conclusão, avaliação).</li>
+    <li>Migrações reproduzíveis em ambiente limpo.</li>
+    <li>Documentação actualizada.</li>
+    <li>Revisão de código aprovada e registada.</li>
+  </ul>
+</blockquote>
+
+<h2>Anexo A — Pendências críticas herdados da análise de código</h2>
+<table>
+  <tr><th>#</th><th>Severidade</th><th>Pendência</th><th>Fase</th></tr>
+  <tr><td>1</td><td><span class="pill red">Crítica</span></td><td>Conflito de rota <code>/</code></td><td>F1</td></tr>
+  <tr><td>2</td><td><span class="pill red">Crítica</span></td><td>Área admin acessível a anónimos</td><td>F1</td></tr>
+  <tr><td>3</td><td><span class="pill red">Crítica</span></td><td><code>globals.css</code> truncado</td><td>F1</td></tr>
+  <tr><td>4</td><td><span class="pill">Alta</span></td><td><code>jobs.ts</code>/<code>payments.ts</code> sem sessão</td><td>F1</td></tr>
+  <tr><td>5</td><td><span class="pill">Alta</span></td><td>RLS só em 5 tabelas</td><td>F2</td></tr>
+  <tr><td>6</td><td><span class="pill">Alta</span></td><td><code>jobs</code> vs <code>service_jobs</code></td><td>F2</td></tr>
+  <tr><td>7</td><td><span class="pill">Média</span></td><td>Enum sem papéis staff; push em tabela inexistente</td><td>F1/F2</td></tr>
+  <tr><td>8</td><td><span class="pill">Média</span></td><td>Chat/orçamentos/pesquisa em demonstração</td><td>F2</td></tr>
+  <tr><td>9</td><td><span class="pill">Média</span></td><td>Zero testes automatizados</td><td>F2/F6</td></tr>
+  <tr><td>10</td><td><span class="pill">Média</span></td><td>Worker de despacho inexistente; crons não confirmados</td><td>F3</td></tr>
+  <tr><td>11</td><td><span class="pill">Baixa</span></td><td>Páginas legais, SEO/PWA, <code>/dev/design</code> exposta</td><td>F6</td></tr>
+</table>
+
+<h2>Anexo B — Decisões de negócio em aberto</h2>
+<ol>
+  <li>Fornecedor de KYC (D1).</li>
+  <li>Provedor de mapas e política de raio do piloto.</li>
+  <li>Comissões finais (12/8/5%) e preços dos planos (500/1.500 MZN).</li>
+  <li>Aceitação de dinheiro em mão durante o piloto (D6).</li>
+  <li>Constituição da entidade e contas M-Pesa/e-Mola (D2/D4).</li>
+  <li>Contas Google Play e Apple (D5).</li>
+</ol>
+
+<h2>Anexo C — Glossário</h2>
+<table>
+  <tr><th>Termo</th><th>Significado</th></tr>
+  <tr><td>Mestre</td><td>Profissional com perfil activo</td></tr>
+  <tr><td>Pedido</td><td>Necessidade do cliente (imediato ou com orçamentos)</td></tr>
+  <tr><td>Trabalho (job)</td><td>Contratação em execução</td></tr>
+  <tr><td>Escrow</td><td>Retenção do valor até conclusão</td></tr>
+  <tr><td>KYC</td><td>Verificação de identidade</td></tr>
+  <tr><td>Carteira</td><td>Saldo do mestre na plataforma</td></tr>
+  <tr><td>Boost/destaque</td><td>Pagamento por prioridade em pesquisa</td></tr>
+  <tr><td>Ronda</td><td>Sequência de ofertas a mestres próximos</td></tr>
+</table>
+
+<footer>Elaborado sem alterar qualquer ficheiro preexistente. Fontes: análise de código do repositório e documentação do projecto. Este documento não substitui revisão jurídica.</footer>
+
+</body>
+</html>

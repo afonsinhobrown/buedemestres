@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bué de Mestres — O que este sistema faz</title>
+<style>
+  :root{
+    --cobalto:#2444C8; --cobalto-100:#DCE3FA; --cobalto-700:#1A329A;
+    --amarelo:#FFC61A; --oxido:#BF3A21; --oxido-100:#F7DDD7;
+    --tinta:#12163A; --cal:#EDF0F2; --papel:#FFFFFF;
+    --zinco:#5B6472; --zinco-200:#D5DAE0; --verde:#1E7F4F;
+    --sans:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    --mono:"Cascadia Mono",Consolas,"Courier New",monospace;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--cal);color:var(--tinta);font-family:var(--sans);font-size:17px;line-height:1.6}
+  body{max-width:920px;margin:0 auto;padding:0 24px 80px}
+  header.cover{background:var(--tinta);color:var(--papel);border-radius:0 0 18px 18px;padding:56px 40px 44px;margin:0 -24px 40px;position:relative;overflow:hidden}
+  header.cover::after{content:"";position:absolute;right:-60px;top:-60px;width:260px;height:260px;background:var(--cobalto);border-radius:50%;opacity:.45}
+  header.cover::before{content:"";position:absolute;right:90px;bottom:-70px;width:170px;height:170px;background:var(--amarelo);border-radius:50%;opacity:.9}
+  .brand{font-size:.85rem;letter-spacing:.22em;text-transform:uppercase;color:var(--amarelo);font-weight:700;margin-bottom:14px;position:relative;z-index:1}
+  h1{font-size:2.7rem;line-height:1.08;margin:0 0 12px;position:relative;z-index:1}
+  .subtitle{font-size:1.15rem;color:#C9D0E8;max-width:640px;position:relative;z-index:1}
+  .meta{margin-top:26px;font-size:.85rem;color:#8E97B8;position:relative;z-index:1}
+  h2{font-size:1.5rem;margin:52px 0 6px;padding-top:22px;border-top:4px solid var(--tinta)}
+  h2 .num{color:var(--cobalto);font-family:var(--mono);margin-right:10px}
+  h3{font-size:1.12rem;margin:26px 0 8px;color:var(--cobalto-700)}
+  p{margin:10px 0}
+  ul,ol{margin:10px 0 10px 22px;padding:0}
+  li{margin:6px 0}
+  strong{color:var(--tinta)}
+  table{width:100%;border-collapse:collapse;margin:16px 0;background:var(--papel);font-size:.95rem;box-shadow:0 1px 0 var(--zinco-200)}
+  th{background:var(--tinta);color:var(--papel);text-align:left;padding:9px 12px;font-size:.82rem;text-transform:uppercase;letter-spacing:.05em}
+  td{padding:10px 12px;border-bottom:1px solid var(--zinco-200);vertical-align:top}
+  tr:nth-child(even) td{background:#F7F9FB}
+  code{font-family:var(--mono);font-size:.87em;background:var(--cobalto-100);color:var(--cobalto-700);padding:1px 5px;border-radius:4px}
+  pre{background:var(--tinta);color:#D9DEF5;padding:16px 18px;border-radius:10px;overflow-x:auto;font-family:var(--mono);font-size:.8rem;line-height:1.5}
+  pre code{background:none;color:inherit;padding:0}
+  blockquote{margin:18px 0;padding:16px 20px;background:var(--cobalto-100);border-left:5px solid var(--cobalto);border-radius:0 8px 8px 0;font-size:1.05rem}
+  blockquote p{margin:6px 0}
+  .story{background:var(--papel);border:1px solid var(--zinco-200);border-radius:12px;padding:6px 24px 18px;margin:16px 0}
+  .story .tag{display:inline-block;background:var(--amarelo);color:var(--tinta);font-weight:700;font-size:.78rem;padding:3px 12px;border-radius:999px;text-transform:uppercase;letter-spacing:.05em;margin-top:-16px;margin-bottom:8px}
+  .callout{background:var(--cobalto-100);border-left:5px solid var(--cobalto);padding:14px 18px;border-radius:0 8px 8px 0;margin:16px 0}
+  .warn{background:var(--oxido-100);border-left:5px solid var(--oxido)}
+  .ok{background:#E3F3EA;border-left:5px solid var(--verde)}
+  .pill{display:inline-block;background:var(--amarelo);color:var(--tinta);font-weight:700;font-size:.72rem;padding:2px 10px;border-radius:999px;text-transform:uppercase}
+  .pill.red{background:var(--oxido);color:#fff}
+  .pill.green{background:var(--verde);color:#fff}
+  details{background:var(--papel);border:1px solid var(--zinco-200);border-radius:12px;padding:14px 20px;margin:24px 0}
+  summary{cursor:pointer;font-weight:700;color:var(--cobalto);font-size:1.05rem}
+  footer{margin-top:60px;padding-top:18px;border-top:2px solid var(--zinco-200);font-size:.82rem;color:var(--zinco)}
+  @media print{html{background:#fff;font-size:11pt}header.cover{margin:0 0 24px;border-radius:0}h2{page-break-after:avoid}table{page-break-inside:avoid}}
+</style>
+</head>
+<body>
+
+<header class="cover">
+  <div class="brand">Apresentação · em linguagem simples</div>
+  <h1>O que este sistema faz</h1>
+  <div class="subtitle">Bué de Mestres — o serviço que liga quem precisa de um mestre a quem sabe fazer o trabalho, com chegada visível no mapa, preço acordado antes de começar e dinheiro guardado até o trabalho estar feito.</div>
+  <div class="meta">Versão 2 · Outubro 2026 · Escrito a partir do código real do projecto</div>
+</header>
+
+<h2><span class="num">01</span>O que é, em duas frases</h2>
+<p>A <strong>Bué de Mestres</strong> é um <strong>serviço para encontrar e contratar profissionais</strong> — electricistas, canalizadores, mecânicos, carpinteiros, pedreiros, pintores, cabeleireiros, explicadores — <strong>em Moçambique.</strong></p>
+<p>É como ter na mão a lista de todos os mestres da cidade, saber quem está livre, quem está mesmo perto, quem é de confiança — e <strong>pagar só quando o trabalho estiver feito.</strong></p>
+
+<h2><span class="num">02</span>O problema que resolve</h2>
+<p>Hoje, quando alguém precisa de um mestre:</p>
+<ul>
+  <li>Pergunta aos vizinhos e à família (<strong>boca-a-boca</strong>) — e nem sempre aparece alguém.</li>
+  <li>Não sabe se o profissional é <strong>de confiança</strong> (não há avaliações nem identidade verificada).</li>
+  <li>Não sabe <strong>quanto custa</strong> antes de o trabalho começar.</li>
+  <li>Paga <strong>às cegas</strong>, antes de ver o resultado — se correr mal, o dinheiro já foi.</li>
+  <li>Não sabe <strong>onde é que o mestre anda</strong> enquanto espera em casa.</li>
+</ul>
+<div class="callout ok">A Bué de Mestres resolve os cinco pontos.</div>
+
+<h2><span class="num">03</span>Uma história concreta — como funciona</h2>
+
+<div class="story">
+  <span class="tag">A cliente</span>
+  <p><strong>Maria, em Maputo, tem um cano a arrebentar em casa. É segunda-feira às 17h.</strong></p>
+  <ol>
+    <li><strong>Abre a aplicação e escreve o que precisa</strong> — "cano da cozinha a arrebentar", tira uma foto, marca onde é a casa.</li>
+    <li><strong>O sistema envia o pedido aos mestres de canalização que estão online e perto dela.</strong></li>
+    <li><strong>Um mestre recebe o aviso no telemóvel e tem 60 segundos para aceitar</strong> (evita que ignorem os pedidos).</li>
+    <li><strong>No ecrã aparece o nome, a cara, a nota e as avaliações</strong> — Maria sabe com quem está a lidar.</li>
+    <li><strong>Vê num mapa o mestre a caminho</strong> — como o táxi no Uber. Sabe que chega em 15 minutos.</li>
+    <li><strong>O mestre chega, diagnostica e diz o preço.</strong> Maria <strong>confirma no telemóvel</strong> — só nesse momento o dinheiro fica <strong>retido pela plataforma</strong> (não vai directo para o mestre, nem fica com Maria).</li>
+    <li><strong>O trabalho é feito.</strong> Maria <strong>confirma que está satisfeita</strong> — aí o sistema paga ao mestre, descontando a comissão.</li>
+    <li><strong>Maria dá 5 estrelas.</strong> A nota entra no perfil e ajuda quem vier a seguir.</li>
+  </ol>
+</div>
+
+<div class="story">
+  <span class="tag">O mestre</span>
+  <ol>
+    <li><strong>Entra online</strong> ("estou a trabalhar") e escolhe as suas categorias (canalização, electricidade, …).</li>
+    <li><strong>Recebe pedidos de gente por perto</strong> com contagem de 60 segundos para aceitar.</li>
+    <li><strong>Aceita, vai até à casa</strong> (mapa a mostrar o caminho), <strong>propõe o preço</strong>.</li>
+    <li><strong>Recebe o pagamento</strong> na carteira da plataforma quando o cliente confirma — e pode <strong>transferir para o M-Pesa/e-Mola</strong>.</li>
+    <li><strong>Cobra mais:</strong> pode assinar um plano mensal, aparecer no topo da pesquisa e receber mais pedidos.</li>
+  </ol>
+</div>
+
+<div class="callout"><strong>Se Maria não tiver pressa (2.º modo):</strong> pode <strong>publicar o pedido e esperar orçamentos</strong> — vários mestres enviam preço e prazo, Maria escolhe e só depois marca o serviço. É o "peça orçamento a 5 pessoas", num só sítio.</div>
+
+<h2><span class="num">04</span>O que o sistema faz por dentro (sem complicar)</h2>
+<table>
+  <tr><th>Se…</th><th>…o sistema</th></tr>
+  <tr><td>Maria paga o serviço</td><td><strong>Retém o dinheiro</strong> numa conta intermédia até o trabalho estar concluído — protege Maria e protege o mestre</td></tr>
+  <tr><td>Alguém dá uma nota</td><td><strong>Só deixa avaliar quem teve um trabalho concluído</strong> — não se inventam avaliações</td></tr>
+  <tr><td>Maria procura um mestre</td><td><strong>Ordena por perto, por nota e por destaque</strong> (mestres com plano aparecem primeiro)</td></tr>
+  <tr><td>O mestre falha ou há disputa</td><td><strong>Fica registado</strong> — a plataforma analisa e decide quem tem razão</td></tr>
+  <tr><td>Alguém se regista como mestre</td><td>Pode ter de <strong>enviar documento de identidade e um selfie</strong> (KYC) — muda o "estou de confiança" para "está verificado"</td></tr>
+  <tr><td>Alguém denuncia um perfil</td><td>A equipa <strong>vê a denúncia, analisa e decide</strong> — suspender ou manter</td></tr>
+</table>
+<p>As regras do dinheiro e das avaliações estão <strong>gravadas na própria base de dados</strong>, em "trancas" que o sistema executa — ninguém consegue trapacear por engano ou por força.</p>
+
+<h2><span class="num">05</span>Quem gere a plataforma</h2>
+<table>
+  <tr><th>Papel</th><th>O que faz</th></tr>
+  <tr><td><strong>Admin</strong> (dia a dia)</td><td>Valida pagamentos manuais, aprova verificações de mestres, responde aos tickets de suporte, vê relatórios</td></tr>
+  <tr><td><strong>Superadmin / equipa</strong></td><td>Gere quem tem acesso ao painel, aprova mudanças sensíveis (dupla aprovação), vê o histórico todo, com código extra (MFA)</td></tr>
+  <tr><td><strong>Mestre</strong></td><td>O seu perfil, serviços, carteira, planos e afiliados</td></tr>
+  <tr><td><strong>Cliente</strong></td><td>Pesquisa, pedidos, mensagens, avaliações — <strong>tudo grátis</strong></td></tr>
+</table>
+<p>Há um <strong>centro de ajuda com tickets</strong> (caixa de e-mail da plataforma) com prazos de resposta automáticos, mensagens prontas e nota de satisfação no fim.</p>
+
+<h2><span class="num">06</span>De onde vem o dinheiro</h2>
+<div class="callout"><strong>O cliente nunca paga nada à plataforma.</strong> A plataforma ganha dinheiro com os mestres e com a publicidade.</div>
+<table>
+  <tr><th>Fonte</th><th>Em palavras</th></tr>
+  <tr><td><strong>Planos mensais</strong></td><td>O mestre paga por aparecer mais: Grátis / <strong>Pro 500 MZN</strong> / <strong>Premium 1.500 MZN</strong></td></tr>
+  <tr><td><strong>Destaques</strong></td><td>Paga para aparecer no topo da categoria e na página inicial</td></tr>
+  <tr><td><strong>Publicidade</strong></td><td>Banners de anunciantes no site</td></tr>
+  <tr><td><strong>Comissão por serviço</strong></td><td>No modo "chamar agora", a plataforma fica com <strong>12% (grátis) / 8% (Pro) / 5% (Premium)</strong></td></tr>
+  <tr><td><strong>Afiliados</strong></td><td>Quem convida outro mestre ganha <strong>10% do que ele carregar, durante 90 dias</strong></td></tr>
+</table>
+
+<h2><span class="num">07</span>O que já está a funcionar</h2>
+<ul>
+  <li><strong>Site web completo:</strong> pesquisa, perfis públicos, pedidos, trabalhos, avaliações, carteira, planos, centro de ajuda e painéis de administração.</li>
+  <li><strong>App do cliente:</strong> fluxo inteiro — pedir → procurar mestre → mestre a caminho → preço → confirmar → pagar.</li>
+  <li><strong>App do mestre:</strong> ficar online → receber pedido com 60 s → ir ao local → propor preço → receber pagamento.</li>
+  <li><strong>Verificação de identidade (KYC)</strong> na app do mestre: documento, selfie e confirmação de dados.</li>
+  <li><strong>Dinheiro protegido (escrow)</strong>, carteiras, comissões e afiliados — regras gravadas na base de dados.</li>
+  <li><strong>Base de dados completa:</strong> geografia do país, categorias de ofícios, tickets, auditoria e permissões da equipa.</li>
+</ul>
+
+<h2><span class="num">08</span>O que ainda não está pronto</h2>
+<table>
+  <tr><th>Falta</th><th>Porque importa</th></tr>
+  <tr><td>Ligar o <strong>chat e os orçamentos</strong> à base de dados</td><td>Hoje estão "de demonstração" no site — a estrutura existe, falta ligar</td></tr>
+  <tr><td>O <strong>robô que envia pedidos aos mestres por perto</strong></td><td>O cálculo "quem está perto" já existe; falta quem o dispare</td></tr>
+  <tr><td><strong>Pagamentos M-Pesa / e-Mola</strong></td><td>O caminho está preparado; falta contrato com o operador</td></tr>
+  <tr><td><strong>Fornecedor real de verificação (KYC)</strong></td><td>A app já tira a foto; falta o serviço que analisa documento e cara</td></tr>
+  <tr><td><strong>Testes automáticos</strong></td><td>Protegem contra rebentamentos quando se muda código</td></tr>
+  <tr><td>Arranjar <strong>3 problemas urgentes</strong> (secção 09)</td><td>Sem eles, o site tem a cara errada e o painel está aberto a qualquer pessoa</td></tr>
+</table>
+
+<h2><span class="num">09</span>Os 3 problemas urgentes</h2>
+<div class="callout warn">
+  <ol>
+    <li><strong>O painel de administração está sem porta</strong> — qualquer visitante acede às áreas internas. Corrigir já.</li>
+    <li><strong>A aparência do site está partida</strong> — um ficheiro de estilos ficou cortado a meio; faltam cores e tamanhos.</li>
+    <li><strong>Duas páginas disputam a página inicial</strong> — o endereço "/" tem dois donos e o site pode abrir errado.</li>
+  </ol>
+</div>
+<p>Depois vêm: ações que não pedem login, tabelas de dinheiro sem protecção extra e uma tabela de trabalhos duplicada.</p>
+
+<h2><span class="num">10</span>O que falta decidir (negócio, não código)</h2>
+<ul>
+  <li><strong>Quem faz a verificação de identidades</strong> (fornecedor de KYC).</li>
+  <li><strong>Se o piloto aceita dinheiro em mão</strong> ou só pagamento pela aplicação.</li>
+  <li><strong>A plataforma pode reter dinheiro de outros?</strong> — pode ser preciso criar entidade legal e conta própria.</li>
+  <li><strong>Contratos:</strong> M-Pesa / e-Mola, Google Play e App Store.</li>
+  <li><strong>Comissões finais</strong> e preços dos planos.</li>
+</ul>
+
+<h2><span class="num">11</span>Plano para chegar ao piloto</h2>
+<table>
+  <tr><th>Quando</th><th>O que</th></tr>
+  <tr><td><strong>Semana 1–2</strong></td><td>Fechar as 3 portas urgentes (admin, estilos, página inicial) + login obrigatório em todas as ações</td></tr>
+  <tr><td><strong>Semana 3–4</strong></td><td>Ligar chat e orçamentos à BD, proteger tabelas de dinheiro, primeiros testes automáticos</td></tr>
+  <tr><td><strong>Mês 2–3</strong></td><td>Robô de despacho (chamar mestres por perto), pagamentos M-Pesa, verificação de identidades</td></tr>
+  <tr><td><strong>Mês 4–6</strong></td><td><strong>Piloto numa cidade:</strong> mestres verificados, apps nas lojas, planos e destaques activos</td></tr>
+</table>
+<p><strong>Medir sempre:</strong> mestres verificados por cidade · tempo até alguém aceitar um pedido · trabalhos concluídos · notas médias.</p>
+
+<h2><span class="num">12</span>Resumo para levar na cabeça</h2>
+<blockquote>
+  <p><strong>Um sítio onde quem precisa encontra quem sabe fazer — com a chegada do mestre visível no mapa, o preço acordado antes de começar, o dinheiro guardado até o trabalho estar feito, e avaliações que só quem trabalhou pode dar.</strong></p>
+  <p>Quem paga é o mestre (plano, destaque ou comissão) e o anunciante — <strong>nunca o cliente.</strong></p>
+  <p>O esqueleto está construído: site, duas apps, base de dados e regras de dinheiro. <strong>Falta fechar a porta do painel, ligar as peças em demonstração e fechar os contratos — para depois testar numa cidade.</strong></p>
+</blockquote>
+
+<details>
+  <summary>Anexo — Detalhe técnico</summary>
+
+  <h3>Arquitectura</h3>
+  <pre><code>buedemestres/ (monorepo Turborepo + pnpm)
+├─ apps/web      → Next.js 16 — site público, cliente, mestre, admin, superadmin
+├─ apps/cliente  → Expo 52 / React Native — app do cliente
+├─ apps/pro      → Expo 52 / React Native — app do mestre
+├─ packages/     → regras partilhadas + contratos de pagamento/KYC/mapas
+└─ migrations/   → 12 scripts SQL (0001–0200) já aplicados</code></pre>
+  <ul>
+    <li><strong>BD:</strong> PostgreSQL (Neon) + PostGIS + pg_cron · SQL à mão, tipado (sem ORM).</li>
+    <li><strong>Dinheiro:</strong> só em funções SQL transaccionais e idempotentes (<code>wallet_apply</code>, <code>complete_payment</code>, <code>hold_job_payment</code>, <code>release_job_payment</code>).</li>
+    <li><strong>Tempo real/mapas:</strong> Pusher · Leaflet/OSM (web) · react-native-maps (mobile).</li>
+    <li><strong>Auth:</strong> JWT (jose) + bcryptjs na web · Supabase no mobile.</li>
+    <li><strong>Deploy:</strong> Vercel (site) · EAS Build (APKs).</li>
+  </ul>
+
+  <h3>Stack</h3>
+  <table>
+    <tr><th>Camada</th><th>Tecnologia</th></tr>
+    <tr><td>Monorepo</td><td>Turborepo 2 · pnpm 9 · Node ≥ 20</td></tr>
+    <tr><td>Web</td><td>Next.js 16.3 · React 19 · TypeScript 5 · Tailwind CSS v4</td></tr>
+    <tr><td>Mobile</td><td>Expo SDK 52 · React Native 0.76 · Expo Router 4 · Zustand · TanStack Query · Zod</td></tr>
+    <tr><td>BD</td><td>PostgreSQL + PostGIS + pg_cron (≈60 tabelas, 21 enums)</td></tr>
+  </table>
+
+  <h3>Estados do trabalho</h3>
+  <pre><code>requested → offered → accepted → en_route → arrived → price_proposed
+  → price_agreed (pago/retido) → in_service → awaiting_confirmation
+  → completed → paid_out
+Cancelamentos: cancelled_by_client | cancelled_by_provider | expired | disputed</code></pre>
+
+  <h3>Segurança</h3>
+  <table>
+    <tr><th>Área</th><th>Estado</th></tr>
+    <tr><td>Cookie JWT 7 dias + bcryptjs + funções de dinheiro idempotentes</td><td><span class="pill green">ok</span></td></tr>
+    <tr><td>MFA, 30 permissões, auditoria, dupla aprovação</td><td><span class="pill green">ok (BD)</span></td></tr>
+    <tr><td>Guarda de rotas staff — prefixos não coincidem</td><td><span class="pill red">crítico</span></td></tr>
+    <tr><td>RLS — só em 5 tabelas de tickets</td><td><span class="pill">parcial</span></td></tr>
+    <tr><td>Webhooks assinados, rate limiting, CAPTCHA · KYC</td><td><span class="pill">falta / stub</span></td></tr>
+  </table>
+
+  <h3>Comandos</h3>
+  <pre><code>npm run dev | build | lint | typecheck | format   # raiz (Turbo)
+npm run db:migrate                                  # apps/web
+npx expo start                                      # apps/cliente e apps/pro</code></pre>
+
+  <h3>Ficheiros de referência</h3>
+  <p><code>README.md</code> · <code>BUEDEMESTRES_PLANO_IMPLEMENTACAO.md</code> · <code>BUEDEMESTRES_ADENDA_ON_DEMAND.md</code> · <code>BUEDEMESTRES_TICKETS_SUPERADMIN.md</code> · <code>BUEDEMESTRES_FRONTEND_DESIGN.md</code> · <code>ESTADO_30SET2026.md</code> · <code>PENDENTES.md</code> · leitura directa de <code>apps/*</code>, <code>packages/*</code>, <code>migrations/0001–0200</code>.</p>
+</details>
+
+<footer>Documento reescrito em linguagem simples (v2). Nenhum ficheiro preexistente do projecto foi alterado.</footer>
+
+</body>
+</html>
