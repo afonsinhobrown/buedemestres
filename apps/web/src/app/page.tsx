@@ -136,6 +136,20 @@ export default async function HomePage() {
       </div>
 
       <div className="strip"></div>
+      
+      <div className="shell" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 0' }}>
+        <h3 style={{ fontSize: '14px', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px', fontWeight: 600 }}>
+          Plataforma gerida por profissionais certificados
+        </h3>
+        <a href="https://www.credential.net/53726c6f-a162-47f9-aaba-4e2988f78240" target="_blank" rel="noopener noreferrer" className="hover:scale-105 transition-transform">
+          <img 
+            src="https://api.accredible.com/v1/credentials/u4gkf9oq/artifact/certificate?artifact_format=png&variant=medium" 
+            alt="Google AI-Powered Shopping ads Certification" 
+            style={{ height: '140px', borderRadius: '8px', objectFit: 'contain' }} 
+          />
+        </a>
+      </div>
+
       <footer className="foot">
         <div className="shell foot-in">
           <span>Bué de Mestres</span>

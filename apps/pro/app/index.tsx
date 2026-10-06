@@ -239,6 +239,76 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
   },
-
-
+  statusCard: {
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 8,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statusLabel: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  statusValue: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  onlineHint: {
+    marginTop: 12,
+    color: '#4ADE80',
+    fontSize: 13,
+    opacity: 0.8,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  statBox: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  statNumber: {
+    color: '#F2C94C',
+    fontSize: 22,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  statLabel: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  btnVerificacao: {
+    backgroundColor: '#F2C94C',
+    borderRadius: 6,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#1A1A2E',
+  },
+  btnVerificacaoText: {
+    color: '#1A1A2E',
+    fontWeight: '900',
+    fontSize: 14,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
 });
