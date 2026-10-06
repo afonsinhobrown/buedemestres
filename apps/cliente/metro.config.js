@@ -16,7 +16,6 @@ config.resolver.nodeModulesPaths = [
 ]
 
 // Force Metro to resolve (sub)dependencies from the nodeModulesPaths
-config.resolver.disableHierarchicalLookup = true
 
 config.resolver.alias = {
   '@': __dirname,

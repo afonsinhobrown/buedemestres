@@ -62,7 +62,6 @@
     "scheme": "buedemestrespro",
     "extra": {
       "router": {
-        "origin": false
       },
       "eas": {
         "projectId": "6338d8c2-fc2e-42a3-ab7b-8244b7f93f38"
