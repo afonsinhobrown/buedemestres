@@ -36,7 +36,7 @@ export async function requestServiceAction(formData: FormData) {
 
       // 2. Create the job in status 'pending'
       const jobRes = await client.query(
-        `INSERT INTO jobs (client_id, provider_id, status, client_lat, client_lng) 
+        `INSERT INTO service_jobs (client_id, provider_id, status, client_lat, client_lng) 
          VALUES ($1, $2, 'pending', $3, $4) RETURNING id`,
         [clientId, providerId, lat, lng]
       );
@@ -64,7 +64,7 @@ export async function requestServiceAction(formData: FormData) {
 
 export async function updateJobStatus(jobId: string, status: string) {
   try {
-    await db.query(`UPDATE jobs SET status = $1 WHERE id = $2`, [status, jobId]);
+    await db.query(`UPDATE service_jobs SET status = $1 WHERE id = $2`, [status, jobId]);
     return { success: true };
   } catch (error) {
     console.error("Error updating job status:", error);

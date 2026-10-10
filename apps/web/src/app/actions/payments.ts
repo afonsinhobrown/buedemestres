@@ -28,7 +28,7 @@ export async function processPaySuitePayment(jobId: string, phone: string, amoun
 
     // 2. Update Job Status to Escrow & Travel
     await db.query(`
-      UPDATE jobs 
+      UPDATE service_jobs 
       SET payment_status = 'held_in_escrow',
           status = 'em_deslocacao'
       WHERE id = $1
