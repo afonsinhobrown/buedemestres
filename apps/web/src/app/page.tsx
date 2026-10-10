@@ -40,10 +40,13 @@ export default async function HomePage() {
       <nav className="nav nav--flush">
         <div className="shell" style={{ display: 'flex', alignItems: 'center', gap: 26, width: '100%' }}>
           <Link href="/" className="placa pb sm" style={{ transform: 'none' }}>Bué de Mestres</Link>
+          <div style={{ display: 'flex', gap: '8px', marginRight: 'auto' }}>
+            <Link href="/" style={{ fontSize: '12px', padding: '6px 12px', backgroundColor: '#e2e8f0', borderRadius: '4px', textDecoration: 'none', color: '#334155', fontWeight: 'bold' }}>📱 Simular Cliente</Link>
+            <Link href="/dev/simulador" style={{ fontSize: '12px', padding: '6px 12px', backgroundColor: '#1e293b', borderRadius: '4px', textDecoration: 'none', color: 'white', fontWeight: 'bold' }}>🔧 Simular Mestre</Link>
+          </div>
           <Link href="#como-funciona">Como funciona</Link>
           <Link href="#para-mestres">Para mestres</Link>
           <Link href="/ajuda">Ajuda</Link>
-          <span className="sp"></span>
           <Link href="/entrar">Entrar</Link>
           <Link href="/registo" className="btn b1 s">Criar a minha placa</Link>
         </div>
