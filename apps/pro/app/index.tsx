@@ -161,9 +161,6 @@ export default function ProHomeScreen() {
           <Text style={styles.statLabel}>Nota</Text>
         </View>
       </View>
-
-      </View>
-
       <View style={{ marginTop: 24, flex: 1 }}>
         <Text style={{ color: '#9CA3AF', fontSize: 14, fontWeight: '700', textTransform: 'uppercase', marginBottom: 12 }}>
           Pedidos Pendentes ({pendingJobs.length})
