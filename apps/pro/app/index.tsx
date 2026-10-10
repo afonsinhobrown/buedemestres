@@ -7,7 +7,22 @@ export default function ProHomeScreen() {
   const [isOnline, setIsOnline] = useState(false)
   const [newRequest, setNewRequest] = useState<any>(null)
   const [trabalhosHoje, setTrabalhosHoje] = useState(0)
+  const [pendingJobs, setPendingJobs] = useState<any[]>([])
   const user = useAuthStore(s => s.user)
+
+  // Fetch initial pending jobs
+  useEffect(() => {
+    if (!user) return
+    const fetchJobs = async () => {
+      const { data } = await supabase
+        .from('service_jobs')
+        .select('*')
+        .eq('provider_id', user.id)
+        .eq('status', 'pending')
+      if (data) setPendingJobs(data)
+    }
+    fetchJobs()
+  }, [user])
 
   // Ouve novos pedidos na base de dados em tempo real
   useEffect(() => {
@@ -22,8 +37,19 @@ export default function ProHomeScreen() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'service_requests' },
         (payload) => {
-          console.log('🚨 RECEBIDO NOVO PEDIDO NO SUPABASE:', payload);
-          setNewRequest(payload.new); // Mostra no ecrã imediatamente
+          console.log('🚨 RECEBIDO NOVO PEDIDO URGENTE:', payload);
+          setNewRequest(payload.new);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'service_jobs' },
+        (payload) => {
+          console.log('🚨 RECEBIDO NOVO PEDIDO DIRECTO:', payload);
+          if (payload.new.provider_id === user?.id) {
+            setNewRequest(payload.new);
+            setPendingJobs(prev => [payload.new, ...prev]);
+          }
         }
       )
       .subscribe();
@@ -31,17 +57,20 @@ export default function ProHomeScreen() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [isOnline]);
+  }, [isOnline, user]);
 
   const aceitarTrabalho = async (requestId: string) => {
+    // We try to update both tables since we don't know which one it came from
     await supabase.from('service_requests').update({ status: 'accepted' }).eq('id', requestId);
+    await supabase.from('service_jobs').update({ status: 'accepted' }).eq('id', requestId);
+    
     setNewRequest(null);
-    setTrabalhosHoje(prev => prev + 1); // Atualiza a estatística
+    setPendingJobs(prev => prev.filter(job => job.id !== requestId));
+    setTrabalhosHoje(prev => prev + 1);
     
     if (Platform.OS !== 'web') {
       Alert.alert('Trabalho aceite!', 'O cliente foi notificado.');
     } else {
-      // Pequeno feedback visual subtil para a web
       console.log('Trabalho aceite! Estatística atualizada.');
     }
   }
@@ -133,9 +162,32 @@ export default function ProHomeScreen() {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.btnVerificacao}>
-        <Text style={styles.btnVerificacaoText}>Completar Verificação →</Text>
-      </TouchableOpacity>
+      </View>
+
+      <View style={{ marginTop: 24, flex: 1 }}>
+        <Text style={{ color: '#9CA3AF', fontSize: 14, fontWeight: '700', textTransform: 'uppercase', marginBottom: 12 }}>
+          Pedidos Pendentes ({pendingJobs.length})
+        </Text>
+        
+        {pendingJobs.length === 0 ? (
+          <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: 24, borderRadius: 8, alignItems: 'center' }}>
+            <Text style={{ color: '#6B7280', fontSize: 16 }}>Nenhum pedido pendente.</Text>
+          </View>
+        ) : (
+          pendingJobs.map(job => (
+            <View key={job.id} style={{ backgroundColor: '#1E293B', padding: 16, borderRadius: 8, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+              <Text style={{ color: '#F8FAFC', fontSize: 16, fontWeight: 'bold' }}>Novo Pedido Directo</Text>
+              <Text style={{ color: '#94A3B8', fontSize: 14, marginTop: 4 }}>Aguardando confirmação</Text>
+              <TouchableOpacity 
+                style={{ backgroundColor: '#4ADE80', padding: 12, borderRadius: 6, marginTop: 12, alignItems: 'center' }}
+                onPress={() => aceitarTrabalho(job.id)}
+              >
+                <Text style={{ color: '#0F2D1A', fontWeight: 'bold' }}>ACEITAR SERVIÇO</Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
+      </View>
     </View>
   )
 }
