@@ -1,57 +1,46 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { getPendingJobs, getPendingRequests, acceptJob, acceptRequest } from './actions'
 
 export default function ProSimulator() {
   const [jobs, setJobs] = useState<any[]>([])
   const [requests, setRequests] = useState<any[]>([])
-  const [supabase] = useState(() => createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
-  ))
 
   useEffect(() => {
-    // Busca inicial de service_jobs (pedidos diretos)
-    const fetchJobs = async () => {
-      const { data } = await supabase.from('service_jobs').select('*').eq('status', 'pending').order('created_at', { ascending: false })
-      if (data) setJobs(data)
+    const fetchData = async () => {
+      try {
+        const j = await getPendingJobs()
+        const r = await getPendingRequests()
+        setJobs(j)
+        setRequests(r)
+      } catch (error) {
+        console.error("Error fetching data:", error)
+      }
     }
-    
-    // Busca inicial de service_requests (urgências)
-    const fetchRequests = async () => {
-      const { data } = await supabase.from('service_requests').select('*').eq('status', 'pending').order('created_at', { ascending: false })
-      if (data) setRequests(data)
-    }
 
-    fetchJobs()
-    fetchRequests()
-
-    // Escuta em tempo real
-    const channel = supabase.channel('simulador')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'service_jobs' }, payload => {
-        setJobs(prev => [payload.new, ...prev])
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'service_requests' }, payload => {
-        setRequests(prev => [payload.new, ...prev])
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'service_jobs' }, payload => {
-        setJobs(prev => prev.filter(j => j.id !== payload.new.id))
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'service_requests' }, payload => {
-        setRequests(prev => prev.filter(r => r.id !== payload.new.id))
-      })
-      .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
-  }, [supabase])
+    // Busca inicial e polling a cada 3 segundos
+    fetchData()
+    const interval = setInterval(fetchData, 3000)
+    return () => clearInterval(interval)
+  }, [])
 
   const aceitarJob = async (id: string) => {
-    await supabase.from('service_jobs').update({ status: 'accepted' }).eq('id', id)
+    try {
+      await acceptJob(id)
+      setJobs(prev => prev.filter(j => j.id !== id))
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   const aceitarRequest = async (id: string) => {
-    await supabase.from('service_requests').update({ status: 'accepted' }).eq('id', id)
+    try {
+      await acceptRequest(id)
+      setRequests(prev => prev.filter(r => r.id !== id))
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   return (
