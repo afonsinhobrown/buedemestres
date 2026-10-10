@@ -1,5 +1,6 @@
 import { PageShell } from '@/components/layout/PageShell'
 import { ProviderCard } from '@/components/providers/ProviderCard'
+import { db } from '@/lib/db'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MapPin, Faders, CaretDown } from '@phosphor-icons/react/dist/ssr'
@@ -17,49 +18,26 @@ export default async function SearchResultsPage({
   const q = typeof params.q === 'string' ? params.q : ''
   const l = typeof params.l === 'string' ? params.l : 'Polana'
 
-  // Dados simulados para a Fase 2 (UI sem backend complexo)
-  const results = [
-    {
-      slug: 'oficina-mabunda',
-      name: 'Oficina Mabunda',
-      tradeName: 'mecânico',
-      tradeCategory: 'automóvel',
-      rating: 4.8,
-      reviewCount: 31,
-      neighborhood: 'Polana, Maputo',
-      distanceKm: 3,
-      minPrice: 1500,
-      isVerified: true,
-      isFeatured: true,
-      photoUrl: 'https://images.unsplash.com/photo-1530046339160-ce3e530c7d2f?w=400&q=80'
-    },
-    {
-      slug: 'oficina-ze',
-      name: 'Mestre Zé Bate-chapa',
-      tradeName: 'mecânico',
-      tradeCategory: 'automóvel',
-      rating: 4.5,
-      reviewCount: 18,
-      neighborhood: 'Polana',
-      distanceKm: 4.2,
-      minPrice: undefined,
-      isVerified: true,
-      isFeatured: false,
-    },
-    {
-      slug: 'oficina-central',
-      name: 'Auto Central Maputo',
-      tradeName: 'mecânico',
-      tradeCategory: 'automóvel',
-      rating: null,
-      reviewCount: 0,
-      neighborhood: 'Polana Cimento',
-      distanceKm: 5.1,
-      minPrice: 2000,
-      isVerified: false,
-      isFeatured: false,
-    }
-  ]
+  // Obter resultados reais da base de dados usando a função do PostgreSQL
+  const { rows } = await db.query(
+    `SELECT * FROM search_providers($1, null, null, null, 0, false, 20, 0)`,
+    [q]
+  )
+
+  const results = rows.map((row: any) => ({
+    slug: row.slug,
+    name: row.business_name,
+    tradeName: row.headline || 'Profissional',
+    tradeCategory: '',
+    rating: row.rating_avg ? parseFloat(row.rating_avg) : null,
+    reviewCount: row.rating_count || 0,
+    neighborhood: l || 'Moçambique',
+    distanceKm: undefined,
+    minPrice: undefined,
+    isVerified: row.verified,
+    isFeatured: row.is_featured,
+    photoUrl: 'https://images.unsplash.com/photo-1530046339160-ce3e530c7d2f?w=400&q=80' // Imagem genérica temporária
+  }))
 
   return (
     <PageShell>
