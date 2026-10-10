@@ -58,8 +58,8 @@ export async function requestServiceAction(formData: FormData) {
     lng
   });
 
-  // Redirect client to a "waiting for provider" screen
-  redirect(`/viagem/${jobId}?clientMode=true`);
+  // Redirect client to their new order
+  redirect(`/pedidos/${jobId}`);
 }
 
 export async function updateJobStatus(jobId: string, status: string) {
