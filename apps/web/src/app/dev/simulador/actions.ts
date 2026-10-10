@@ -5,7 +5,7 @@ import { db } from '@/lib/db'
 export async function getPendingJobs() {
   const result = await db.query(`
     SELECT id, status, provider_id, created_at 
-    FROM service_jobs 
+    FROM jobs 
     WHERE status = 'pending' 
     ORDER BY created_at DESC
   `)
@@ -23,7 +23,7 @@ export async function getPendingRequests() {
 }
 
 export async function acceptJob(id: string) {
-  await db.query(`UPDATE service_jobs SET status = 'accepted' WHERE id = $1`, [id])
+  await db.query(`UPDATE jobs SET status = 'accepted' WHERE id = $1`, [id])
 }
 
 export async function acceptRequest(id: string) {
