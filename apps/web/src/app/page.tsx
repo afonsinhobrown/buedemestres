@@ -67,7 +67,12 @@ export default async function HomePage() {
                 <label className="lbl" htmlFor="w1">Onde</label>
                 <input className="inp" id="w1" name="onde" defaultValue="Polana, Maputo" required />
               </div>
-              <button type="submit" className="btn b1">Procurar mestres</button>
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <button type="submit" className="btn b1">Procurar mestres</button>
+                <Link href="/chamar" className="btn" style={{ backgroundColor: '#e53e3e', color: 'white', fontWeight: 'bold' }}>
+                  🚨 CHAMAR AGORA (URGÊNCIA)
+                </Link>
+              </div>
             </form>
             <ul className="hero-stats">
               <li><b>6</b><span>ofícios registados</span></li>
