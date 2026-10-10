@@ -86,7 +86,6 @@ export default async function ResultadosPage({ searchParams }: { searchParams: {
                     )}
                   </div>
                   <div className="acts" style={{ marginTop: '12px' }}>
-                    <span className="btn b2 s" style={{ flex: 1, textAlign: 'center' }}>WhatsApp</span>
                     <span className="btn b1 s" style={{ flex: 1, textAlign: 'center' }}>Chamar agora</span>
                   </div>
                 </Link>

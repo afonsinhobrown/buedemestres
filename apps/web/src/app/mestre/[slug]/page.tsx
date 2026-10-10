@@ -65,7 +65,6 @@ export default async function MestreProfilePage({ params }: { params: Promise<{ 
             </div>
 
             <div className="flex gap-4">
-              <a href={`https://wa.me/${provider.whatsapp?.replace(/[^0-9]/g, '')}`} target="_blank" className="btn b2 flex-1 text-center py-3">WhatsApp</a>
               <RequestServiceModal providerId={provider.profile_id} providerName={provider.business_name} />
             </div>
           </div>

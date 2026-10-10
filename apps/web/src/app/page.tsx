@@ -70,13 +70,13 @@ export default async function HomePage() {
                 <label className="lbl" htmlFor="w1">Onde</label>
                 <input className="inp" id="w1" name="onde" defaultValue="Polana, Maputo" required />
               </div>
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                <button type="submit" className="btn b1">Procurar mestres</button>
-                <Link href="/chamar" className="btn" style={{ backgroundColor: '#e53e3e', color: 'white', fontWeight: 'bold' }}>
-                  🚨 CHAMAR AGORA (URGÊNCIA)
-                </Link>
-              </div>
+              <button type="submit" className="btn b1">Procurar mestres</button>
             </form>
+            <div style={{ marginTop: '16px' }}>
+              <Link href="/chamar" className="btn hover:scale-105 transition-transform" style={{ backgroundColor: '#e53e3e', color: 'white', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '16px' }}>
+                <span style={{ fontSize: '24px' }}>🚨</span> CHAMAR AGORA (URGÊNCIA)
+              </Link>
+            </div>
             <ul className="hero-stats">
               <li><b>6</b><span>ofícios registados</span></li>
               <li><b>3</b><span>mestres verificados</span></li>
@@ -112,7 +112,6 @@ export default async function HomePage() {
                   <p className="pr">Ver perfil</p>
                 </div>
                 <div className="acts">
-                  <span className="btn b2 s">WhatsApp</span>
                   <span className="btn b1 s">Chamar agora</span>
                 </div>
               </Link>
