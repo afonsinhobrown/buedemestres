@@ -1,12 +1,15 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@supabase/supabase-js'
 
 export default function ProSimulator() {
   const [jobs, setJobs] = useState<any[]>([])
   const [requests, setRequests] = useState<any[]>([])
-  const supabase = createClientComponentClient()
+  const [supabase] = useState(() => createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  ))
 
   useEffect(() => {
     // Busca inicial de service_jobs (pedidos diretos)
