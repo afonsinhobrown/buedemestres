@@ -75,6 +75,20 @@ export default function ProHomeScreen() {
     }
   }
 
+  const recusarTrabalho = async (requestId: string) => {
+    await supabase.from('service_requests').update({ status: 'cancelled' }).eq('id', requestId);
+    await supabase.from('service_jobs').update({ status: 'cancelled' }).eq('id', requestId);
+    
+    setNewRequest(null);
+    setPendingJobs(prev => prev.filter(job => job.id !== requestId));
+    
+    if (Platform.OS !== 'web') {
+      Alert.alert('Pedido recusado', 'O pedido foi recusado.');
+    } else {
+      console.log('Pedido recusado.');
+    }
+  }
+
   const toggleOnline = async () => {
     const newValue = !isOnline;
     setIsOnline(newValue)
@@ -113,7 +127,7 @@ export default function ProHomeScreen() {
             </View>
 
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.btnRecusar} onPress={() => setNewRequest(null)}>
+              <TouchableOpacity style={styles.btnRecusar} onPress={() => newRequest?.id && recusarTrabalho(newRequest.id)}>
                 <Text style={styles.btnRecusarText}>Recusar</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.btnAceitar} onPress={() => aceitarTrabalho(newRequest?.id)}>
@@ -174,13 +188,20 @@ export default function ProHomeScreen() {
           pendingJobs.map(job => (
             <View key={job.id} style={{ backgroundColor: '#1E293B', padding: 16, borderRadius: 8, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
               <Text style={{ color: '#F8FAFC', fontSize: 16, fontWeight: 'bold' }}>Novo Pedido Directo</Text>
-              <Text style={{ color: '#94A3B8', fontSize: 14, marginTop: 4 }}>Aguardando confirmação</Text>
-              <TouchableOpacity 
-                style={{ backgroundColor: '#4ADE80', padding: 12, borderRadius: 6, marginTop: 12, alignItems: 'center' }}
-                onPress={() => aceitarTrabalho(job.id)}
-              >
-                <Text style={{ color: '#0F2D1A', fontWeight: 'bold' }}>ACEITAR SERVIÇO</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                <TouchableOpacity 
+                  style={{ flex: 1, backgroundColor: '#EF4444', padding: 12, borderRadius: 6, alignItems: 'center' }}
+                  onPress={() => recusarTrabalho(job.id)}
+                >
+                  <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>RECUSAR</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={{ flex: 2, backgroundColor: '#4ADE80', padding: 12, borderRadius: 6, alignItems: 'center' }}
+                  onPress={() => aceitarTrabalho(job.id)}
+                >
+                  <Text style={{ color: '#0F2D1A', fontWeight: 'bold' }}>ACEITAR</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ))
         )}

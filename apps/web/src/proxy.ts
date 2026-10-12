@@ -13,7 +13,9 @@ export default async function proxy(req: NextRequest) {
   const session = await decrypt(token)
 
   const isAuthenticated = !!session?.userId
-  const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))
+  // O acompanhamento de pedido por ID directo (/pedidos/[id]) é público para clientes on-demand
+  const isDirectOrderTracker = /^\/pedidos\/[a-f0-9-]+$/i.test(pathname)
+  const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p)) && !isDirectOrderTracker
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r))
 
   // Redirecionar para /entrar se não autenticado

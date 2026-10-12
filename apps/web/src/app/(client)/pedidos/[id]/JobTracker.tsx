@@ -8,7 +8,7 @@ export default function JobTracker({ jobId }: { jobId: string }) {
   const [status, setStatus] = useState<string>('pending')
 
   useEffect(() => {
-    if (status === 'accepted' || status === 'in_progress' || status === 'completed') return
+    if (status === 'accepted' || status === 'in_progress' || status === 'completed' || status === 'cancelled' || status === 'rejected') return
 
     const interval = setInterval(async () => {
       const currentStatus = await checkDirectJobStatus(jobId)
@@ -50,6 +50,22 @@ export default function JobTracker({ jobId }: { jobId: string }) {
           <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: '#047857' }}>Pedido Aceite!</h2>
           <p style={{ color: '#666', marginTop: '16px', fontSize: '18px' }}>
             O Mestre confirmou a disponibilidade e entrará em contacto consigo muito em breve para se deslocar ao local.
+          </p>
+        </div>
+      )}
+
+      {(status === 'cancelled' || status === 'rejected') && (
+        <div style={{ textAlign: 'center', padding: '40px 0' }}>
+          <div style={{ width: '64px', height: '64px', backgroundColor: '#fee2e2', color: '#dc2626', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px auto' }}>
+            <svg style={{ width: '32px', height: '32px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </div>
+          
+          <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: '#dc2626' }}>Pedido Não Aceite</h2>
+          <p style={{ color: '#666', marginTop: '16px', fontSize: '18px' }}>
+            De momento, o Mestre não tem disponibilidade para atender este pedido. Pode tentar contactar outro mestre na plataforma.
           </p>
         </div>
       )}

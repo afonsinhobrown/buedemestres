@@ -16,7 +16,7 @@ export async function getPendingRequests() {
   const result = await db.query(`
     SELECT id, title, description, status, created_at 
     FROM service_requests 
-    WHERE status = 'pending' 
+    WHERE status = 'open' 
     ORDER BY created_at DESC
   `)
   return result.rows
@@ -26,6 +26,14 @@ export async function acceptJob(id: string) {
   await db.query(`UPDATE service_jobs SET status = 'accepted' WHERE id = $1`, [id])
 }
 
+export async function rejectJob(id: string) {
+  await db.query(`UPDATE service_jobs SET status = 'cancelled' WHERE id = $1`, [id])
+}
+
 export async function acceptRequest(id: string) {
   await db.query(`UPDATE service_requests SET status = 'accepted' WHERE id = $1`, [id])
+}
+
+export async function rejectRequest(id: string) {
+  await db.query(`UPDATE service_requests SET status = 'cancelled' WHERE id = $1`, [id])
 }

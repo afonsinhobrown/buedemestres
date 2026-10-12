@@ -147,8 +147,9 @@ export async function loginAction(
     return { success: false, message: 'E-mail ou palavra-passe incorrectos.' }
   }
 
+  const redirectTo = (formData.get('redirectTo') as string) || ''
   await createSession(user.id, user.role)
-  redirect('/painel')
+  redirect(redirectTo && redirectTo.startsWith('/') ? redirectTo : '/painel')
 }
 
 // ─────────────────────────────────────────────

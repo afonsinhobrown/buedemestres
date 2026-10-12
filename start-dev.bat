@@ -17,7 +17,7 @@ echo.
 echo ========================================================
 echo Todos os servicos foram enviados para terminais separados!
 echo Cada app Expo (Cliente e Pro) vai abrir um Metro Bundler proprio.
-echo Cliente: Porta 8081 | Pro: Porta 8082
+echo Cliente: Porta 8081 - Pro: Porta 8082
 echo ========================================================
 echo.
 pause

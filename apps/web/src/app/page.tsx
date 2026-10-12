@@ -6,26 +6,31 @@ import { AdsRail } from '@/components/ads/AdsRail';
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  // Fetch real providers from the DB!
-  const res = await db.query(`
-    SELECT pp.slug, pp.business_name, pp.headline, pp.rating_avg, pp.rating_count,
-           pp.verification, d.name as district_name, p.name as province_name,
-           c.name as category_name,
-           CASE c.slug
-             WHEN 'mecanico' THEN 'pb'
-             WHEN 'explicador' THEN 'py'
-             WHEN 'carpinteiro' THEN 'po'
-             ELSE 'pb'
-           END as color_class
-    FROM provider_profiles pp
-    JOIN districts d ON pp.district_id = d.id
-    JOIN provinces p ON d.province_id = p.id
-    JOIN categories c ON pp.primary_category_id = c.id
-    WHERE pp.is_published = true
-    ORDER BY pp.rating_avg DESC
-    LIMIT 3
-  `);
-  const providers = res.rows;
+  // Fetch real providers from the DB (with resilient fallback)
+  let providers: any[] = []
+  try {
+    const res = await db.query(`
+      SELECT pp.slug, pp.business_name, pp.headline, pp.rating_avg, pp.rating_count,
+             pp.verification, d.name as district_name, p.name as province_name,
+             c.name as category_name,
+             CASE c.slug
+               WHEN 'mecanico' THEN 'pb'
+               WHEN 'explicador' THEN 'py'
+               WHEN 'carpinteiro' THEN 'po'
+               ELSE 'pb'
+             END as color_class
+      FROM provider_profiles pp
+      JOIN districts d ON pp.district_id = d.id
+      JOIN provinces p ON d.province_id = p.id
+      JOIN categories c ON pp.primary_category_id = c.id
+      WHERE pp.is_published = true
+      ORDER BY pp.rating_avg DESC
+      LIMIT 3
+    `)
+    providers = res.rows
+  } catch (error) {
+    console.error('Aviso: Falha ao obter prestadores na HomePage:', error)
+  }
 
   return (
     <>

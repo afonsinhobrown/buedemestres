@@ -1,12 +1,15 @@
 'use client'
 
-import { useActionState } from 'react'
+import { Suspense, useActionState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { loginAction } from '@/app/actions/auth'
 import { fieldErrors } from '@/lib/validators/auth'
 import type { ActionState } from '@/lib/validators/auth'
 
-export default function EntrarPage() {
+function EntrarForm() {
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect') || ''
   const [state, action, pending] = useActionState<ActionState | undefined, FormData>(
     loginAction,
     undefined
@@ -28,6 +31,7 @@ export default function EntrarPage() {
       )}
 
       <form action={action} className="space-y-5">
+        <input type="hidden" name="redirectTo" value={redirectTo} />
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
             E-mail
@@ -86,5 +90,13 @@ export default function EntrarPage() {
         </Link>
       </p>
     </div>
+  )
+}
+
+export default function EntrarPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-gray-500">A carregar…</div>}>
+      <EntrarForm />
+    </Suspense>
   )
 }
