@@ -36,9 +36,9 @@ export async function requestServiceAction(formData: FormData) {
 
       // 2. Create the job in status 'pending'
       const jobRes = await client.query(
-        `INSERT INTO service_jobs (client_id, provider_id, status, client_lat, client_lng) 
-         VALUES ($1, $2, 'pending', $3, $4) RETURNING id`,
-        [clientId, providerId, lat, lng]
+        `INSERT INTO service_jobs (client_id, provider_id, status, client_lat, client_lng, problem_description) 
+         VALUES ($1, $2, 'pending', $3, $4, $5) RETURNING id`,
+        [clientId, providerId, lat, lng, problemDescription || null]
       );
       
       jobId = jobRes.rows[0].id;
