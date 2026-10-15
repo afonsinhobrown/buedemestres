@@ -12,6 +12,7 @@ export default function MestreACaminhoScreen() {
     distanciaM: string
     etaMinutos: string
     categoriaEmoji: string
+    transporte: string
   }>()
 
   // Valores de demo caso não haja params reais
@@ -20,6 +21,11 @@ export default function MestreACaminhoScreen() {
   const etaMinutos = params.etaMinutos ?? '8'
   const distanciaM = params.distanciaM ?? '2300'
   const categoriaEmoji = params.categoriaEmoji ?? '🔧'
+  const transporteDesc = params.transporte === 'chapa' ? '🚐 Chapa' :
+                         params.transporte === 'moto' ? '🏍️ Moto/Txopela' :
+                         params.transporte === 'tpm' ? '🚌 TPM' :
+                         params.transporte === 'amigo' ? '🤝 Boleia' :
+                         params.transporte === 'a_pe' ? '🚶 A pé' : '🚗 Carro Próprio'
 
   const handleChamar = () => {
     if (params.mestreTelefone) {
@@ -84,8 +90,8 @@ export default function MestreACaminhoScreen() {
           </View>
           <View style={styles.etaDivider} />
           <View style={styles.etaItem}>
-            <Text style={styles.etaValor}>A caminho</Text>
-            <Text style={styles.etaLabel}>Estado</Text>
+            <Text style={styles.etaValor}>{transporteDesc}</Text>
+            <Text style={styles.etaLabel}>Transporte</Text>
           </View>
         </View>
 

@@ -140,17 +140,39 @@ export async function rejectQuote(id: string) {
   return transition(id, ['negotiating'], 'em_deslocacao', `, quoted_price = NULL, quote_items = NULL`)
 }
 
-// 5b. CLIENTE: aceita e paga (SIMULADO) → valor retido
+import { calculateLoyaltyPricing } from '@/lib/loyalty'
+
+// 5b. CLIENTE: aceita e paga (SIMULADO) → valor retido com políticas de retenção
 export async function payQuote(id: string, method: string) {
   const job = await getJobById(id)
   if (!job?.quoted_price) throw new Error('Sem orçamento para pagar.')
-  const commission = Math.round(Number(job.quoted_price) * COMMISSION_RATE * 100) / 100
+
+  // Contar trabalhos concluídos anteriormente pelo cliente e pelo mestre
+  const clientCountRes = await db.query(
+    `SELECT COUNT(*)::int as count FROM service_jobs WHERE client_id = (SELECT client_id FROM service_jobs WHERE id = $1) AND status = 'completed'`,
+    [id]
+  )
+  const provCountRes = await db.query(
+    `SELECT COUNT(*)::int as count FROM service_jobs WHERE provider_id = (SELECT provider_id FROM service_jobs WHERE id = $1) AND status = 'completed'`,
+    [id]
+  )
+
+  const clientJobs = clientCountRes.rows[0]?.count || 0
+  const provJobs = provCountRes.rows[0]?.count || 0
+
+  const loyalty = calculateLoyaltyPricing({
+    quotedPrice: Number(job.quoted_price),
+    clientCompletedCount: clientJobs,
+    providerCompletedCount: provJobs,
+    standardCommissionRate: COMMISSION_RATE
+  })
+
   return transition(
     id,
     ['negotiating'],
     'in_progress',
-    `, payment_status = 'held_in_escrow', payment_method = $4, commission_amount = $5`,
-    [method, commission]
+    `, payment_status = 'held_in_escrow', payment_method = $4, commission_amount = $5, quoted_price = $6`,
+    [method, loyalty.commissionAmount, loyalty.finalClientPrice]
   )
 }
 
