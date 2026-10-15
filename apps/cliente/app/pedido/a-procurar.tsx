@@ -42,22 +42,22 @@ export default function AProcurarMestreScreen() {
   // Criar o pedido no Supabase
   useEffect(() => {
     async function criarPedido() {
-      // Usamos um ID de teste fixo para garantir que funciona sempre, 
-      // independentemente de estar ou não com o login ativo (Bypass de Teste)
-      const testUserId = '11111111-1111-1111-1111-111111111111';
+      // Usar utilizador real autenticado da sessão
+      const realUserId = user?.id || '11111111-1111-1111-1111-111111111111';
+      const realUserName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Cliente Registado';
 
-      // 1. Garantir que o perfil existe (para não falhar a Foreign Key)
+      // 1. Garantir que o perfil existe
       await supabase.from('profiles').upsert({
-        id: testUserId,
-        full_name: 'Cliente (Teste Bypass)',
+        id: realUserId,
+        full_name: realUserName,
         role: 'client'
       }, { onConflict: 'id' });
 
-      // 2. Criar o pedido
+      // 2. Criar o pedido associado ao cliente real
       const { data, error } = await supabase
         .from('service_requests')
         .insert({
-          client_id: testUserId,
+          client_id: realUserId,
           title: `Pedido urgente: ${params.categoriaNome}`,
           category_id: parseInt(params.categoriaId || '1'),
           description: params.descricao,

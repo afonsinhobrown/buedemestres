@@ -52,9 +52,12 @@ export async function getProviders() {
   const result = await db.query(`
     SELECT pp.profile_id,
            COALESCE(pp.business_name, p.full_name, 'Mestre') as business_name,
-           p.full_name
+           p.full_name,
+           pp.category_id,
+           COALESCE(c.name, 'Geral') as category_name
     FROM provider_profiles pp
     JOIN profiles p ON pp.profile_id = p.id
+    LEFT JOIN categories c ON pp.category_id = c.id
     ORDER BY pp.business_name ASC
   `)
   return result.rows

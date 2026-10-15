@@ -8,34 +8,76 @@ export default function ProHomeScreen() {
   const [newRequest, setNewRequest] = useState<any>(null)
   const [trabalhosHoje, setTrabalhosHoje] = useState(0)
   const [pendingJobs, setPendingJobs] = useState<any[]>([])
+  const [providerProfile, setProviderProfile] = useState<any>(null)
+  const [availableProviders, setAvailableProviders] = useState<any[]>([])
   const user = useAuthStore(s => s.user)
 
-  // Fetch initial pending jobs
+  // Carregar dados do Mestre e sua Especialidade/Categoria
   useEffect(() => {
-    if (!user) return
+    async function carregarPerfilMestre() {
+      // 1. Tentar carregar provedores da base de dados
+      const { data: provs } = await supabase
+        .from('provider_profiles')
+        .select('profile_id, business_name, category_id, categories(name)')
+        .limit(10)
+      
+      if (provs && provs.length > 0) {
+        setAvailableProviders(provs)
+        // Se user logado corresponder, usar esse, senão usar o primeiro como default ativo
+        const matched = provs.find(p => p.profile_id === user?.id) || provs[0]
+        setProviderProfile(matched)
+      } else {
+        // Fallback default mestre mecânico
+        setProviderProfile({
+          profile_id: user?.id || 'demo-pro',
+          business_name: 'Oficina Central (Mecânico)',
+          category_id: 1,
+          categories: { name: 'Mecânico' }
+        })
+      }
+    }
+    carregarPerfilMestre()
+  }, [user])
+
+  // Fetch initial pending jobs filtrados estritamente pela categoria do mestre
+  useEffect(() => {
+    if (!providerProfile) return
+    const activeProId = providerProfile.profile_id
+    const activeCatId = providerProfile.category_id
+
     const fetchJobs = async () => {
+      // Pedidos directos para este mestre
       const { data: jobs } = await supabase
         .from('service_jobs')
         .select('*')
-        .eq('provider_id', user.id)
+        .eq('provider_id', activeProId)
         .eq('status', 'pending')
         
-      const { data: requests } = await supabase
+      // Pedidos abertos APENAS da mesma categoria do mestre
+      let reqQuery = supabase
         .from('service_requests')
         .select('*')
         .eq('status', 'open')
         
+      if (activeCatId) {
+        reqQuery = reqQuery.eq('category_id', activeCatId)
+      }
+      
+      const { data: requests } = await reqQuery
       setPendingJobs([...(jobs || []), ...(requests || [])])
     }
     fetchJobs()
-  }, [user])
+  }, [providerProfile])
 
-  // Ouve novos pedidos na base de dados em tempo real
+  // Ouve novos pedidos em tempo real filtrando pela categoria do mestre
   useEffect(() => {
-    if (!isOnline) {
-      setNewRequest(null);
-      return;
+    if (!isOnline || !providerProfile) {
+      setNewRequest(null)
+      return
     }
+
+    const activeProId = providerProfile.profile_id
+    const activeCatId = providerProfile.category_id
 
     const channel = supabase
       .channel('pro_requests')
@@ -43,28 +85,33 @@ export default function ProHomeScreen() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'service_requests' },
         (payload) => {
-          console.log('🚨 RECEBIDO NOVO PEDIDO URGENTE:', payload);
-          setNewRequest(payload.new);
-          setPendingJobs(prev => [payload.new, ...prev]);
+          // FILTRO: Só notifica se for da mesma categoria do mestre!
+          if (activeCatId && payload.new.category_id && payload.new.category_id !== activeCatId) {
+            console.log(`Ignorado pedido de categoria diferente (${payload.new.category_id}) para mestre da categoria (${activeCatId})`)
+            return
+          }
+          console.log('🚨 RECEBIDO NOVO PEDIDO URGENTE DA MINHA CATEGORIA:', payload)
+          setNewRequest(payload.new)
+          setPendingJobs(prev => [payload.new, ...prev])
         }
       )
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'service_jobs' },
         (payload) => {
-          console.log('🚨 RECEBIDO NOVO PEDIDO DIRECTO:', payload);
-          if (payload.new.provider_id === user?.id) {
-            setNewRequest(payload.new);
-            setPendingJobs(prev => [payload.new, ...prev]);
+          if (payload.new.provider_id === activeProId) {
+            console.log('🚨 RECEBIDO NOVO PEDIDO DIRECTO:', payload)
+            setNewRequest(payload.new)
+            setPendingJobs(prev => [payload.new, ...prev])
           }
         }
       )
-      .subscribe();
+      .subscribe()
 
     return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [isOnline, user]);
+      supabase.removeChannel(channel)
+    }
+  }, [isOnline, providerProfile])
 
   const aceitarTrabalho = async (requestId: string) => {
     // We try to update both tables since we don't know which one it came from
@@ -112,9 +159,43 @@ export default function ProHomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: isOnline ? '#0F2D1A' : '#1A1A2E' }]}>
-      <Text style={styles.logo}>🔨 Bué de Mestres Pro</Text>
+      <View style={{ marginBottom: 24 }}>
+        <Text style={styles.logo}>🔨 Bué de Mestres Pro</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: -20, flexWrap: 'wrap' }}>
+          <View style={{ backgroundColor: '#F2C94C', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
+            <Text style={{ color: '#1A1A2E', fontWeight: '900', fontSize: 12 }}>
+              Especialidade: {providerProfile?.categories?.name || 'Mecânico'}
+            </Text>
+          </View>
+          <Text style={{ color: '#E2E8F0', fontSize: 13, fontWeight: '700' }}>
+            {providerProfile?.business_name || 'Mestre Registado'}
+          </Text>
+        </View>
 
-      {/* Modal Elegante para o Novo Pedido */}
+        {/* Seletor rápido de Especialidade / Mestre Registado */}
+        {availableProviders.length > 1 && (
+          <View style={{ flexDirection: 'row', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+            {availableProviders.map(p => (
+              <TouchableOpacity
+                key={p.profile_id}
+                onPress={() => setProviderProfile(p)}
+                style={{
+                  backgroundColor: providerProfile?.profile_id === p.profile_id ? '#2563EB' : 'rgba(255,255,255,0.08)',
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 4,
+                  borderWidth: 1,
+                  borderColor: providerProfile?.profile_id === p.profile_id ? '#60A5FA' : 'rgba(255,255,255,0.1)'
+                }}
+              >
+                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>
+                  {p.categories?.name || 'Mestre'}: {p.business_name?.substring(0, 15)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
       <Modal visible={!!newRequest} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
