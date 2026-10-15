@@ -10,12 +10,7 @@
  */
 import { useState } from 'react'
 
-const APPS = [
-  { label: 'App Cliente', url: process.env.NEXT_PUBLIC_SIM_CLIENTE_URL || 'http://localhost:8081', port: 8081 },
-  { label: 'App Mestre (Pro)', url: process.env.NEXT_PUBLIC_SIM_PRO_URL || 'http://localhost:8082', port: 8082 },
-]
-
-function Phone({ label, url }: { label: string; url: string }) {
+function Phone({ label, url, reloadKey }: { label: string; url: string; reloadKey: number }) {
   const [key, setKey] = useState(0)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
@@ -32,7 +27,7 @@ function Phone({ label, url }: { label: string; url: string }) {
       </div>
       <div style={{ width: 380, height: 760, borderRadius: 48, background: '#000', padding: 12, boxShadow: '0 25px 50px rgba(0,0,0,0.5), inset 0 0 0 2px #333' }}>
         <iframe
-          key={key}
+          key={`${key}-${reloadKey}`}
           src={url}
           title={label}
           allow="geolocation; camera; microphone"
@@ -45,15 +40,32 @@ function Phone({ label, url }: { label: string; url: string }) {
 
 export default function SimuladorPage() {
   const [showMap, setShowMap] = useState(true)
+  const [envMode, setEnvMode] = useState<'cloud' | 'local'>('cloud')
+  const [reloadKey, setReloadKey] = useState(0)
   const [mapCoords, setMapCoords] = useState({ lat: -25.9458, lng: 32.5594, label: 'Xipamanine, Maputo' })
 
   // OpenStreetMap embed URL centrado nas coordenadas
   const osmUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${mapCoords.lng - 0.03}%2C${mapCoords.lat - 0.02}%2C${mapCoords.lng + 0.03}%2C${mapCoords.lat + 0.02}&layer=mapnik&marker=${mapCoords.lat}%2C${mapCoords.lng}`
 
+  const apps = [
+    {
+      label: 'App Cliente',
+      url: envMode === 'cloud' 
+        ? '/dev/simulador/cliente' 
+        : (process.env.NEXT_PUBLIC_SIM_CLIENTE_URL || 'http://localhost:8081')
+    },
+    {
+      label: 'App Mestre (Pro)',
+      url: envMode === 'cloud' 
+        ? '/dev/simulador/pro' 
+        : (process.env.NEXT_PUBLIC_SIM_PRO_URL || 'http://localhost:8082')
+    },
+  ]
+
   return (
     <main style={{ minHeight: '100vh', background: '#0b1020', padding: '20px 24px', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       
-      {/* Barra de Topo com Atalhos e Políticas */}
+      {/* Barra de Topo com Atalhos e Selector de Ambiente */}
       <header style={{ maxWidth: 1320, margin: '0 auto 20px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 14, background: '#1e293b', padding: '14px 20px', borderRadius: 12, border: '1px solid #334155' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -61,16 +73,50 @@ export default function SimuladorPage() {
             <h1 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: '#fff' }}>
               Simulador Plataforma Bué de Mestres
             </h1>
-            <span style={{ background: '#22c55e25', color: '#4ade80', fontSize: 11, fontWeight: 800, padding: '3px 8px', borderRadius: 6, border: '1px solid #22c55e40' }}>
-              Apps Reais + GPS + Retenção
+            <span style={{ background: envMode === 'cloud' ? '#22c55e25' : '#3b82f625', color: envMode === 'cloud' ? '#4ade80' : '#60a5fa', fontSize: 11, fontWeight: 800, padding: '3px 8px', borderRadius: 6, border: `1px solid ${envMode === 'cloud' ? '#22c55e40' : '#3b82f640'}` }}>
+              {envMode === 'cloud' ? '☁️ Modo Cloud (Vercel)' : '💻 Modo Localhost'}
             </span>
           </div>
           <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: 12 }}>
-            🎁 <strong>Políticas de Fidelização Activas:</strong> 10% Desconto p/ Cliente após 10 serviços • 0% Comissão p/ Mestre no 11º serviço.
+            🎁 <strong>1 Cliente & 1 Provedor:</strong> Totalmente integrado com Supabase Realtime na cloud.
           </p>
         </div>
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Alternador de Ambiente Cloud / Localhost */}
+          <div style={{ background: '#0f172a', borderRadius: 8, padding: 3, display: 'flex', border: '1px solid #334155' }}>
+            <button
+              onClick={() => { setEnvMode('cloud'); setReloadKey(k => k + 1) }}
+              style={{
+                background: envMode === 'cloud' ? '#22c55e' : 'transparent',
+                color: envMode === 'cloud' ? '#052e16' : '#94a3b8',
+                border: 'none',
+                borderRadius: 6,
+                padding: '6px 12px',
+                fontSize: 11,
+                fontWeight: 800,
+                cursor: 'pointer'
+              }}
+            >
+              ☁️ Cloud
+            </button>
+            <button
+              onClick={() => { setEnvMode('local'); setReloadKey(k => k + 1) }}
+              style={{
+                background: envMode === 'local' ? '#3b82f6' : 'transparent',
+                color: envMode === 'local' ? '#fff' : '#94a3b8',
+                border: 'none',
+                borderRadius: 6,
+                padding: '6px 12px',
+                fontSize: 11,
+                fontWeight: 800,
+                cursor: 'pointer'
+              }}
+            >
+              💻 Localhost
+            </button>
+          </div>
+
           <button
             onClick={() => setShowMap(!showMap)}
             style={{
@@ -104,7 +150,7 @@ export default function SimuladorPage() {
               gap: 6
             }}
           >
-            🛡️ Painel Admin (Aprovar Mestres) ↗
+            🛡️ Painel Admin ↗
           </a>
         </div>
       </header>
@@ -156,9 +202,9 @@ export default function SimuladorPage() {
         </section>
       )}
 
-      {/* Grid com os 2 Telemóveis das Apps Reais */}
+      {/* Grid com os 2 Telemóveis das Apps */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 36, justifyContent: 'center', alignItems: 'flex-start' }}>
-        {APPS.map(a => <Phone key={a.label} {...a} />)}
+        {apps.map(a => <Phone key={a.label} label={a.label} url={a.url} reloadKey={reloadKey} />)}
       </div>
     </main>
   )
