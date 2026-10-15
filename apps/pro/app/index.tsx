@@ -1,5 +1,6 @@
-import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, Platform, Modal, Animated } from 'react-native'
+import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, Platform, Modal, TextInput, ActivityIndicator } from 'react-native'
 import { useState, useEffect } from 'react'
+import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../lib/useAuthStore'
 
@@ -113,20 +114,26 @@ export default function ProHomeScreen() {
     }
   }, [isOnline, providerProfile])
 
-  const aceitarTrabalho = async (requestId: string) => {
-    // We try to update both tables since we don't know which one it came from
-    await supabase.from('service_requests').update({ status: 'accepted' }).eq('id', requestId);
-    await supabase.from('service_jobs').update({ status: 'accepted' }).eq('id', requestId);
+  const aceitarTrabalho = async (req: any) => {
+    const requestId = typeof req === 'string' ? req : req.id
+    const jobTitle = typeof req === 'object' ? (req.title || req.problem_description || 'Serviço') : 'Serviço'
+
+    await supabase.from('service_requests').update({ status: 'accepted' }).eq('id', requestId)
+    await supabase.from('service_jobs').update({ status: 'accepted' }).eq('id', requestId)
     
-    setNewRequest(null);
-    setPendingJobs(prev => prev.filter(job => job.id !== requestId));
-    setTrabalhosHoje(prev => prev + 1);
-    
-    if (Platform.OS !== 'web') {
-      Alert.alert('Trabalho aceite!', 'O cliente foi notificado.');
-    } else {
-      console.log('Trabalho aceite! Estatística atualizada.');
-    }
+    setNewRequest(null)
+    setPendingJobs(prev => prev.filter(job => job.id !== requestId))
+    setTrabalhosHoje(prev => prev + 1)
+
+    // Navegar imediatamente para o ecrã de deslocação do mestre!
+    router.push({
+      pathname: '/trabalho/a-caminho',
+      params: {
+        jobId: requestId,
+        categoriaNome: jobTitle,
+        categoriaEmoji: '🔧'
+      }
+    })
   }
 
   const recusarTrabalho = async (requestId: string) => {
@@ -270,24 +277,44 @@ export default function ProHomeScreen() {
         
         {pendingJobs.length === 0 ? (
           <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: 24, borderRadius: 8, alignItems: 'center' }}>
-            <Text style={{ color: '#6B7280', fontSize: 16 }}>Nenhum pedido pendente.</Text>
+            <Text style={{ color: '#6B7280', fontSize: 16 }}>Nenhum pedido pendente para esta especialidade.</Text>
           </View>
         ) : (
           pendingJobs.map(job => (
-            <View key={job.id} style={{ backgroundColor: '#1E293B', padding: 16, borderRadius: 8, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-              <Text style={{ color: '#F8FAFC', fontSize: 16, fontWeight: 'bold' }}>Novo Pedido Directo</Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+            <View key={job.id} style={{ backgroundColor: '#1E293B', padding: 16, borderRadius: 10, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <Text style={{ color: '#F8FAFC', fontSize: 16, fontWeight: 'bold' }}>
+                  {job.title || job.problem_description || 'Pedido de Serviço'}
+                </Text>
+                <View style={{ backgroundColor: 'rgba(242,201,76,0.2)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
+                  <Text style={{ color: '#F2C94C', fontSize: 11, fontWeight: 'bold' }}>URGENTE</Text>
+                </View>
+              </View>
+
+              {job.description && (
+                <Text style={{ color: '#94A3B8', fontSize: 13, marginBottom: 8, lineHeight: 18 }}>
+                  {job.description}
+                </Text>
+              )}
+
+              {(job.location_note || job.reference_point) && (
+                <Text style={{ color: '#38BDF8', fontSize: 12, marginBottom: 12 }}>
+                  📍 Ref: {job.location_note || job.reference_point}
+                </Text>
+              )}
+
+              <View style={{ flexDirection: 'row', gap: 8 }}>
                 <TouchableOpacity 
-                  style={{ flex: 1, backgroundColor: '#EF4444', padding: 12, borderRadius: 6, alignItems: 'center' }}
+                  style={{ flex: 1, backgroundColor: '#451A1A', padding: 12, borderRadius: 6, alignItems: 'center', borderWidth: 1, borderColor: '#7F1D1D' }}
                   onPress={() => recusarTrabalho(job.id)}
                 >
-                  <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>RECUSAR</Text>
+                  <Text style={{ color: '#FCA5A5', fontWeight: 'bold' }}>RECUSAR</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={{ flex: 2, backgroundColor: '#4ADE80', padding: 12, borderRadius: 6, alignItems: 'center' }}
-                  onPress={() => aceitarTrabalho(job.id)}
+                  onPress={() => aceitarTrabalho(job)}
                 >
-                  <Text style={{ color: '#0F2D1A', fontWeight: 'bold' }}>ACEITAR</Text>
+                  <Text style={{ color: '#0F2D1A', fontWeight: 'bold' }}>ACEITAR E PARTIR →</Text>
                 </TouchableOpacity>
               </View>
             </View>

@@ -137,8 +137,20 @@ export default function AProcurarMestreScreen() {
         <Text style={{ fontSize: 18, color: '#0F2D1A', textAlign: 'center', marginBottom: 40, opacity: 0.8 }}>
           O seu pedido foi aceite e o profissional já está a preparar-se para ir ao seu encontro.
         </Text>
-        <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: '#0F2D1A', borderColor: '#0F2D1A' }]} onPress={() => router.replace('/')}>
-          <Text style={[styles.btnText, { color: '#4ADE80' }]}>VER DETALHES</Text>
+        <TouchableOpacity 
+          style={[styles.btnPrimary, { backgroundColor: '#0F2D1A', borderColor: '#0F2D1A' }]} 
+          onPress={() => router.replace({
+            pathname: '/pedido/mestre-a-caminho',
+            params: {
+              jobId: requestId || '',
+              mestreNome: 'Mestre Profissional',
+              categoriaEmoji: '🔧',
+              etaMinutos: '12',
+              distanciaM: '2500'
+            }
+          })}
+        >
+          <Text style={[styles.btnText, { color: '#4ADE80' }]}>ACOMPANHAR NO MAPA →</Text>
         </TouchableOpacity>
       </View>
     )
