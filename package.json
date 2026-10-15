@@ -7,7 +7,8 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "bootstrap:superadmin": "tsx scripts/bootstrap-superadmin.ts"
+    "bootstrap:superadmin": "tsx scripts/bootstrap-superadmin.ts",
+    "sim": "turbo run web --parallel --filter=cliente --filter=pro"
   },
   "devDependencies": {
     "prettier": "^3.2.5",

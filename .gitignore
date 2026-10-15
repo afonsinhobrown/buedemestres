@@ -44,3 +44,10 @@ next-env.d.ts
 
 # turbopack cache
 apps/web/.next/
+.turbo/
+
+# build artifacts & mobile packages
+apk/
+*.apk
+*.aab
+dist/

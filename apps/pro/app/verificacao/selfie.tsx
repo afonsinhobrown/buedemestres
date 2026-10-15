@@ -6,16 +6,16 @@ import { useRouter } from 'expo-router';
 export default function VerificacaoSelfieScreen() {
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
-  const cameraRef = useRef<CameraView>(null);
+  const cameraRef = useRef<any>(null);
 
-  if (!permission) return <View />;
+  if (!permission) return <View style={styles.container} />;
 
   if (!permission.granted) {
     return (
-      <View className="flex-1 justify-center items-center p-6 bg-white">
-        <Text className="text-center text-lg mb-4">Precisamos da câmara frontal para a selfie.</Text>
-        <TouchableOpacity onPress={requestPermission} className="bg-blue-600 px-6 py-3 rounded-xl">
-          <Text className="text-white font-bold">Dar Permissão</Text>
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.permissionText}>Precisamos da câmara frontal para a selfie.</Text>
+        <TouchableOpacity onPress={requestPermission} style={styles.btnPermissao}>
+          <Text style={styles.btnPermissaoText}>Dar Permissão</Text>
         </TouchableOpacity>
       </View>
     );
@@ -23,41 +23,124 @@ export default function VerificacaoSelfieScreen() {
 
   const takeSelfie = async () => {
     if (cameraRef.current) {
-      const photo = await cameraRef.current.takePictureAsync();
+      await cameraRef.current.takePictureAsync();
       // Em produção, aqui enviamos para a API de "prova de vida"
       router.push('/verificacao/confirmar-dados');
     }
   };
 
+  const CameraComponent = CameraView as any;
+
   return (
-    <View className="flex-1 bg-black">
-      <CameraView 
+    <View style={styles.container}>
+      <CameraComponent 
         ref={cameraRef}
         style={StyleSheet.absoluteFill} 
         facing="front"
       >
-        <View className="flex-1 bg-black/60 pt-12 px-4">
-          <TouchableOpacity onPress={() => router.back()} className="mb-8">
-            <Text className="text-white text-lg">← Voltar</Text>
+        <View style={styles.topOverlay}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Text style={styles.backButtonText}>← Voltar</Text>
           </TouchableOpacity>
-          <Text className="text-white text-2xl font-bold text-center mb-2">Prova de Vida</Text>
-          <Text className="text-white/80 text-center px-4">
+          <Text style={styles.title}>Prova de Vida</Text>
+          <Text style={styles.subtitle}>
             Posicione o seu rosto dentro da oval e olhe directamente para a câmara.
           </Text>
         </View>
 
         {/* Oval Mask Mock */}
-        <View className="flex-[2] justify-center items-center">
-          <View className="w-64 h-80 border-4 border-green-400 rounded-[100px] bg-transparent" />
+        <View style={styles.maskContainer}>
+          <View style={styles.ovalMask} />
         </View>
 
-        <View className="flex-1 bg-black/60 pb-12 justify-end items-center">
+        <View style={styles.bottomOverlay}>
           <TouchableOpacity 
             onPress={takeSelfie}
-            className="w-20 h-20 bg-white rounded-full border-4 border-gray-300"
+            style={styles.captureBtn}
           />
         </View>
-      </CameraView>
+      </CameraComponent>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: '#fff',
+  },
+  permissionText: {
+    textAlign: 'center',
+    fontSize: 18,
+    marginBottom: 16,
+  },
+  btnPermissao: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  btnPermissaoText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  topOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingTop: 48,
+    paddingHorizontal: 16,
+  },
+  backButton: {
+    marginBottom: 32,
+  },
+  backButtonText: {
+    color: '#fff',
+    fontSize: 18,
+  },
+  title: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  subtitle: {
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
+    paddingHorizontal: 16,
+  },
+  maskContainer: {
+    flex: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ovalMask: {
+    width: 256,
+    height: 320,
+    borderWidth: 4,
+    borderColor: '#4ADE80',
+    borderRadius: 100,
+    backgroundColor: 'transparent',
+  },
+  bottomOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingBottom: 48,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  captureBtn: {
+    width: 80,
+    height: 80,
+    backgroundColor: '#fff',
+    borderRadius: 40,
+    borderWidth: 4,
+    borderColor: '#D1D5DB',
+  },
+});

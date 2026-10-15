@@ -14,12 +14,18 @@ export default function ProHomeScreen() {
   useEffect(() => {
     if (!user) return
     const fetchJobs = async () => {
-      const { data } = await supabase
+      const { data: jobs } = await supabase
         .from('service_jobs')
         .select('*')
         .eq('provider_id', user.id)
         .eq('status', 'pending')
-      if (data) setPendingJobs(data)
+        
+      const { data: requests } = await supabase
+        .from('service_requests')
+        .select('*')
+        .eq('status', 'open')
+        
+      setPendingJobs([...(jobs || []), ...(requests || [])])
     }
     fetchJobs()
   }, [user])
@@ -39,6 +45,7 @@ export default function ProHomeScreen() {
         (payload) => {
           console.log('🚨 RECEBIDO NOVO PEDIDO URGENTE:', payload);
           setNewRequest(payload.new);
+          setPendingJobs(prev => [payload.new, ...prev]);
         }
       )
       .on(

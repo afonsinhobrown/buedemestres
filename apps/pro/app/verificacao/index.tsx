@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 
 export default function VerificacaoIndexScreen() {
@@ -14,21 +14,25 @@ export default function VerificacaoIndexScreen() {
   ];
 
   return (
-    <View className="flex-1 bg-white p-6">
-      <Text className="text-2xl font-bold text-gray-900 mb-2">Verificação de Identidade</Text>
-      <Text className="text-gray-500 mb-8">
+    <View style={styles.container}>
+      <Text style={styles.title}>Verificação de Identidade</Text>
+      <Text style={styles.subtitle}>
         Precisamos de validar a sua identidade para garantir a segurança da plataforma.
       </Text>
 
-      <ScrollView className="flex-1">
+      <ScrollView style={styles.scrollView}>
         {steps.map((step, index) => (
-          <View key={index} className="flex-row items-center mb-6">
-            <View className={`w-8 h-8 rounded-full items-center justify-center mr-4 
-              ${step.done ? 'bg-green-500' : step.active ? 'bg-blue-600' : 'bg-gray-200'}`}
-            >
-              <Text className="text-white font-bold">{step.done ? '✓' : index + 1}</Text>
+          <View key={index} style={styles.stepRow}>
+            <View style={[
+              styles.stepBadge,
+              step.done ? styles.bgGreen : step.active ? styles.bgBlue : styles.bgGray
+            ]}>
+              <Text style={styles.stepBadgeText}>{step.done ? '✓' : index + 1}</Text>
             </View>
-            <Text className={`text-lg ${step.active ? 'font-bold text-gray-900' : 'text-gray-500'}`}>
+            <Text style={[
+              styles.stepText,
+              step.active ? styles.stepTextActive : styles.stepTextInactive
+            ]}>
               {step.title}
             </Text>
           </View>
@@ -37,10 +41,79 @@ export default function VerificacaoIndexScreen() {
 
       <TouchableOpacity 
         onPress={() => router.push('/verificacao/documento')}
-        className="w-full bg-blue-600 py-4 rounded-xl items-center"
+        style={styles.submitBtn}
       >
-        <Text className="text-white font-bold text-lg">Começar Captura</Text>
+        <Text style={styles.submitBtnText}>Começar Captura</Text>
       </TouchableOpacity>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 24,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  subtitle: {
+    color: '#6B7280',
+    marginBottom: 32,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  stepBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  bgGreen: {
+    backgroundColor: '#22C55E',
+  },
+  bgBlue: {
+    backgroundColor: '#2563EB',
+  },
+  bgGray: {
+    backgroundColor: '#E5E7EB',
+  },
+  stepBadgeText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  stepText: {
+    fontSize: 18,
+  },
+  stepTextActive: {
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  stepTextInactive: {
+    color: '#6B7280',
+  },
+  submitBtn: {
+    width: '100%',
+    backgroundColor: '#2563EB',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  submitBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+});

@@ -1,0 +1,30 @@
+# Dependências e caches
+node_modules/
+.expo/
+.turbo/
+.next/
+dist/
+build/
+coverage/
+
+# Binários e APKs existentes
+apk/
+*.apk
+*.aab
+
+# Documentação pesada e ficheiros não relacionados com mobile
+*.docx
+*.pptx
+*.pdf
+PUBLICIDADE/
+buedemestres-referencia-*.html
+APRESENTACAO_*
+
+# Aplicação Web Next.js (não necessária na build mobile)
+apps/web/
+
+# Scripts locais e migrações
+scripts/
+migrations/
+*.sql
+*.bat
