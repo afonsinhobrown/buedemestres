@@ -25,6 +25,12 @@ export default function AProcurarMestreScreen() {
   const [esgotado, setEsgotado] = useState(false)
   const [aceite, setAceite] = useState(false)
   const [requestId, setRequestId] = useState<string | null>(null)
+  const [onlineCount, setOnlineCount] = useState<number | null>(null)
+  const [mestreDados, setMestreDados] = useState<{ nome: string; telefone: string; nota: string }>({
+    nome: 'Mestre Profissional',
+    telefone: '',
+    nota: '4.9'
+  })
   const pulseAnim = useRef(new Animated.Value(1)).current
 
   // Animação de pulso
@@ -39,12 +45,31 @@ export default function AProcurarMestreScreen() {
     return () => pulse.stop()
   }, [])
 
+  // Verificar mestres online da categoria na zona
+  useEffect(() => {
+    async function checkOnline() {
+      const catId = parseInt(params.categoriaId || '2')
+      const { data } = await supabase
+        .from('provider_presence')
+        .select('provider_id')
+        .eq('is_online', true)
+        .contains('categories', [catId])
+      
+      if (data) {
+        setOnlineCount(data.length)
+      }
+    }
+    checkOnline()
+  }, [params.categoriaId])
+
   // Criar o pedido no Supabase
   useEffect(() => {
     async function criarPedido() {
       // Usar utilizador real autenticado da sessão
       const realUserId = user?.id || '11111111-1111-1111-1111-111111111111';
       const realUserName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Cliente Registado';
+      const lng = params.lng || '32.5700';
+      const lat = params.lat || '-25.9680';
 
       // 1. Garantir que o perfil existe
       await supabase.from('profiles').upsert({
@@ -53,17 +78,17 @@ export default function AProcurarMestreScreen() {
         role: 'client'
       }, { onConflict: 'id' });
 
-      // 2. Criar o pedido associado ao cliente real
+      // 2. Criar o pedido associado ao cliente real com a categoria certa
       const { data, error } = await supabase
         .from('service_requests')
         .insert({
           client_id: realUserId,
           title: `Pedido urgente: ${params.categoriaNome}`,
-          category_id: parseInt(params.categoriaId || '1'),
-          description: params.descricao,
-          location_note: params.referencia,
+          category_id: parseInt(params.categoriaId || '2'),
+          description: params.descricao || 'Pedido urgente de assistência',
+          location_note: params.referencia || '',
           mode: 'on_demand',
-          location: `POINT(${params.lng} ${params.lat})`,
+          location: `POINT(${lng} ${lat})`,
           search_radius_m: 5000,
         })
         .select()
@@ -99,10 +124,30 @@ export default function AProcurarMestreScreen() {
           table: 'service_requests',
           filter: `id=eq.${requestId}`,
         },
-        (payload) => {
+        async (payload) => {
           if (payload.new.status === 'accepted') {
             // Um mestre aceitou!
             clearInterval(timer);
+            
+            let mNome = 'Mestre Profissional';
+            let mTel = '';
+            let mNota = '4.9';
+
+            if (payload.new.target_provider_id) {
+              const { data: prov } = await supabase
+                .from('provider_profiles')
+                .select('business_name, rating_avg, profiles:profile_id(full_name, phone)')
+                .eq('profile_id', payload.new.target_provider_id)
+                .single();
+
+              if (prov) {
+                mNome = prov.business_name || (prov.profiles as any)?.full_name || mNome;
+                mTel = (prov.profiles as any)?.phone || '';
+                if (prov.rating_avg) mNota = Number(prov.rating_avg).toFixed(1);
+              }
+            }
+
+            setMestreDados({ nome: mNome, telefone: mTel, nota: mNota });
             setAceite(true);
           }
         }
@@ -134,8 +179,11 @@ export default function AProcurarMestreScreen() {
         <Text style={{ fontSize: 32, fontWeight: '900', color: '#0F2D1A', textAlign: 'center', marginBottom: 12 }}>
           Mestre a Caminho!
         </Text>
-        <Text style={{ fontSize: 18, color: '#0F2D1A', textAlign: 'center', marginBottom: 40, opacity: 0.8 }}>
-          O seu pedido foi aceite e o profissional já está a preparar-se para ir ao seu encontro.
+        <Text style={{ fontSize: 20, fontWeight: '800', color: '#0F2D1A', textAlign: 'center', marginBottom: 8 }}>
+          {mestreDados.nome}
+        </Text>
+        <Text style={{ fontSize: 16, color: '#0F2D1A', textAlign: 'center', marginBottom: 40, opacity: 0.85 }}>
+          ⭐ {mestreDados.nota} · O profissional aceitou o pedido e já está a caminho do seu encontro.
         </Text>
         <TouchableOpacity 
           style={[styles.btnPrimary, { backgroundColor: '#0F2D1A', borderColor: '#0F2D1A' }]} 
@@ -143,10 +191,12 @@ export default function AProcurarMestreScreen() {
             pathname: '/pedido/mestre-a-caminho',
             params: {
               jobId: requestId || '',
-              mestreNome: 'Mestre Profissional',
+              mestreNome: mestreDados.nome,
+              mestreTelefone: mestreDados.telefone,
+              mestreNota: mestreDados.nota,
               categoriaEmoji: '🔧',
-              etaMinutos: '12',
-              distanciaM: '2500'
+              etaMinutos: '8',
+              distanciaM: '2100'
             }
           })}
         >
@@ -187,6 +237,14 @@ export default function AProcurarMestreScreen() {
 
       <Text style={styles.titulo}>A procurar mestre</Text>
       <Text style={styles.subtitulo}>{params.categoriaNome}</Text>
+
+      {onlineCount !== null && (
+        <View style={{ backgroundColor: onlineCount > 0 ? 'rgba(74, 222, 128, 0.15)' : 'rgba(242, 201, 76, 0.15)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, marginBottom: 24, borderWidth: 1, borderColor: onlineCount > 0 ? 'rgba(74, 222, 128, 0.3)' : 'rgba(242, 201, 76, 0.3)' }}>
+          <Text style={{ color: onlineCount > 0 ? '#4ADE80' : '#F2C94C', fontSize: 13, fontWeight: '700' }}>
+            {onlineCount > 0 ? `🟢 ${onlineCount} mestre(s) online nesta especialidade` : '⏳ A aguardar resposta dos mestres...'}
+          </Text>
+        </View>
+      )}
 
       {/* Indicador de ronda */}
       <View style={styles.rondasContainer}>

@@ -1,25 +1,42 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native'
-import { useState } from 'react'
-import { router } from 'expo-router'
+import { useState, useEffect } from 'react'
+import { router, useLocalSearchParams } from 'expo-router'
 import * as Location from 'expo-location'
 
-// Categorias disponíveis para pedido imediato (on-demand)
-const CATEGORIAS_IMEDIATAS = [
-  { id: 1, emoji: '🔧', nome: 'Mecânico', desc: 'Avaria, motor, pneus' },
-  { id: 2, emoji: '⚡', nome: 'Electricista', desc: 'Instalações, avarias' },
-  { id: 3, emoji: '🚿', nome: 'Canalizador', desc: 'Fugas, entupimentos' },
-  { id: 4, emoji: '🔑', nome: 'Chaveiro', desc: 'Fechaduras, cópias' },
-  { id: 5, emoji: '🚗', nome: 'Reboque', desc: 'Socorro na estrada' },
-  { id: 6, emoji: '🔌', nome: 'Técnico TV/Sat', desc: 'TV, antenas, decodificadores' },
+// Categorias disponíveis para pedido imediato (on-demand) alinhadas com a base de dados
+export const CATEGORIAS_IMEDIATAS = [
+  { id: 2, slug: 'mecanico', emoji: '🔧', nome: 'Mecânico', desc: 'Avaria, motor, travões, socorro' },
+  { id: 11, slug: 'electricista', emoji: '⚡', nome: 'Electricista', desc: 'Instalações, avarias, curto-circuito' },
+  { id: 10, slug: 'canalizador', emoji: '🚿', nome: 'Canalizador', desc: 'Fugas de água, torneiras, entupimentos' },
+  { id: 13, slug: 'chaveiro', emoji: '🔑', nome: 'Chaveiro / Serralheiro', desc: 'Fechaduras, portões, cópias' },
+  { id: 8, slug: 'pedreiro', emoji: '🧱', nome: 'Pedreiro', desc: 'Obras rápidas, reboco, fissuras' },
+  { id: 31, slug: 'limpeza', emoji: '🧹', nome: 'Limpeza', desc: 'Residencial, escritórios, pós-obra' },
 ]
 
 export default function NovoPedidoImediatoScreen() {
+  const queryParams = useLocalSearchParams<{ categoria?: string }>()
   const [step, setStep] = useState<'categoria' | 'descricao' | 'localizacao'>('categoria')
   const [categoria, setCategoria] = useState<typeof CATEGORIAS_IMEDIATAS[0] | null>(null)
   const [descricao, setDescricao] = useState('')
   const [referencia, setReferencia] = useState('')
   const [location, setLocation] = useState<Location.LocationObject | null>(null)
   const [isLocating, setIsLocating] = useState(false)
+
+  // Pré-selecionar categoria se foi passada via URL (ex: a partir da Home ou Categorias)
+  useEffect(() => {
+    if (queryParams.categoria) {
+      const param = queryParams.categoria.toLowerCase()
+      const found = CATEGORIAS_IMEDIATAS.find(c =>
+        c.slug === param ||
+        c.id.toString() === param ||
+        (param === 'eletricista' && c.slug === 'electricista')
+      )
+      if (found) {
+        setCategoria(found)
+        setStep('descricao')
+      }
+    }
+  }, [queryParams.categoria])
 
   const handleCategoria = (cat: typeof CATEGORIAS_IMEDIATAS[0]) => {
     setCategoria(cat)
@@ -31,7 +48,20 @@ export default function NovoPedidoImediatoScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync()
       if (status !== 'granted') {
-        Alert.alert('Permissão negada', 'Precisamos da localização para enviar o teu pedido ao mestre mais próximo.')
+        // Fallback gracioso com coordenadas de Maputo centro para não travar o cliente
+        setLocation({
+          coords: {
+            latitude: -25.9680,
+            longitude: 32.5700,
+            altitude: null,
+            accuracy: 10,
+            altitudeAccuracy: null,
+            heading: null,
+            speed: null,
+          },
+          timestamp: Date.now()
+        } as Location.LocationObject)
+        setStep('localizacao')
         setIsLocating(false)
         return
       }
@@ -39,13 +69,29 @@ export default function NovoPedidoImediatoScreen() {
       setLocation(loc)
       setStep('localizacao')
     } catch {
-      Alert.alert('Erro', 'Não conseguimos obter a tua localização. Verifica o GPS.')
+      // Fallback para Maputo centro
+      setLocation({
+        coords: {
+          latitude: -25.9680,
+          longitude: 32.5700,
+          altitude: null,
+          accuracy: 50,
+          altitudeAccuracy: null,
+          heading: null,
+          speed: null,
+        },
+        timestamp: Date.now()
+      } as Location.LocationObject)
+      setStep('localizacao')
     }
     setIsLocating(false)
   }
 
   const handleEnviar = () => {
-    if (!categoria || !location) return
+    if (!categoria) return
+    const lat = location?.coords?.latitude ?? -25.9680
+    const lng = location?.coords?.longitude ?? 32.5700
+
     // Navegar para o ecrã de "A procurar mestre"
     router.push({
       pathname: '/pedido/a-procurar',
@@ -54,8 +100,8 @@ export default function NovoPedidoImediatoScreen() {
         categoriaNome: categoria.nome,
         descricao,
         referencia,
-        lat: location.coords.latitude.toString(),
-        lng: location.coords.longitude.toString(),
+        lat: lat.toString(),
+        lng: lng.toString(),
       }
     })
   }

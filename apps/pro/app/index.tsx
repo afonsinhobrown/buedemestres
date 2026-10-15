@@ -13,18 +13,38 @@ export default function ProHomeScreen() {
   const [availableProviders, setAvailableProviders] = useState<any[]>([])
   const user = useAuthStore(s => s.user)
 
-  // Carregar dados do Mestre e sua Especialidade/Categoria Real
+  // Carregar dados do Mestre e sua Especialidade/Categoria Real com Join da tabela categories
   useEffect(() => {
     async function carregarPerfilMestre() {
       const { data: provs, error } = await supabase
         .from('provider_profiles')
-        .select('profile_id, business_name, primary_category_id')
+        .select(`
+          profile_id,
+          business_name,
+          primary_category_id,
+          is_available,
+          categories:primary_category_id (
+            id,
+            name,
+            slug
+          )
+        `)
+        .eq('is_published', true)
         .limit(10)
       
       if (provs && provs.length > 0) {
         setAvailableProviders(provs)
         const matched = provs.find(p => p.profile_id === user?.id) || provs[0]
         setProviderProfile(matched)
+        
+        // Colocar online por defeito para escutar logo pedidos em tempo real
+        setIsOnline(true)
+        await supabase.from('provider_presence').upsert({
+          provider_id: matched.profile_id,
+          is_online: true,
+          categories: matched.primary_category_id ? [matched.primary_category_id] : [2],
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'provider_id' })
       } else if (error) {
         console.error('Erro ao carregar provedores reais:', error)
       }
@@ -32,11 +52,30 @@ export default function ProHomeScreen() {
     carregarPerfilMestre()
   }, [user])
 
+  // Manter heartbeat de presença enquanto online (PostGIS requer updated_at recente)
+  useEffect(() => {
+    if (!isOnline || !providerProfile) return
+
+    const proId = providerProfile.profile_id
+    const catId = providerProfile.primary_category_id
+
+    const heartbeat = setInterval(async () => {
+      await supabase.from('provider_presence').upsert({
+        provider_id: proId,
+        is_online: true,
+        categories: catId ? [catId] : [2],
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'provider_id' })
+    }, 40000)
+
+    return () => clearInterval(heartbeat)
+  }, [isOnline, providerProfile])
+
   // Fetch initial pending jobs filtrados estritamente pela categoria do mestre
   useEffect(() => {
     if (!providerProfile) return
     const activeProId = providerProfile.profile_id
-    const activeCatId = providerProfile.category_id
+    const activeCatId = providerProfile.primary_category_id
 
     const fetchJobs = async () => {
       // Pedidos directos para este mestre
@@ -46,7 +85,7 @@ export default function ProHomeScreen() {
         .eq('provider_id', activeProId)
         .eq('status', 'pending')
         
-      // Pedidos abertos APENAS da mesma categoria do mestre
+      // Pedidos abertos da mesma categoria do mestre
       let reqQuery = supabase
         .from('service_requests')
         .select('*')
@@ -70,36 +109,49 @@ export default function ProHomeScreen() {
     }
 
     const activeProId = providerProfile.profile_id
-    const activeCatId = providerProfile.category_id
+    const activeCatId = providerProfile.primary_category_id
 
     const channel = supabase
-      .channel('pro_requests')
+      .channel('pro_requests_' + activeProId)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'service_requests' },
         (payload) => {
           // FILTRO: Só notifica se for da mesma categoria do mestre!
-          if (activeCatId && payload.new.category_id && payload.new.category_id !== activeCatId) {
+          if (activeCatId && payload.new.category_id && Number(payload.new.category_id) !== Number(activeCatId)) {
             console.log(`Ignorado pedido de categoria diferente (${payload.new.category_id}) para mestre da categoria (${activeCatId})`)
             return
           }
-          console.log('🚨 RECEBIDO NOVO PEDIDO URGENTE DA MINHA CATEGORIA:', payload)
+          console.log('🚨 RECEBIDO NOVO PEDIDO URGENTE DA MINHA CATEGORIA:', payload.new)
           setNewRequest(payload.new)
-          setPendingJobs(prev => [payload.new, ...prev])
+          setPendingJobs(prev => [payload.new, ...prev.filter(j => j.id !== payload.new.id)])
         }
       )
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'service_jobs' },
+        { event: 'UPDATE', schema: 'public', table: 'service_requests' },
         (payload) => {
-          if (payload.new.provider_id === activeProId) {
-            console.log('🚨 RECEBIDO NOVO PEDIDO DIRECTO:', payload)
-            setNewRequest(payload.new)
-            setPendingJobs(prev => [payload.new, ...prev])
+          // Se o pedido não está mais 'open' (foi aceite por outro ou cancelado), limpa
+          if (payload.new.status !== 'open') {
+            setPendingJobs(prev => prev.filter(j => j.id !== payload.new.id))
+            setNewRequest((curr: any) => (curr?.id === payload.new.id ? null : curr))
           }
         }
       )
-      .subscribe()
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'jobs' },
+        (payload) => {
+          if (payload.new.provider_id === activeProId) {
+            console.log('🚨 RECEBIDO NOVO PEDIDO DIRECTO:', payload.new)
+            setNewRequest(payload.new)
+            setPendingJobs(prev => [payload.new, ...prev.filter(j => j.id !== payload.new.id)])
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log(`📡 Pro Realtime Status [${providerProfile.business_name} - Cat ${activeCatId}]:`, status)
+      })
 
     return () => {
       supabase.removeChannel(channel)
@@ -109,10 +161,42 @@ export default function ProHomeScreen() {
   const aceitarTrabalho = async (req: any) => {
     const requestId = typeof req === 'string' ? req : req.id
     const jobTitle = typeof req === 'object' ? (req.title || req.problem_description || 'Serviço') : 'Serviço'
+    const activeProId = providerProfile?.profile_id || user?.id
 
-    await supabase.from('service_requests').update({ status: 'accepted' }).eq('id', requestId)
-    await supabase.from('service_jobs').update({ status: 'accepted' }).eq('id', requestId)
-    
+    // 1. Atualizar o pedido para status 'accepted' com target_provider_id
+    const { error: reqErr } = await supabase
+      .from('service_requests')
+      .update({
+        status: 'accepted',
+        target_provider_id: activeProId
+      })
+      .eq('id', requestId)
+
+    if (reqErr) {
+      console.error('Erro ao aceitar pedido:', reqErr)
+    }
+
+    // 2. Registar em jobs se existir
+    try {
+      await supabase.from('jobs').upsert({
+        request_id: requestId,
+        client_id: req?.client_id || '11111111-1111-1111-1111-111111111111',
+        provider_id: activeProId,
+        status: 'accepted',
+        accepted_at: new Date().toISOString()
+      }, { onConflict: 'request_id' })
+    } catch (e) {
+      console.warn('Jobs upsert:', e)
+    }
+
+    // 3. Atualizar presença com timestamp recente
+    if (activeProId) {
+      await supabase
+        .from('provider_presence')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('provider_id', activeProId)
+    }
+
     setNewRequest(null)
     setPendingJobs(prev => prev.filter(job => job.id !== requestId))
     setTrabalhosHoje(prev => prev + 1)
@@ -130,7 +214,6 @@ export default function ProHomeScreen() {
 
   const recusarTrabalho = async (requestId: string) => {
     await supabase.from('service_requests').update({ status: 'cancelled' }).eq('id', requestId);
-    await supabase.from('service_jobs').update({ status: 'cancelled' }).eq('id', requestId);
     
     setNewRequest(null);
     setPendingJobs(prev => prev.filter(job => job.id !== requestId));
@@ -146,11 +229,13 @@ export default function ProHomeScreen() {
     const newValue = !isOnline;
     setIsOnline(newValue)
     
-    if (user) {
-      // Tenta atualizar a presença. Pode falhar se o perfil não existir, mas para o teste chega.
+    const proId = providerProfile?.profile_id || user?.id
+    const catId = providerProfile?.primary_category_id
+    if (proId) {
       await supabase.from('provider_presence').upsert({
-        provider_id: user.id,
+        provider_id: proId,
         is_online: newValue,
+        categories: catId ? [catId] : [2],
         updated_at: new Date().toISOString()
       }, { onConflict: 'provider_id' });
     }
@@ -163,7 +248,7 @@ export default function ProHomeScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: -20, flexWrap: 'wrap' }}>
           <View style={{ backgroundColor: '#F2C94C', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
             <Text style={{ color: '#1A1A2E', fontWeight: '900', fontSize: 12 }}>
-              Especialidade: {providerProfile?.categories?.name || 'Mecânico'}
+              Especialidade: {providerProfile?.categories?.name || 'Mestre'}
             </Text>
           </View>
           <Text style={{ color: '#E2E8F0', fontSize: 13, fontWeight: '700' }}>
