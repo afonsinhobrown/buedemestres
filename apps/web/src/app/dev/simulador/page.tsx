@@ -49,15 +49,15 @@ export default function SimuladorPage() {
 
   const apps = [
     {
-      label: 'App Cliente',
+      label: 'App Cliente (Expo Oficial)',
       url: envMode === 'cloud' 
-        ? '/dev/simulador/cliente' 
+        ? '/apps/cliente' 
         : (process.env.NEXT_PUBLIC_SIM_CLIENTE_URL || 'http://localhost:8081')
     },
     {
-      label: 'App Mestre (Pro)',
+      label: 'App Mestre Pro (Expo Oficial)',
       url: envMode === 'cloud' 
-        ? '/dev/simulador/pro' 
+        ? '/apps/pro' 
         : (process.env.NEXT_PUBLIC_SIM_PRO_URL || 'http://localhost:8082')
     },
   ]

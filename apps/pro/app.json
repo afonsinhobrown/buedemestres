@@ -68,6 +68,9 @@
         "projectId": "0431d78a-9cd1-4c2a-be4f-e66a3b7656f3"
       }
     },
+    "experiments": {
+      "baseUrl": "/apps/pro"
+    },
     "owner": "incubadoraservicos"
   }
 }
