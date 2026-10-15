@@ -13,28 +13,20 @@ export default function ProHomeScreen() {
   const [availableProviders, setAvailableProviders] = useState<any[]>([])
   const user = useAuthStore(s => s.user)
 
-  // Carregar dados do Mestre e sua Especialidade/Categoria
+  // Carregar dados do Mestre e sua Especialidade/Categoria Real
   useEffect(() => {
     async function carregarPerfilMestre() {
-      // 1. Tentar carregar provedores da base de dados
-      const { data: provs } = await supabase
+      const { data: provs, error } = await supabase
         .from('provider_profiles')
-        .select('profile_id, business_name, category_id, categories(name)')
+        .select('profile_id, business_name, primary_category_id')
         .limit(10)
       
       if (provs && provs.length > 0) {
         setAvailableProviders(provs)
-        // Se user logado corresponder, usar esse, senão usar o primeiro como default ativo
         const matched = provs.find(p => p.profile_id === user?.id) || provs[0]
         setProviderProfile(matched)
-      } else {
-        // Fallback default mestre mecânico
-        setProviderProfile({
-          profile_id: user?.id || 'demo-pro',
-          business_name: 'Oficina Central (Mecânico)',
-          category_id: 1,
-          categories: { name: 'Mecânico' }
-        })
+      } else if (error) {
+        console.error('Erro ao carregar provedores reais:', error)
       }
     }
     carregarPerfilMestre()
