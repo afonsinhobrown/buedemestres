@@ -177,9 +177,17 @@ export async function rejectRequest(id: string) {
 }
 
 export async function clearOldPendingJobs() {
-  await db.query(`
+  const jobsRes = await db.query(`
     UPDATE service_jobs SET status = 'cancelled'
     WHERE status NOT IN ('completed', 'cancelled', 'rejected')
   `)
-  return { success: true }
+  const reqsRes = await db.query(`
+    UPDATE service_requests SET status = 'cancelled'
+    WHERE status = 'open'
+  `)
+  return {
+    success: true,
+    cancelledJobs: jobsRes.rowCount ?? 0,
+    cancelledRequests: reqsRes.rowCount ?? 0
+  }
 }

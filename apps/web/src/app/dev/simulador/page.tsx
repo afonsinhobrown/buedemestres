@@ -59,6 +59,7 @@ export default function FullCycleSimulatorPage() {
   // Estado de feedback e carregamento
   const [isCreating, setIsCreating] = useState(false)
   const [loadingAction, setLoadingAction] = useState<string | null>(null)
+  const [confirmReset, setConfirmReset] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<'M-Pesa' | 'e-Mola'>('M-Pesa')
   const [toast, setToast] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null)
 
@@ -263,11 +264,25 @@ export default function FullCycleSimulatorPage() {
   }
 
   const handleClearOld = async () => {
-    if (!confirm('Deseja limpar todos os pedidos em aberto para reiniciar o ambiente de testes?')) return
-    await clearOldPendingJobs()
-    setActiveJob(null)
-    showToast('Ambiente reiniciado com sucesso!', 'success')
-    await refreshData()
+    setLoadingAction('clear')
+    try {
+      const res = await clearOldPendingJobs()
+      setActiveJob(null)
+      setConfirmReset(false)
+      const count = (res?.cancelledJobs ?? 0) + (res?.cancelledRequests ?? 0)
+      showToast(
+        count > 0
+          ? `🧹 Ambiente reiniciado com sucesso! ${count} pedido(s) cancelado(s).`
+          : '🧹 Ambiente reiniciado! Não havia pedidos pendentes.',
+        'success'
+      )
+      await refreshData()
+    } catch (err: any) {
+      console.error('Erro ao reiniciar ambiente:', err)
+      showToast('Erro ao reiniciar ambiente: ' + (err?.message || 'Falha na ligação'), 'error')
+    } finally {
+      setLoadingAction(null)
+    }
   }
 
   // Cálculos de orçamento
@@ -338,20 +353,76 @@ export default function FullCycleSimulatorPage() {
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <button
               onClick={() => refreshData()}
+              disabled={loadingAction !== null}
               style={{ backgroundColor: '#334155', border: '1px solid #475569', color: '#f1f5f9', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
             >
               🔄 Atualizar
             </button>
-            <button
-              onClick={handleClearOld}
-              style={{ backgroundColor: '#451a1a', border: '1px solid #7f1d1d', color: '#fca5a5', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}
-              title="Cancela pedidos antigos para reiniciar"
-            >
-              🧹 Reiniciar Ambiente
-            </button>
+            
+            {!confirmReset ? (
+              <button
+                onClick={() => setConfirmReset(true)}
+                disabled={loadingAction === 'clear'}
+                style={{
+                  backgroundColor: '#451a1a',
+                  border: '1px solid #7f1d1d',
+                  color: '#fca5a5',
+                  padding: '10px 16px',
+                  borderRadius: '8px',
+                  cursor: loadingAction === 'clear' ? 'not-allowed' : 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  opacity: loadingAction === 'clear' ? 0.6 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                title="Cancela pedidos antigos para reiniciar o ambiente"
+              >
+                {loadingAction === 'clear' ? '⏳ A reiniciar...' : '🧹 Reiniciar Ambiente'}
+              </button>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#3b0764', border: '1px solid #a855f7', borderRadius: '8px', padding: '6px 12px' }}>
+                <span style={{ fontSize: '12px', color: '#f3e8ff', fontWeight: 600 }}>
+                  Limpar pedidos abertos?
+                </span>
+                <button
+                  onClick={handleClearOld}
+                  disabled={loadingAction === 'clear'}
+                  style={{
+                    backgroundColor: '#dc2626',
+                    border: '1px solid #ef4444',
+                    color: 'white',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    cursor: loadingAction === 'clear' ? 'not-allowed' : 'pointer',
+                    fontSize: '12px',
+                    fontWeight: 800
+                  }}
+                >
+                  {loadingAction === 'clear' ? '⏳ A limpar...' : 'Sim, Limpar'}
+                </button>
+                <button
+                  onClick={() => setConfirmReset(false)}
+                  disabled={loadingAction === 'clear'}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: '1px solid #9333ea',
+                    color: '#e9d5ff',
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: 600
+                  }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
