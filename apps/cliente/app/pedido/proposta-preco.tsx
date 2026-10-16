@@ -1,10 +1,12 @@
-import { View, Text, StyleSheet, TouchableOpacity, Alert, TextInput, Modal, ActivityIndicator, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Alert, TextInput, Modal, ActivityIndicator, ScrollView, Linking } from 'react-native'
 import { useLocalSearchParams, router } from 'expo-router'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 
 const CLIENT_ACCOUNT_ID = '11111111-1111-1111-1111-111111111111'
 const PRO_ACCOUNT_ID = '22222222-2222-2222-2222-222222222222'
+// Base do servidor que fala com a PaySuite (Web). Em branco = mesma origem no web.
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || ''
 
 export default function PropostaPrecoScreen() {
   const params = useLocalSearchParams<{
@@ -40,6 +42,10 @@ export default function PropostaPrecoScreen() {
   const [turnoExpiraEm, setTurnoExpiraEm] = useState<number | null>(null)
   const [segundosTurno, setSegundosTurno] = useState<number | null>(null)
   const [negociacaoExpirada, setNegociacaoExpirada] = useState(false)
+
+  // Pagamento (PaySuite): escolha de método + estado pendente
+  const [modalPagamentoVisivel, setModalPagamentoVisivel] = useState(false)
+  const [pagamentoPendente, setPagamentoPendente] = useState<{ url: string | null; reference: string } | null>(null)
 
   // Relógio do turno (conta decrescente por segundo)
   useEffect(() => {
@@ -163,60 +169,61 @@ export default function PropostaPrecoScreen() {
     }
   }, [params.jobId])
 
-  // 1. OPÇÃO: "CONCORDO" (Aceita proposta completa e retém valor)
-  const handleConcordo = async () => {
+  // 1. OPÇÃO: "CONCORDO" — processa o pagamento via PaySuite
+  //    Só marca como retido depois de a PaySuite confirmar (polling).
+  const verificarPagamento = (target: string) => {
+    let tries = 0
+    const timer = setInterval(async () => {
+      tries += 1
+      try {
+        const r = await fetch(`${API_BASE}/api/payments/status?jobId=${encodeURIComponent(target)}`)
+        const d = await r.json().catch(() => ({}))
+        if (d?.paid) {
+          clearInterval(timer)
+          if (proposalData?.id) {
+            await supabase.from('job_price_proposals').update({ status: 'accepted' }).eq('id', proposalData.id)
+          }
+          setMensagemSucesso('Pagamento Confirmado e Retido!')
+          setSubSucesso(`MT ${total.toLocaleString('pt-MZ')} retido em segurança (Escrow). O mestre já foi notificado e pode iniciar o trabalho.`)
+          setPagamentoFeito(true)
+          setPagamentoPendente(null)
+        } else if (d?.failed) {
+          clearInterval(timer)
+          setPagamentoPendente(null)
+          Alert.alert('Pagamento não concluído', 'O pagamento foi recusado ou cancelado. Tenta novamente.')
+        }
+      } catch {
+        // rede instável — continua a tentar
+      }
+      if (tries > 120) clearInterval(timer) // ~6 min
+    }, 3000)
+  }
+
+  const handleConcordo = async (method: 'mpesa' | 'emola' | 'card') => {
     try {
       setIsSubmitting(true)
       const target = actualJobId || params.jobId
 
-      if (proposalData?.id) {
-        await supabase
-          .from('job_price_proposals')
-          .update({ status: 'accepted' })
-          .eq('id', proposalData.id)
+      const res = await fetch(`${API_BASE}/api/payments/charge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: target, amount: total, method })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || 'Não foi possível iniciar o pagamento.')
       }
 
-      await supabase
-        .from('jobs')
-        .update({
-          status: 'price_agreed',
-          agreed_amount: total
-        })
-        .or(`id.eq.${target},request_id.eq.${target}`)
+      setModalPagamentoVisivel(false)
+      setPagamentoPendente({ url: data.checkoutUrl ?? null, reference: data.reference })
 
-      await supabase
-        .from('service_requests')
-        .update({
-          status: 'accepted',
-          budget_max: total
-        })
-        .or(`id.eq.${target}`)
-
-      try {
-        await supabase.from('job_payments').upsert({
-          job_id: target,
-          client_id: '11111111-1111-1111-1111-111111111111',
-          provider_id: '22222222-2222-2222-2222-222222222222',
-          amount: total,
-          commission_rate: 0.12,
-          commission_amount: total * 0.12,
-          provider_payout: total * 0.88,
-          method: 'mpesa',
-          status: 'held',
-          held_at: new Date().toISOString()
-        }, { onConflict: 'job_id' })
-      } catch (e) {
-        console.warn('Job payments upsert:', e)
+      if (data.checkoutUrl) {
+        try { await Linking.openURL(data.checkoutUrl) } catch { /* web pode bloquear */ }
       }
 
-      // 3. Fechar a negociação (estado terminal, sem turno pendente)
-      await supabase.rpc('close_negotiation', { p_job: target })
-
-      setMensagemSucesso('Acordo Fechado no Sistema!')
-      setSubSucesso(`MT ${total.toLocaleString('pt-MZ')} retido em segurança (Escrow). O mestre já foi notificado e pode iniciar o trabalho.`)
-      setPagamentoFeito(true)
+      verificarPagamento(target)
     } catch (err: any) {
-      Alert.alert('Erro', err.message || 'Não foi possível confirmar o acordo.')
+      Alert.alert('Erro', err.message || 'Não foi possível iniciar o pagamento.')
     } finally {
       setIsSubmitting(false)
     }
@@ -525,6 +532,28 @@ export default function PropostaPrecoScreen() {
             </Text>
             {tempoTurno && <Text style={styles.turnoTempo}>⏱ Orçamento do mestre: {tempoTurno}</Text>}
           </View>
+        ) : pagamentoPendente ? (
+          /* Pagamento em processamento na PaySuite */
+          <View style={styles.negociacaoCard}>
+            <Text style={styles.negociacaoTitle}>⏳ PAGAMENTO EM PROCESSAMENTO</Text>
+            <Text style={styles.negociacaoDesc}>
+              Conclui o pagamento de MT {total.toLocaleString('pt-MZ')} na janela da PaySuite (e-Mola / M-Pesa / Cartão). Assim que for confirmado, o valor fica retido e o mestre é notificado.
+            </Text>
+            {pagamentoPendente.url && (
+              <TouchableOpacity
+                style={[styles.btnPrimary, { marginTop: 12 }]}
+                onPress={() => Linking.openURL(pagamentoPendente.url as string)}
+              >
+                <Text style={styles.btnText}>Abrir Pagamento PaySuite</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={{ marginTop: 12, alignItems: 'center' }}
+              onPress={() => setPagamentoPendente(null)}
+            >
+              <Text style={{ color: '#B45309', fontWeight: '800' }}>Cancelar / Escolher outro método</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           /* AS 3 OPÇÕES EXIGIDAS NO SISTEMA (só quando o mestre já propôs um valor) */
           <View style={styles.botoesContainer}>
@@ -536,7 +565,7 @@ export default function PropostaPrecoScreen() {
             {/* 1. CONCORDO */}
             <TouchableOpacity 
               style={styles.btnConcordo} 
-              onPress={handleConcordo}
+              onPress={() => setModalPagamentoVisivel(true)}
               disabled={isSubmitting}
               activeOpacity={0.8}
             >
@@ -681,6 +710,38 @@ export default function PropostaPrecoScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* MODAL DE PAGAMENTO (PaySuite) */}
+      <Modal visible={modalPagamentoVisivel} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>💳 Pagamento Seguro</Text>
+            <Text style={styles.modalSub}>
+              Escolhe como queres pagar os MT {total.toLocaleString('pt-MZ')}. O valor fica retido (Escrow) e só é pago ao mestre no fim.
+            </Text>
+
+            <TouchableOpacity style={styles.metodoBtn} onPress={() => handleConcordo('mpesa')} disabled={isSubmitting} activeOpacity={0.85}>
+              <Text style={styles.metodoBtnText}>📱 M-Pesa</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.metodoBtn} onPress={() => handleConcordo('emola')} disabled={isSubmitting} activeOpacity={0.85}>
+              <Text style={styles.metodoBtnText}>📲 e-Mola</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.metodoBtn} onPress={() => handleConcordo('card')} disabled={isSubmitting} activeOpacity={0.85}>
+              <Text style={styles.metodoBtnText}>💳 Cartão</Text>
+            </TouchableOpacity>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
+                onPress={() => setModalPagamentoVisivel(false)}
+                disabled={isSubmitting}
+              >
+                <Text style={styles.modalBtnCancelText}>{isSubmitting ? 'A preparar...' : 'Cancelar'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -748,6 +809,8 @@ const styles = StyleSheet.create({
   modalBtnCancelText: { color: ZINCO, fontWeight: '700', fontSize: 14 },
   modalBtnConfirm: { flex: 2, paddingVertical: 14, alignItems: 'center', borderRadius: 6, backgroundColor: '#F59E0B' },
   modalBtnConfirmText: { color: '#1A1A2E', fontWeight: '900', fontSize: 14 },
+  metodoBtn: { backgroundColor: '#F3F4F6', borderWidth: 1.5, borderColor: '#D1D5DB', borderRadius: 8, paddingVertical: 16, alignItems: 'center', marginBottom: 10 },
+  metodoBtnText: { color: TINTA, fontWeight: '900', fontSize: 15 },
   // Resolução Discrepância Card
   opcaoResolucaoCard: { backgroundColor: '#FFFBEB', borderWidth: 1.5, borderColor: '#F59E0B', borderRadius: 8, padding: 14, marginBottom: 12 },
   opcaoResolucaoTitulo: { fontSize: 14, fontWeight: '900', color: '#B45309', marginBottom: 4 },
