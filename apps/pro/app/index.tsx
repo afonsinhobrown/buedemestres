@@ -16,41 +16,56 @@ export default function ProHomeScreen() {
   // Carregar dados do Mestre e sua Especialidade/Categoria Real com Join da tabela categories
   useEffect(() => {
     async function carregarPerfilMestre() {
-      const { data: provs, error } = await supabase
-        .from('provider_profiles')
-        .select(`
-          profile_id,
-          business_name,
-          primary_category_id,
-          is_available,
-          profiles:profile_id (
-            full_name,
-            avatar_url
-          ),
-          categories:primary_category_id (
-            id,
-            name,
-            slug
-          )
-        `)
-        .eq('is_published', true)
-        .limit(10)
-      
-      if (provs && provs.length > 0) {
-        setAvailableProviders(provs)
-        const matched = provs.find(p => p.profile_id === user?.id) || provs[0]
-        setProviderProfile(matched)
+      try {
+        const { data: provs, error } = await supabase
+          .from('provider_profiles')
+          .select(`
+            profile_id,
+            business_name,
+            primary_category_id,
+            is_available,
+            categories:primary_category_id (
+              id,
+              name,
+              slug
+            )
+          `)
+          .eq('is_published', true)
+          .limit(10)
         
-        // Colocar online por defeito para escutar logo pedidos em tempo real
-        setIsOnline(true)
-        await supabase.from('provider_presence').upsert({
-          provider_id: matched.profile_id,
-          is_online: true,
-          categories: matched.primary_category_id ? [matched.primary_category_id] : [2],
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'provider_id' })
-      } else if (error) {
-        console.error('Erro ao carregar provedores reais:', error)
+        if (provs && provs.length > 0) {
+          setAvailableProviders(provs)
+          const matched = provs.find(p => p.profile_id === user?.id) || provs[0]
+          
+          // Carregar dados de avatar/nome de profiles directamente
+          const { data: profData } = await supabase
+            .from('profiles')
+            .select('full_name, avatar_url')
+            .eq('id', matched.profile_id)
+            .maybeSingle()
+
+          const profileCompleto = {
+            ...matched,
+            profiles: profData || {
+              full_name: matched.business_name || 'Provedor 1',
+              avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'
+            }
+          }
+
+          setProviderProfile(profileCompleto)
+          setIsOnline(true)
+          
+          await supabase.from('provider_presence').upsert({
+            provider_id: matched.profile_id,
+            is_online: true,
+            categories: matched.primary_category_id ? [matched.primary_category_id] : [2],
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'provider_id' })
+        } else if (error) {
+          console.error('Erro ao carregar provedores reais:', error)
+        }
+      } catch (err) {
+        console.error('Excepção ao carregar perfil do mestre:', err)
       }
     }
     carregarPerfilMestre()
