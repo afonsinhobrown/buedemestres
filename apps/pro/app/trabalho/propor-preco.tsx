@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import { validateAntiPhoneBypass } from '../../lib/antiPhoneBypass';
 
 interface ServiceLine {
   id: string;
@@ -14,14 +15,25 @@ export default function ProporPrecoScreen() {
   const params = useLocalSearchParams<{ jobId?: string; offerId?: string; transporte?: string }>();
   const targetId = params.jobId || params.offerId || '';
 
+  // Modo: 'simples' (apenas campo de valor único) ou 'detalhado' (criar orçamento discriminado)
+  const [modoPreco, setModoPreco] = useState<'simples' | 'detalhado'>('simples');
+  const [valorSimples, setValorSimples] = useState('800');
+
+  // Orçamento discriminado assistido pelo sistema
   const [lines, setLines] = useState<ServiceLine[]>([
-    { id: '1', description: 'Diagnóstico e mão de obra', price: '800' },
-    { id: '2', description: 'Taxa de deslocação', price: '150' }
+    { id: '1', description: 'Diagnóstico e Deslocação', price: '250' },
+    { id: '2', description: 'Mão de obra da reparação', price: '550' }
   ]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [clientFeedback, setClientFeedback] = useState<string | null>(null);
+
+  // Campo para pedir mais detalhes / mensagem ao cliente (com anti-bypass)
+  const [mensagemDetalhes, setMensagemDetalhes] = useState('');
+  const [msgBypassError, setMsgBypassError] = useState<string | null>(null);
+
+  const [jobData, setJobData] = useState<any>(null);
   const [actualJobId, setActualJobId] = useState<string>(targetId);
+  const [clientFeedback, setClientFeedback] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     async function loadCurrentJob() {
@@ -30,6 +42,18 @@ export default function ProporPrecoScreen() {
         return;
       }
       try {
+        // Carregar pedido e cliente
+        const { data: req } = await supabase
+          .from('service_requests')
+          .select('*, profiles:client_id(full_name, avatar_url)')
+          .eq('id', targetId)
+          .maybeSingle();
+
+        if (req) {
+          setJobData(req);
+        }
+
+        // Carregar job se existir
         const { data: job } = await supabase
           .from('jobs')
           .select('id, request_id, price_proposed, price_estimate_min')
@@ -59,6 +83,16 @@ export default function ProporPrecoScreen() {
     loadCurrentJob();
   }, [targetId]);
 
+  const handleMensagemChange = (text: string) => {
+    setMensagemDetalhes(text);
+    const validation = validateAntiPhoneBypass(text);
+    if (!validation.isValid) {
+      setMsgBypassError(validation.errorMessage || 'Não é permitido partilhar contactos.');
+    } else {
+      setMsgBypassError(null);
+    }
+  };
+
   const addLine = () => {
     setLines([...lines, { id: Math.random().toString(), description: '', price: '' }]);
   };
@@ -71,27 +105,36 @@ export default function ProporPrecoScreen() {
     setLines(lines.filter(line => line.id !== id));
   };
 
-  // 1-Clique: Quando a descrição do cliente é diferente ou o cliente não quer fazer o conserto maior
+  // Atalho rápido: Problema diferente no terreno -> cobra apenas taxa de deslocação e diagnóstico
   const handleApenasDeslocacao = () => {
+    setModoPreco('simples');
+    setValorSimples('250');
     setLines([
-      { id: 'deslocacao_diag', description: 'Taxa de Deslocação e Diagnóstico no Terreno (Problema diferente do descrito)', price: '250' }
+      { id: 'deslocacao_diag', description: 'Taxa de Deslocação e Diagnóstico Presencial', price: '250' }
     ]);
   };
 
-  const total = lines.reduce((acc, line) => {
-    const p = parseFloat(line.price) || 0;
-    return acc + p;
-  }, 0);
+  const totalCalculado = modoPreco === 'simples'
+    ? (parseFloat(valorSimples) || 0)
+    : lines.reduce((acc, line) => acc + (parseFloat(line.price) || 0), 0);
 
   const submitProposal = async () => {
+    if (msgBypassError) {
+      Alert.alert('Aviso de Segurança', msgBypassError);
+      return;
+    }
+
+    if (totalCalculado <= 0) {
+      Alert.alert('Preço Inválido', 'Indica um valor válido para o serviço.');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
-      const validLines = lines.filter(l => l.description.trim() !== '' && parseFloat(l.price) > 0);
-      
-      if (validLines.length === 0) {
-        Alert.alert('Erro', 'Adicione pelo menos um serviço com preço válido.');
-        return;
-      }
+
+      const validLines = modoPreco === 'simples'
+        ? [{ id: '1', description: jobData?.title || 'Serviço Profissional', price: valorSimples }]
+        : lines.filter(l => l.description.trim() !== '' && parseFloat(l.price) > 0);
 
       let jId = actualJobId;
       if (!jId) {
@@ -109,7 +152,7 @@ export default function ProporPrecoScreen() {
               client_id: req.client_id,
               provider_id: '22222222-2222-2222-2222-222222222222',
               status: 'price_proposed',
-              price_proposed: total
+              price_proposed: totalCalculado
             })
             .select()
             .single();
@@ -118,12 +161,14 @@ export default function ProporPrecoScreen() {
         }
       }
 
+      const payloadDesc = JSON.stringify(validLines);
+
       if (jId) {
         await supabase.from('job_price_proposals').insert({
           job_id: jId,
           proposed_by: '22222222-2222-2222-2222-222222222222',
-          amount: total,
-          description: JSON.stringify(validLines),
+          amount: totalCalculado,
+          description: payloadDesc,
           status: 'pending'
         });
 
@@ -131,7 +176,7 @@ export default function ProporPrecoScreen() {
           .from('jobs')
           .update({
             status: 'price_proposed',
-            price_proposed: total
+            price_proposed: totalCalculado
           })
           .eq('id', jId);
       }
@@ -140,10 +185,11 @@ export default function ProporPrecoScreen() {
         .from('service_requests')
         .update({
           status: 'price_proposed',
-          budget_max: total
+          budget_max: totalCalculado
         })
         .or(`id.eq.${targetId},id.eq.${jId}`);
 
+      // O mestre aguarda a aprovação e pagamento do cliente antes de sair!
       router.push(`/trabalho/aguardar-pagamento?jobId=${jId || targetId}`);
     } catch (error: any) {
       console.error('Erro ao enviar proposta:', error);
@@ -167,101 +213,169 @@ export default function ProporPrecoScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backBtnText}>← Voltar</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Propor Orçamento</Text>
+        <Text style={styles.headerTitle}>Proposta de Orçamento</Text>
         <Text style={styles.headerSub}>
-          Nenhum contacto telefónico. O cliente recebe e decide no sistema.
+          Defina o valor no sistema. O mestre só parte após o cliente concordar e pagar.
         </Text>
-      </View>
-
-      {/* Alerta de negociação se o cliente tiver achado puxado */}
-      {clientFeedback && (
-        <View style={styles.feedbackBanner}>
-          <Text style={styles.feedbackTitle}>⚠️ NEGOCIAÇÃO EM CURSO COM CLIENTE</Text>
-          <Text style={styles.feedbackText}>{clientFeedback}</Text>
-          <Text style={styles.feedbackHint}>Ajusta o valor abaixo para fechar o acordo no sistema.</Text>
-        </View>
-      )}
-
-      {/* Proteção do Mestre: Avaria Diferente no Terreno */}
-      <View style={styles.discrepanciaCard}>
-        <Text style={styles.discrepanciaLabel}>🚨 ENCONTROU PROBLEMA DIFERENTE DO DESCRITO?</Text>
-        <Text style={styles.discrepanciaText}>
-          Se a avaria real exigir outro profissional/oficina ou se o cliente recusar a reparação maior, cobre apenas a deslocação e diagnóstico presencial para não ficar no prejuízo.
-        </Text>
-        <TouchableOpacity 
-          style={styles.btnApenasDeslocacao}
-          onPress={handleApenasDeslocacao}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.btnApenasDeslocacaoText}>
-            ⚡ Aplicar apenas Taxa de Deslocação & Diagnóstico (MT 250)
-          </Text>
-        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scroll}>
-        <Text style={styles.sectionLabel}>ITENS DO ORÇAMENTO (DETALHE)</Text>
-        {lines.map((line, index) => (
-          <View key={line.id} style={styles.itemCard}>
-            <View style={styles.itemHeader}>
-              <Text style={styles.itemNum}>Item {index + 1}</Text>
-              {lines.length > 1 && (
-                <TouchableOpacity onPress={() => removeLine(line.id)}>
-                  <Text style={styles.removerText}>Remover ✕</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+        {/* Detalhes do Pedido do Cliente */}
+        <View style={styles.problemaCard}>
+          <Text style={styles.problemaCardLabel}>PROBLEMA RELATADO PELO CLIENTE:</Text>
+          <Text style={styles.problemaCardTitulo}>{jobData?.title || 'Assistência Solicitada'}</Text>
+          <Text style={styles.problemaCardDesc}>
+            "{jobData?.description || 'Sem descrição adicional'}"
+          </Text>
+          <Text style={styles.problemaCardRef}>
+            📍 Local: {jobData?.location_note || 'Bairro Zimpeto, Maputo'}
+          </Text>
+        </View>
 
-            <TextInput
-              style={styles.inputDesc}
-              placeholder="Ex: Diagnóstico, mão de obra, filtro..."
-              placeholderTextColor="#94A3B8"
-              value={line.description}
-              onChangeText={(text) => updateLine(line.id, 'description', text)}
-            />
+        {/* Alerta de negociação se o cliente tiver achado puxado */}
+        {clientFeedback && (
+          <View style={styles.feedbackBanner}>
+            <Text style={styles.feedbackTitle}>⚠️ NEGOCIAÇÃO EM CURSO COM CLIENTE</Text>
+            <Text style={styles.feedbackText}>{clientFeedback}</Text>
+            <Text style={styles.feedbackHint}>Ajusta o valor abaixo para fechar o acordo no sistema.</Text>
+          </View>
+        )}
 
-            <View style={styles.priceRow}>
-              <Text style={styles.currencyPrefix}>MT</Text>
+        {/* Escolha do Modo de Orçamento: Simples ou Detalhado */}
+        <Text style={styles.sectionLabel}>COMO QUER APRESENTAR O PREÇO?</Text>
+        <View style={styles.modoSelector}>
+          <TouchableOpacity 
+            style={[styles.modoBtn, modoPreco === 'simples' && styles.modoBtnAtivo]}
+            onPress={() => setModoPreco('simples')}
+          >
+            <Text style={[styles.modoBtnText, modoPreco === 'simples' && styles.modoBtnTextAtivo]}>
+              ⚡ Preço Único (Direto)
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.modoBtn, modoPreco === 'detalhado' && styles.modoBtnAtivo]}
+            onPress={() => setModoPreco('detalhado')}
+          >
+            <Text style={[styles.modoBtnText, modoPreco === 'detalhado' && styles.modoBtnTextAtivo]}>
+              📋 Criar Orçamento Detalhado
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* MODO 1: Preço Único no Campo */}
+        {modoPreco === 'simples' && (
+          <View style={styles.simplesCard}>
+            <Text style={styles.simplesLabel}>INTRODUZ O VALOR TOTAL DO SERVIÇO</Text>
+            <View style={styles.simplesInputRow}>
+              <Text style={styles.simplesPrefix}>MT</Text>
               <TextInput
-                style={styles.inputPrice}
-                placeholder="0"
+                style={styles.simplesInput}
+                placeholder="Ex: 800"
                 placeholderTextColor="#94A3B8"
                 keyboardType="numeric"
-                value={line.price}
-                onChangeText={(text) => updateLine(line.id, 'price', text)}
+                value={valorSimples}
+                onChangeText={setValorSimples}
               />
             </View>
+            <Text style={styles.simplesHint}>
+              Preço direto sem discriminação de partes de trabalho.
+            </Text>
           </View>
-        ))}
+        )}
 
-        <TouchableOpacity onPress={addLine} style={styles.btnAddLine} activeOpacity={0.8}>
-          <Text style={styles.btnAddLineText}>+ Adicionar outro serviço / peça</Text>
+        {/* MODO 2: Orçamento Detalhado por partes de trabalho */}
+        {modoPreco === 'detalhado' && (
+          <View>
+            {lines.map((line, index) => (
+              <View key={line.id} style={styles.itemCard}>
+                <View style={styles.itemHeader}>
+                  <Text style={styles.itemNum}>
+                    {index === 0 ? 'ITEM 1: DIAGNÓSTICO & DESLOCAÇÃO (SUGESTÃO DO SISTEMA)' : `ITEM ${index + 1}`}
+                  </Text>
+                  {lines.length > 1 && (
+                    <TouchableOpacity onPress={() => removeLine(line.id)}>
+                      <Text style={styles.removerText}>Remover ✕</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <TextInput
+                  style={styles.inputDesc}
+                  placeholder="Descrição da parte de trabalho ou peça..."
+                  placeholderTextColor="#94A3B8"
+                  value={line.description}
+                  onChangeText={(text) => updateLine(line.id, 'description', text)}
+                />
+
+                <View style={styles.priceRow}>
+                  <Text style={styles.currencyPrefix}>MT</Text>
+                  <TextInput
+                    style={styles.inputPrice}
+                    placeholder="0"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="numeric"
+                    value={line.price}
+                    onChangeText={(text) => updateLine(line.id, 'price', text)}
+                  />
+                </View>
+              </View>
+            ))}
+
+            <TouchableOpacity onPress={addLine} style={styles.btnAddLine} activeOpacity={0.8}>
+              <Text style={styles.btnAddLineText}>+ Adicionar outro serviço / peça</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Atalho para Problema Diferente no Terreno */}
+        <TouchableOpacity style={styles.btnDeslocacaoRapida} onPress={handleApenasDeslocacao} activeOpacity={0.8}>
+          <Text style={styles.btnDeslocacaoRapidaText}>
+            ⚡ Cobrar Apenas Deslocação & Diagnóstico (MT 250)
+          </Text>
         </TouchableOpacity>
 
+        {/* Campo de Pedir Mais Detalhes / Observação com Filtro Anti-Telefone */}
+        <View style={styles.msgBox}>
+          <Text style={styles.msgLabel}>PEDIR MAIS DETALHES OU NOTA AO CLIENTE (OPCIONAL):</Text>
+          <TextInput
+            style={[styles.msgInput, msgBypassError && styles.msgInputError]}
+            placeholder="Ex: Preciso de saber se o motor faz barulho ao rodar a chave."
+            placeholderTextColor="#94A3B8"
+            value={mensagemDetalhes}
+            onChangeText={handleMensagemChange}
+            multiline
+          />
+          {msgBypassError && (
+            <Text style={styles.msgErrorText}>⚠️ {msgBypassError}</Text>
+          )}
+        </View>
+
+        {/* Card do Total */}
         <View style={styles.totalCard}>
           <View>
-            <Text style={styles.totalLabel}>TOTAL DO ORÇAMENTO</Text>
-            <Text style={styles.totalNota}>Valor a reter na plataforma (Escrow)</Text>
+            <Text style={styles.totalLabel}>TOTAL A PROPOR</Text>
+            <Text style={styles.totalNota}>O cliente paga e o valor fica retido (Escrow)</Text>
           </View>
-          <Text style={styles.totalValor}>MT {total.toLocaleString('pt-MZ')}</Text>
+          <Text style={styles.totalValor}>MT {totalCalculado.toLocaleString('pt-MZ')}</Text>
         </View>
 
         <View style={styles.infoBox}>
           <Text style={styles.infoIcon}>🔒</Text>
           <Text style={styles.infoText}>
-            O cliente poderá escolher: "Concordo", "Não concordo" ou "Está puxado". Se o cliente concordar, o valor é retido imediatamente na plataforma para a tua segurança.
+            O cliente recebe no telemóvel as opções: "Concordo", "Não concordo" ou "Está puxado". Apenas após o pagamento retido confirmas a tua partida no mapa.
           </Text>
         </View>
       </ScrollView>
 
       <TouchableOpacity 
         onPress={submitProposal}
-        disabled={isSubmitting}
-        style={[styles.btnSubmit, isSubmitting && { opacity: 0.7 }]}
+        disabled={isSubmitting || !!msgBypassError}
+        style={[styles.btnSubmit, (isSubmitting || !!msgBypassError) && { opacity: 0.6 }]}
         activeOpacity={0.8}
       >
         <Text style={styles.btnSubmitText}>
-          {isSubmitting ? 'A Enviar Proposta...' : `Enviar Orçamento (MT ${total.toLocaleString('pt-MZ')}) →`}
+          {isSubmitting ? 'A Enviar...' : `Enviar Proposta ao Cliente (MT ${totalCalculado.toLocaleString('pt-MZ')}) →`}
         </Text>
       </TouchableOpacity>
     </View>
@@ -270,32 +384,50 @@ export default function ProporPrecoScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0F2D1A', padding: 20, paddingTop: 48 },
-  header: { marginBottom: 14 },
+  header: { marginBottom: 12 },
   backBtn: { marginBottom: 6 },
   backBtnText: { color: '#F2C94C', fontWeight: '800', fontSize: 13 },
   headerTitle: { fontSize: 22, fontWeight: '900', color: '#F5F0E8', marginBottom: 2 },
   headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.6)' },
-  discrepanciaCard: { backgroundColor: 'rgba(239, 68, 68, 0.12)', borderWidth: 1.5, borderColor: '#EF4444', borderRadius: 8, padding: 12, marginBottom: 14 },
-  discrepanciaLabel: { color: '#F87171', fontWeight: '900', fontSize: 11, letterSpacing: 0.5, marginBottom: 4 },
-  discrepanciaText: { color: '#FCA5A5', fontSize: 12, lineHeight: 16, marginBottom: 8 },
-  btnApenasDeslocacao: { backgroundColor: '#B91C1C', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 6, alignItems: 'center' },
-  btnApenasDeslocacaoText: { color: '#fff', fontWeight: '900', fontSize: 12 },
+  scroll: { flex: 1 },
+  problemaCard: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  problemaCardLabel: { fontSize: 10, fontWeight: '800', color: '#F2C94C', letterSpacing: 1 },
+  problemaCardTitulo: { fontSize: 16, fontWeight: '900', color: '#fff', marginTop: 2 },
+  problemaCardDesc: { fontSize: 13, color: '#E2E8F0', fontStyle: 'italic', marginTop: 4 },
+  problemaCardRef: { fontSize: 12, color: '#38BDF8', marginTop: 6, fontWeight: '600' },
   feedbackBanner: { backgroundColor: 'rgba(242, 201, 76, 0.15)', borderWidth: 1.5, borderColor: '#F2C94C', borderRadius: 8, padding: 12, marginBottom: 14 },
   feedbackTitle: { color: '#F2C94C', fontWeight: '900', fontSize: 11, letterSpacing: 0.5, marginBottom: 4 },
   feedbackText: { color: '#F5F0E8', fontSize: 13, fontWeight: '700', marginBottom: 2 },
   feedbackHint: { color: 'rgba(255,255,255,0.7)', fontSize: 11 },
-  scroll: { flex: 1 },
-  sectionLabel: { fontSize: 11, fontWeight: '800', color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 },
+  sectionLabel: { fontSize: 10, fontWeight: '800', color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 },
+  modoSelector: { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  modoBtn: { flex: 1, paddingVertical: 12, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center' },
+  modoBtnAtivo: { backgroundColor: '#F2C94C', borderColor: '#F2C94C' },
+  modoBtnText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  modoBtnTextAtivo: { color: '#1A1A2E', fontWeight: '900' },
+  simplesCard: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', marginBottom: 14 },
+  simplesLabel: { fontSize: 11, fontWeight: '800', color: '#F2C94C', marginBottom: 10 },
+  simplesInputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 8, borderWidth: 1.5, borderColor: '#F2C94C', paddingHorizontal: 14 },
+  simplesPrefix: { fontSize: 22, fontWeight: '900', color: '#F2C94C', marginRight: 10 },
+  simplesInput: { flex: 1, fontSize: 24, fontWeight: '900', color: '#fff', paddingVertical: 12 },
+  simplesHint: { fontSize: 11, color: 'rgba(255,255,255,0.55)', marginTop: 8 },
   itemCard: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   itemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  itemNum: { fontSize: 11, fontWeight: '800', color: '#F2C94C', textTransform: 'uppercase' },
+  itemNum: { fontSize: 10, fontWeight: '800', color: '#F2C94C', textTransform: 'uppercase' },
   removerText: { color: '#EF4444', fontSize: 12, fontWeight: '700' },
   inputDesc: { backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 6, padding: 10, color: '#fff', fontSize: 13, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   priceRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 10 },
   currencyPrefix: { color: '#F2C94C', fontWeight: '900', fontSize: 15, marginRight: 8 },
   inputPrice: { flex: 1, paddingVertical: 8, color: '#fff', fontSize: 15, fontWeight: 'bold' },
-  btnAddLine: { paddingVertical: 10, alignItems: 'center', borderRadius: 6, borderWidth: 1.5, borderColor: '#38BDF8', borderStyle: 'dashed', backgroundColor: 'rgba(56, 189, 248, 0.08)', marginBottom: 14 },
+  btnAddLine: { paddingVertical: 10, alignItems: 'center', borderRadius: 6, borderWidth: 1.5, borderColor: '#38BDF8', borderStyle: 'dashed', backgroundColor: 'rgba(56, 189, 248, 0.08)', marginBottom: 12 },
   btnAddLineText: { color: '#38BDF8', fontWeight: '800', fontSize: 12 },
+  btnDeslocacaoRapida: { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderWidth: 1, borderColor: '#EF4444', borderRadius: 6, paddingVertical: 10, alignItems: 'center', marginBottom: 14 },
+  btnDeslocacaoRapidaText: { color: '#FCA5A5', fontWeight: '800', fontSize: 12 },
+  msgBox: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  msgLabel: { fontSize: 10, fontWeight: '800', color: '#9CA3AF', letterSpacing: 0.8, marginBottom: 6 },
+  msgInput: { backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 6, padding: 10, color: '#fff', fontSize: 13, minHeight: 60, textAlignVertical: 'top', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  msgInputError: { borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' },
+  msgErrorText: { color: '#FCA5A5', fontSize: 11, fontWeight: 'bold', marginTop: 4 },
   totalCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', padding: 14, borderRadius: 8, borderWidth: 1, borderColor: '#F2C94C', marginBottom: 14 },
   totalLabel: { fontSize: 11, fontWeight: '900', color: '#F2C94C', textTransform: 'uppercase', letterSpacing: 1 },
   totalNota: { fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 },

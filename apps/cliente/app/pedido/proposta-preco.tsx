@@ -286,9 +286,17 @@ export default function PropostaPrecoScreen() {
         </View>
         <TouchableOpacity
           style={styles.btnPrimary}
-          onPress={() => router.push({ pathname: '/pedido/confirmar', params: { jobId: params.jobId } })}
+          onPress={() => {
+            if (mensagemSucesso.includes('Diagnóstico')) {
+              router.push({ pathname: '/pedido/confirmar', params: { jobId: params.jobId } })
+            } else {
+              router.push({ pathname: '/pedido/mestre-a-caminho', params: { jobId: params.jobId } })
+            }
+          }}
         >
-          <Text style={styles.btnText}>Continuar no Sistema →</Text>
+          <Text style={styles.btnText}>
+            {mensagemSucesso.includes('Diagnóstico') ? 'Concluir Pedido →' : 'Acompanhar Mestre no Mapa →'}
+          </Text>
         </TouchableOpacity>
       </View>
     )

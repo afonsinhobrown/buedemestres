@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import * as Location from 'expo-location'
 import { useAuthStore } from '@/lib/useAuthStore'
+import { validateAntiPhoneBypass } from '@/lib/antiPhoneBypass'
 
 // Categorias disponíveis para pedido imediato (on-demand) alinhadas com a base de dados
 export const CATEGORIAS_IMEDIATAS = [
@@ -23,6 +24,8 @@ export default function NovoPedidoImediatoScreen() {
   const [categoria, setCategoria] = useState<typeof CATEGORIAS_IMEDIATAS[0] | null>(null)
   const [descricao, setDescricao] = useState('')
   const [referencia, setReferencia] = useState('')
+  const [bypassError, setBypassError] = useState<string | null>(null)
+  const [refBypassError, setRefBypassError] = useState<string | null>(null)
   const [location, setLocation] = useState<Location.LocationObject | null>(null)
   const [isLocating, setIsLocating] = useState(false)
   const [isResolvingAddress, setIsResolvingAddress] = useState(false)
@@ -40,7 +43,7 @@ export default function NovoPedidoImediatoScreen() {
     }
   }, [profile])
 
-  // Pré-selecionar categoria se foi passada via URL (ex: a partir da Home ou Categorias)
+  // Pré-selecionar categoria se foi passada via URL
   useEffect(() => {
     if (queryParams.categoria) {
       const param = queryParams.categoria.toLowerCase()
@@ -56,97 +59,100 @@ export default function NovoPedidoImediatoScreen() {
     }
   }, [queryParams.categoria])
 
-  const handleCategoria = (cat: typeof CATEGORIAS_IMEDIATAS[0]) => {
-    setCategoria(cat)
-    setStep('descricao')
+  const handleDescricaoChange = (text: string) => {
+    setDescricao(text)
+    const validation = validateAntiPhoneBypass(text)
+    if (!validation.isValid) {
+      setBypassError(validation.errorMessage || 'Não é permitido partilhar contactos.')
+    } else {
+      setBypassError(null)
+    }
   }
 
-  // Resolver morada (rua, avenida, bairro, cidade) via geocodificação reversa
-  const resolverMorada = async (lat: number, lng: number) => {
+  const handleReferenciaChange = (text: string) => {
+    setReferencia(text)
+    const validation = validateAntiPhoneBypass(text)
+    if (!validation.isValid) {
+      setRefBypassError(validation.errorMessage || 'Não é permitido partilhar contactos.')
+    } else {
+      setRefBypassError(null)
+    }
+  }
+
+  // Obter nome da rua/avenida via OpenStreetMap Nominatim
+  const resolverMorada = async (latitude: number, longitude: number) => {
     setIsResolvingAddress(true)
     try {
-      // 1. Tentar Expo Location nativo
-      try {
-        const geo = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng })
-        if (geo && geo.length > 0) {
-          const g = geo[0]
-          const r = g.street || g.name || ''
-          const b = g.district || g.subregion || ''
-          const c = g.city || 'Maputo'
-          if (r || b) {
-            const info = {
-              rua: r || `Bairro ${b}`,
-              bairro: b || c,
-              cidade: c,
-              completo: [r, b, c].filter(Boolean).join(', ')
-            }
-            setAddressInfo(info)
-            setReferencia(prev => prev ? prev : (info.rua ? `${info.rua}, ${info.bairro}` : info.bairro))
-            setIsResolvingAddress(false)
-            return
-          }
-        }
-      } catch {
-        // Seguir para Nominatim fallback
-      }
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 4000)
 
-      // 2. Fallback OpenStreetMap Nominatim - detalhado para Moçambique e 100% suportado na Web
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
-        headers: { 'User-Agent': 'BueDeMestresApp/1.0' }
+      const response = await fetch(url, {
+        headers: { 'User-Agent': 'BueDeMestres-App/1.0' },
+        signal: controller.signal
       })
-      const data = await res.json()
-      if (data && data.address) {
-        const addr = data.address
-        const r = addr.road || addr.pedestrian || addr.residential || (addr.neighbourhood ? `Bairro ${addr.neighbourhood}` : 'Avenida Principal')
-        const b = addr.neighbourhood || addr.suburb || addr.district || 'Maputo'
-        const c = addr.city || addr.town || addr.municipality || 'Cidade de Maputo'
-        const info = {
-          rua: r,
-          bairro: b,
-          cidade: c,
-          completo: `${r}, ${b}, ${c}`
-        }
-        setAddressInfo(info)
-        setReferencia(prev => prev ? prev : `${info.rua}, ${info.bairro}`)
-        setIsResolvingAddress(false)
-        return
-      }
-    } catch (err) {
-      console.warn('Erro ao resolver endereço:', err)
-    }
+      clearTimeout(timeoutId)
 
-    const fallback = {
-      rua: 'Zona Central',
-      bairro: 'Maputo',
-      cidade: 'Maputo',
-      completo: 'Maputo, Moçambique'
+      if (response.ok) {
+        const data = await response.json()
+        const addr = data.address || {}
+
+        const rua = addr.road || addr.street || addr.pedestrian || addr.footway || addr.path || 'Rua sem nome registado'
+        const bairro = addr.suburb || addr.neighbourhood || addr.residential || addr.quarter || 'Bairro Zimpeto'
+        const cidade = addr.city || addr.town || addr.municipality || 'Maputo'
+
+        setAddressInfo({
+          rua,
+          bairro,
+          cidade,
+          completo: data.display_name || `${rua}, ${bairro}, ${cidade}`
+        })
+      } else {
+        setAddressInfo({
+          rua: 'Primeira Rua',
+          bairro: 'Zimpeto',
+          cidade: 'Maputo',
+          completo: 'Primeira Rua, Zimpeto, Maputo'
+        })
+      }
+    } catch {
+      setAddressInfo({
+        rua: 'Primeira Rua',
+        bairro: 'Zimpeto',
+        cidade: 'Maputo',
+        completo: 'Primeira Rua, Zimpeto, Maputo'
+      })
+    } finally {
+      setIsResolvingAddress(false)
     }
-    setAddressInfo(fallback)
-    setReferencia(prev => prev ? prev : `${fallback.rua}, ${fallback.bairro}`)
-    setIsResolvingAddress(false)
   }
 
   const handleLocalizacao = async () => {
+    const validation = validateAntiPhoneBypass(descricao)
+    if (!validation.isValid) {
+      Alert.alert('Aviso de Segurança', validation.errorMessage)
+      return
+    }
+
     setIsLocating(true)
     let lat = -25.82898
     let lng = 32.58233
-    let acc = 25
+    let acc = 15
 
     try {
-      const permResult = await Promise.race([
-        Location.requestForegroundPermissionsAsync(),
-        new Promise<{ status: string }>((res) => setTimeout(() => res({ status: 'timeout' }), 2000))
-      ])
+      const { status } = await Location.requestForegroundPermissionsAsync()
 
-      if (permResult && permResult.status === 'granted') {
-        const loc = await Promise.race([
-          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-          new Promise<null>((res) => setTimeout(() => res(null), 2500))
-        ])
-        if (loc && loc.coords) {
+      if (status === 'granted') {
+        const locationPromise = Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        })
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000))
+        const loc = await Promise.race([locationPromise, timeoutPromise])
+
+        if (loc) {
           lat = loc.coords.latitude
           lng = loc.coords.longitude
-          acc = Math.round(loc.coords.accuracy ?? 25)
+          acc = loc.coords.accuracy ?? 15
           setLocation(loc)
         } else {
           setLocation({
@@ -163,7 +169,6 @@ export default function NovoPedidoImediatoScreen() {
           } as Location.LocationObject)
         }
       } else {
-        // Fallback gracioso imediato
         setLocation({
           coords: {
             latitude: lat,
@@ -178,7 +183,6 @@ export default function NovoPedidoImediatoScreen() {
         } as Location.LocationObject)
       }
     } catch {
-      // Fallback garantido
       setLocation({
         coords: {
           latitude: lat,
@@ -195,20 +199,27 @@ export default function NovoPedidoImediatoScreen() {
 
     setStep('localizacao')
     setIsLocating(false)
-
-    // Iniciar resolução da rua/avenida imediatamente
     await resolverMorada(lat, lng)
   }
 
   const handleEnviar = () => {
     if (!categoria) return
+    const descValidation = validateAntiPhoneBypass(descricao)
+    if (!descValidation.isValid) {
+      Alert.alert('Aviso de Segurança', descValidation.errorMessage)
+      return
+    }
+
+    const refValidation = validateAntiPhoneBypass(referencia)
+    if (!refValidation.isValid) {
+      Alert.alert('Aviso de Segurança', refValidation.errorMessage)
+      return
+    }
+
     const lat = location?.coords?.latitude ?? -25.82898
     const lng = location?.coords?.longitude ?? 32.58233
-
-    // Morada final enviada
     const moradaEnvio = referencia || (addressInfo ? `${addressInfo.rua}, ${addressInfo.bairro}` : 'Maputo')
 
-    // Navegar para o ecrã de "A procurar mestre"
     router.push({
       pathname: '/pedido/a-procurar',
       params: {
@@ -224,7 +235,7 @@ export default function NovoPedidoImediatoScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Cabeçalho com Foto e Nome do Usuário Sempre Visível */}
+      {/* Cabeçalho com Foto e Nome do Usuário */}
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity 
@@ -235,7 +246,6 @@ export default function NovoPedidoImediatoScreen() {
             <Text style={styles.backText}>←</Text>
           </TouchableOpacity>
 
-          {/* FOTO E NOME DO USUÁRIO SEMPRE VISÍVEL */}
           <View style={styles.userProfileBadge}>
             <Image
               source={{ uri: profile?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' }}
@@ -252,24 +262,28 @@ export default function NovoPedidoImediatoScreen() {
           </View>
         </View>
 
-        <Text style={styles.headerTitle}>
-          {step === 'categoria' ? 'Que tipo de mestre?' :
-           step === 'descricao' ? `${categoria?.emoji} ${categoria?.nome}` :
-           'A tua localização'}
-        </Text>
+        <Text style={styles.headerTitle}>Pedir Mestre Agora</Text>
         <View style={styles.stepDots}>
-          {['categoria', 'descricao', 'localizacao'].map((s, i) => (
-            <View key={s} style={[styles.dot, step === s && styles.dotActive, i < ['categoria', 'descricao', 'localizacao'].indexOf(step) && styles.dotDone]} />
-          ))}
+          <View style={[styles.dot, step === 'categoria' && styles.dotActive]} />
+          <View style={[styles.dot, step === 'descricao' && styles.dotActive, step === 'localizacao' && styles.dotDone]} />
+          <View style={[styles.dot, step === 'localizacao' && styles.dotActive]} />
         </View>
       </View>
 
-      {/* PASSO 1: Categoria */}
+      {/* PASSO 1: Escolher Categoria */}
       {step === 'categoria' && (
         <ScrollView contentContainerStyle={styles.categorias}>
-          <Text style={styles.sectionLabel}>SERVIÇO IMEDIATO — URGÊNCIA</Text>
+          <Text style={styles.sectionLabel}>DE QUE TIPO DE MESTRE PRECISAS?</Text>
           {CATEGORIAS_IMEDIATAS.map(cat => (
-            <TouchableOpacity key={cat.id} style={styles.catCard} onPress={() => handleCategoria(cat)} activeOpacity={0.7}>
+            <TouchableOpacity
+              key={cat.id}
+              style={styles.catCard}
+              onPress={() => {
+                setCategoria(cat)
+                setStep('descricao')
+              }}
+              activeOpacity={0.8}
+            >
               <Text style={styles.catEmoji}>{cat.emoji}</Text>
               <View style={styles.catInfo}>
                 <Text style={styles.catNome}>{cat.nome}</Text>
@@ -285,23 +299,31 @@ export default function NovoPedidoImediatoScreen() {
         </ScrollView>
       )}
 
-      {/* PASSO 2: Descrição */}
+      {/* PASSO 2: Descrição com Filtro Anti-Telefone */}
       {step === 'descricao' && (
         <ScrollView contentContainerStyle={styles.form}>
           <Text style={styles.label}>Descreve o problema</Text>
           <TextInput
-            style={styles.textarea}
+            style={[styles.textarea, bypassError && styles.inputError]}
             placeholder={`Ex: O motor do meu carro não arranca. Bateria em dia.`}
             placeholderTextColor="#9CA3AF"
             multiline
             numberOfLines={4}
             value={descricao}
-            onChangeText={setDescricao}
+            onChangeText={handleDescricaoChange}
             maxLength={300}
           />
           <Text style={styles.charCount}>{descricao.length}/300</Text>
 
-          <Text style={[styles.label, { marginTop: 24 }]}>Urgência</Text>
+          {/* ALERTA ANTI-BYPASS DE TELEFONE */}
+          {bypassError && (
+            <View style={styles.bypassWarningBox}>
+              <Text style={styles.bypassWarningIcon}>⚠️</Text>
+              <Text style={styles.bypassWarningText}>{bypassError}</Text>
+            </View>
+          )}
+
+          <Text style={[styles.label, { marginTop: 16 }]}>Urgência</Text>
           <View style={styles.urgenciaRow}>
             {[
               { key: 'sos', label: '🚨 SOS', sub: 'Agora mesmo' },
@@ -315,8 +337,8 @@ export default function NovoPedidoImediatoScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.btnPrimary, !descricao.trim() && styles.btnDisabled]}
-            disabled={!descricao.trim()}
+            style={[styles.btnPrimary, (!descricao.trim() || !!bypassError) && styles.btnDisabled]}
+            disabled={!descricao.trim() || !!bypassError}
             onPress={handleLocalizacao}
           >
             {isLocating ? (
@@ -339,17 +361,14 @@ export default function NovoPedidoImediatoScreen() {
                 {isResolvingAddress && <ActivityIndicator size="small" color="#059669" />}
               </View>
 
-              {/* RUA OU AVENIDA EM DESTAQUE */}
               <Text style={styles.locationStreet}>
                 🛣️ {addressInfo?.rua || 'A identificar rua / avenida...'}
               </Text>
 
-              {/* BAIRRO E CIDADE */}
               <Text style={styles.locationDistrict}>
                 📍 {addressInfo ? `${addressInfo.bairro}, ${addressInfo.cidade}` : 'A processar zona de Maputo...'}
               </Text>
 
-              {/* COORDENADAS E PRECISÃO */}
               <View style={styles.locationCoordsRow}>
                 <Text style={styles.locationCoords}>
                   {location.coords.latitude.toFixed(5)}, {location.coords.longitude.toFixed(5)}
@@ -363,19 +382,26 @@ export default function NovoPedidoImediatoScreen() {
 
           <Text style={styles.label}>Ponto de referência ou detalhes da rua</Text>
           <TextInput
-            style={styles.input}
-            placeholder="Ex: Perto do Mercado, portão azul, casa 45"
+            style={[styles.input, refBypassError && styles.inputError]}
+            placeholder="Ex: Perto do Mercado, portão azul"
             placeholderTextColor="#9CA3AF"
             value={referencia}
-            onChangeText={setReferencia}
-            maxLength={150}
+            onChangeText={handleReferenciaChange}
           />
-          <Text style={styles.hint}>
-            💡 A rua identificada pelo GPS será enviada ao mestre. Adicione detalhes extras para facilitar o socorro!
-          </Text>
+          {refBypassError ? (
+            <Text style={styles.refErrorText}>⚠️ {refBypassError}</Text>
+          ) : (
+            <Text style={styles.hint}>
+              Em Moçambique o ponto de referência ajuda o mestre a chegar directamente ao portão sem telefonemas.
+            </Text>
+          )}
 
-          <TouchableOpacity style={styles.btnPrimary} onPress={handleEnviar}>
-            <Text style={styles.btnText}>🔍 Enviar e procurar mestre</Text>
+          <TouchableOpacity
+            style={[styles.btnPrimary, !!refBypassError && styles.btnDisabled]}
+            disabled={!!refBypassError}
+            onPress={handleEnviar}
+          >
+            <Text style={styles.btnText}>Procurar Mestre Disponível →</Text>
           </TouchableOpacity>
         </ScrollView>
       )}
@@ -395,7 +421,6 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4 },
   backText: { color: PAPEL, fontSize: 24, fontWeight: '700' },
   
-  // Badge de Perfil no Topo
   userProfileBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -449,9 +474,14 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '700', color: TINTA, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 },
   textarea: { backgroundColor: '#fff', borderRadius: 8, borderWidth: 2, borderColor: '#E5E7EB', padding: 14, fontSize: 15, color: TINTA, minHeight: 110, textAlignVertical: 'top' },
   input: { backgroundColor: '#fff', borderRadius: 8, borderWidth: 2, borderColor: '#E5E7EB', padding: 14, fontSize: 15, color: TINTA },
+  inputError: { borderColor: '#EF4444', backgroundColor: '#FEF2F2' },
+  bypassWarningBox: { flexDirection: 'row', gap: 8, backgroundColor: '#FEE2E2', borderWidth: 1.5, borderColor: '#EF4444', borderRadius: 8, padding: 12, marginTop: 8, alignItems: 'flex-start' },
+  bypassWarningIcon: { fontSize: 18 },
+  bypassWarningText: { flex: 1, color: '#991B1B', fontSize: 12, fontWeight: '700', lineHeight: 17 },
+  refErrorText: { color: '#B91C1C', fontSize: 11, fontWeight: 'bold', marginTop: 4, marginBottom: 12 },
   charCount: { fontSize: 11, color: ZINCO, textAlign: 'right', marginTop: 4 },
   hint: { fontSize: 12, color: ZINCO, lineHeight: 18, marginTop: 8, marginBottom: 24 },
-  urgenciaRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
+  urgenciaRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   urgenciaCard: { flex: 1, backgroundColor: '#fff', borderRadius: 8, padding: 14, alignItems: 'center', borderWidth: 2, borderColor: '#E5E7EB' },
   urgenciaEmoji: { fontSize: 20, fontWeight: '800', marginBottom: 4, color: TINTA },
   urgenciaSub: { fontSize: 11, color: ZINCO, textAlign: 'center' },

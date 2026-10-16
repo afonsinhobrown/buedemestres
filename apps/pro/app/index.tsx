@@ -222,9 +222,9 @@ export default function ProHomeScreen() {
     setPendingJobs(prev => prev.filter(job => job.id !== requestId))
     setTrabalhosHoje(prev => prev + 1)
 
-    // Navegar imediatamente para o ecrã de deslocação do mestre!
+    // Navegar para o ecrã de análise do problema e proposta de orçamento!
     router.push({
-      pathname: '/trabalho/a-caminho',
+      pathname: '/trabalho/propor-preco',
       params: {
         jobId: requestId,
         categoriaNome: jobTitle,

@@ -212,33 +212,39 @@ export default function AProcurarMestreScreen() {
 
   if (aceite) {
     return (
-      <View style={[styles.container, { backgroundColor: '#4ADE80' }]}>
-        <Text style={{ fontSize: 60, marginBottom: 20 }}>🎉</Text>
-        <Text style={{ fontSize: 32, fontWeight: '900', color: '#0F2D1A', textAlign: 'center', marginBottom: 12 }}>
-          Mestre a Caminho!
+      <View style={[styles.container, { backgroundColor: '#0F2D1A' }]}>
+        <Text style={{ fontSize: 60, marginBottom: 16 }}>🎉</Text>
+        <Text style={{ fontSize: 28, fontWeight: '900', color: '#F5F0E8', textAlign: 'center', marginBottom: 10 }}>
+          Mestre Encontrado!
         </Text>
-        <Text style={{ fontSize: 20, fontWeight: '800', color: '#0F2D1A', textAlign: 'center', marginBottom: 8 }}>
+        <Text style={{ fontSize: 20, fontWeight: '800', color: '#F2C94C', textAlign: 'center', marginBottom: 8 }}>
           {mestreDados.nome}
         </Text>
-        <Text style={{ fontSize: 16, color: '#0F2D1A', textAlign: 'center', marginBottom: 40, opacity: 0.85 }}>
-          ⭐ {mestreDados.nota} · O profissional aceitou o pedido e já está a caminho do seu encontro.
+        <Text style={{ fontSize: 14, color: '#E2E8F0', textAlign: 'center', marginBottom: 24, paddingHorizontal: 16, lineHeight: 22 }}>
+          ⭐ {mestreDados.nota} · O profissional aceitou atender o seu pedido e está a analisar o problema para propor o valor no sistema.
         </Text>
+
+        <View style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 10, padding: 16, marginBottom: 28, width: '100%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
+          <Text style={{ color: '#4ADE80', fontWeight: 'bold', fontSize: 13, marginBottom: 4 }}>
+            🔒 Regra de Segurança Bué de Mestres
+          </Text>
+          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, lineHeight: 18 }}>
+            O mestre só inicia a deslocação após o acordo do preço e confirmação do pagamento retido (Escrow).
+          </Text>
+        </View>
+
         <TouchableOpacity 
-          style={[styles.btnPrimary, { backgroundColor: '#0F2D1A', borderColor: '#0F2D1A' }]} 
+          style={[styles.btnPrimary, { backgroundColor: '#F2C94C', borderColor: '#F2C94C', width: '100%' }]} 
           onPress={() => router.replace({
-            pathname: '/pedido/mestre-a-caminho',
+            pathname: '/pedido/proposta-preco',
             params: {
               jobId: requestId || '',
               mestreNome: mestreDados.nome,
-              mestreTelefone: mestreDados.telefone,
-              mestreNota: mestreDados.nota,
-              categoriaEmoji: '🔧',
-              etaMinutos: '8',
-              distanciaM: '2100'
+              categoriaEmoji: '🔧'
             }
           })}
         >
-          <Text style={[styles.btnText, { color: '#4ADE80' }]}>ACOMPANHAR NO MAPA →</Text>
+          <Text style={[styles.btnText, { color: '#1A1A2E' }]}>VER ORÇAMENTO & NEGOCIAR →</Text>
         </TouchableOpacity>
       </View>
     )

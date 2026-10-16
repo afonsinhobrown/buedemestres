@@ -27,8 +27,10 @@ function parseWkbPoint(wkb: string | null | undefined): { lat: number; lng: numb
 }
 
 export default function ProACaminhoScreen() {
-  const params = useLocalSearchParams<{ jobId: string; categoriaNome: string; categoriaEmoji: string }>()
-  const [estado, setEstado] = useState<'en_route' | 'arrived' | 'in_service'>('en_route')
+  const params = useLocalSearchParams<{ jobId: string; categoriaNome?: string; categoriaEmoji?: string; valorAcordado?: string }>()
+  
+  // Estados: 'selecionar_transporte' -> 'en_route' -> 'arrived'
+  const [fase, setFase] = useState<'selecionar_transporte' | 'en_route' | 'arrived'>('selecionar_transporte')
   const [transporte, setTransporte] = useState<string>('carro_proprio')
   const [jobData, setJobData] = useState<any>(null)
   const [clientCoords, setClientCoords] = useState<{ lat: number; lng: number } | null>(null)
@@ -85,13 +87,40 @@ export default function ProACaminhoScreen() {
     }
   }
 
-  const handleChegada = async () => {
-    setEstado('arrived')
+  // 1. Iniciar deslocação após pagamento confirmado
+  const handleIniciarDeslocacao = async () => {
+    setFase('en_route')
     if (params.jobId) {
       try {
         await supabase
           .from('jobs')
-          .update({ status: 'arrived', arrived_at: new Date().toISOString() })
+          .update({
+            status: 'en_route',
+            cancel_reason: transporte // guarda o meio de transporte
+          })
+          .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
+
+        await supabase
+          .from('service_requests')
+          .update({ status: 'accepted' })
+          .eq('id', params.jobId)
+      } catch (e) {
+        console.warn('Erro ao iniciar deslocação:', e)
+      }
+    }
+  }
+
+  // 2. Informar chegada ao local
+  const handleChegada = async () => {
+    setFase('arrived')
+    if (params.jobId) {
+      try {
+        await supabase
+          .from('jobs')
+          .update({
+            status: 'arrived',
+            arrived_at: new Date().toISOString()
+          })
           .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
       } catch (e) {
         console.warn('Atualizar estado chegado:', e)
@@ -99,10 +128,11 @@ export default function ProACaminhoScreen() {
     }
   }
 
-  const handleProporPreco = () => {
+  // 3. Iniciar trabalho
+  const handleIniciarTrabalho = () => {
     router.push({
-      pathname: '/trabalho/propor-preco',
-      params: { jobId: params.jobId, transporte }
+      pathname: '/trabalho/em-curso',
+      params: { jobId: params.jobId }
     })
   }
 
@@ -110,20 +140,25 @@ export default function ProACaminhoScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Header com Status do Pagamento Garantido */}
       <View style={styles.header}>
+        <View style={styles.garantiaBadge}>
+          <Text style={styles.garantiaText}>🔒 PAGAMENTO RETIDO NA PLATAFORMA (ESCROW)</Text>
+        </View>
         <Text style={styles.catEmoji}>{params.categoriaEmoji ?? '🔧'}</Text>
         <Text style={styles.headerTitle}>{jobData?.title || params.categoriaNome || 'Serviço Atribuído'}</Text>
-        <View style={[styles.badge, estado === 'en_route' ? styles.badgeRoute : estado === 'arrived' ? styles.badgeArrived : styles.badgeService]}>
+        
+        <View style={[styles.badge, fase === 'selecionar_transporte' ? styles.badgeReady : fase === 'en_route' ? styles.badgeRoute : styles.badgeArrived]}>
           <Text style={styles.badgeText}>
-            {estado === 'en_route' ? `${transporteActual.label.split(' ')[0]} A caminho` : estado === 'arrived' ? '📍 Chegaste ao local' : '🔧 Em serviço'}
+            {fase === 'selecionar_transporte' ? '🚗 Pronto para Partir' : fase === 'en_route' ? `${transporteActual.label.split(' ')[0]} A caminho` : '📍 Chegaste ao local'}
           </Text>
         </View>
       </View>
 
-      {/* Meio de Deslocação */}
-      {estado === 'en_route' && (
+      {/* FASE 1: Escolha do Transporte Antes de Partir */}
+      {fase === 'selecionar_transporte' && (
         <View style={styles.transporteCard}>
-          <Text style={styles.transporteLabel}>COMO TE ESTÁS A DESLOCAR?</Text>
+          <Text style={styles.transporteLabel}>COMO TE VAIS DESLOCAR ATÉ AO CLIENTE?</Text>
           <View style={styles.transporteGrid}>
             {MEIOS_TRANSPORTE.map((t) => (
               <TouchableOpacity
@@ -139,7 +174,7 @@ export default function ProACaminhoScreen() {
             ))}
           </View>
           <Text style={styles.transporteNota}>
-            ℹ️ O cliente é informado do meio ({transporteActual.label}) e da previsão de chegada no mapa.
+            ℹ️ O cliente será informado do meio ({transporteActual.label}) e verá a tua aproximação no mapa.
           </Text>
         </View>
       )}
@@ -150,10 +185,10 @@ export default function ProACaminhoScreen() {
           <ActivityIndicator color="#F2C94C" />
         ) : (
           <>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
               <Image
                 source={{ uri: jobData?.profiles?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' }}
-                style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: '#F2C94C', backgroundColor: '#334155' }}
+                style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: '#F2C94C', backgroundColor: '#334155' }}
               />
               <View style={{ flex: 1 }}>
                 <Text style={styles.clienteLabel}>CLIENTE DO PEDIDO</Text>
@@ -167,13 +202,6 @@ export default function ProACaminhoScreen() {
               📍 {jobData?.location_note || jobData?.address || 'Localização GPS indicada pelo cliente'}
             </Text>
 
-            {jobData?.description && (
-              <View style={styles.descricaoBox}>
-                <Text style={styles.descricaoLabel}>DESCRIÇÃO DO PROBLEMA:</Text>
-                <Text style={styles.descricaoTexto}>"{jobData.description}"</Text>
-              </View>
-            )}
-
             {clientCoords && (
               <Text style={styles.coordsText}>
                 GPS: {clientCoords.lat.toFixed(5)}, {clientCoords.lng.toFixed(5)}
@@ -183,61 +211,81 @@ export default function ProACaminhoScreen() {
         )}
       </View>
 
-      {/* Navegar no Google Maps com coordenadas reais */}
-      <TouchableOpacity style={styles.btnMapas} onPress={abrirMapas} activeOpacity={0.8}>
-        <Text style={styles.btnMapasText}>🗺 Navegar até ao cliente no Mapa</Text>
-      </TouchableOpacity>
-
-      {/* Orçamento antes de sair ou ao chegar */}
-      <TouchableOpacity style={styles.btnOrcamento} onPress={handleProporPreco} activeOpacity={0.8}>
-        <Text style={styles.btnOrcamentoText}>💼 Propor Orçamento / Preço no Sistema</Text>
-      </TouchableOpacity>
-
-      {estado === 'en_route' && (
-        <TouchableOpacity style={styles.btnPrimary} onPress={handleChegada} activeOpacity={0.8}>
-          <Text style={styles.btnPrimaryText}>📍 Já cheguei ao local</Text>
+      {/* FASE 1: Botão para Iniciar Deslocação */}
+      {fase === 'selecionar_transporte' && (
+        <TouchableOpacity style={styles.btnIniciar} onPress={handleIniciarDeslocacao} activeOpacity={0.85}>
+          <Text style={styles.btnIniciarText}>
+            🚗 INICIAR DESLOCAÇÃO (ESTOU A CAMINHO) →
+          </Text>
         </TouchableOpacity>
       )}
 
-      {estado === 'arrived' && (
-        <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: '#2563EB', borderColor: '#60A5FA' }]} onPress={handleProporPreco} activeOpacity={0.8}>
-          <Text style={styles.btnPrimaryText}>🔧 Diagnóstico Feito — Enviar Orçamento →</Text>
-        </TouchableOpacity>
+      {/* FASE 2: A Caminho */}
+      {fase === 'en_route' && (
+        <>
+          <TouchableOpacity style={styles.btnMapas} onPress={abrirMapas} activeOpacity={0.8}>
+            <Text style={styles.btnMapasText}>🗺 Abrir Navegação no Google Maps</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.btnPrimary} onPress={handleChegada} activeOpacity={0.8}>
+            <Text style={styles.btnPrimaryText}>📍 Já Cheguei ao Local do Cliente</Text>
+          </TouchableOpacity>
+        </>
+      )}
+
+      {/* FASE 3: Chegado ao Local */}
+      {fase === 'arrived' && (
+        <View style={styles.arrivedBox}>
+          <Text style={{ fontSize: 40, marginBottom: 8 }}>📍</Text>
+          <Text style={styles.arrivedTitle}>Chegaste ao Local!</Text>
+          <Text style={styles.arrivedSub}>
+            O cliente foi notificado de que já estás no ponto de encontro. Podes iniciar a execução do trabalho acordado.
+          </Text>
+          <TouchableOpacity 
+            style={[styles.btnPrimary, { backgroundColor: '#2563EB', borderColor: '#60A5FA', marginTop: 16 }]} 
+            onPress={handleIniciarTrabalho} 
+            activeOpacity={0.8}
+          >
+            <Text style={styles.btnPrimaryText}>🔧 Iniciar Trabalho →</Text>
+          </TouchableOpacity>
+        </View>
       )}
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0F2D1A', padding: 20, paddingTop: 48 },
-  header: { alignItems: 'center', marginBottom: 20 },
-  catEmoji: { fontSize: 44, marginBottom: 6 },
-  headerTitle: { fontSize: 20, fontWeight: '900', color: '#F5F0E8', marginBottom: 8, textAlign: 'center' },
-  badge: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  container: { flex: 1, backgroundColor: '#0F2D1A', padding: 20, paddingTop: 44 },
+  header: { alignItems: 'center', marginBottom: 16 },
+  garantiaBadge: { backgroundColor: 'rgba(74,222,128,0.15)', borderWidth: 1, borderColor: '#4ADE80', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 16, marginBottom: 12 },
+  garantiaText: { color: '#4ADE80', fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
+  catEmoji: { fontSize: 40, marginBottom: 4 },
+  headerTitle: { fontSize: 19, fontWeight: '900', color: '#F5F0E8', marginBottom: 6, textAlign: 'center' },
+  badge: { paddingHorizontal: 16, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },
+  badgeReady: { backgroundColor: 'rgba(56,189,248,0.15)', borderColor: '#38BDF8' },
   badgeRoute: { backgroundColor: 'rgba(242,201,76,0.15)', borderColor: '#F2C94C' },
   badgeArrived: { backgroundColor: 'rgba(74,222,128,0.15)', borderColor: '#4ADE80' },
-  badgeService: { backgroundColor: 'rgba(96,165,250,0.15)', borderColor: '#60A5FA' },
   badgeText: { fontWeight: '800', color: '#F5F0E8', fontSize: 12 },
-  clienteCard: { backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 10, padding: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginBottom: 16 },
+  clienteCard: { backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 10, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginBottom: 16 },
   clienteLabel: { fontSize: 10, fontWeight: '700', color: '#F2C94C', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 2 },
-  clienteNome: { fontSize: 18, fontWeight: '900', color: '#F5F0E8' },
-  clienteRef: { fontSize: 14, color: '#38BDF8', lineHeight: 20, fontWeight: '600', marginTop: 4 },
-  descricaoBox: { marginTop: 10, padding: 10, backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-  descricaoLabel: { fontSize: 10, fontWeight: '800', color: '#9CA3AF', marginBottom: 4 },
-  descricaoTexto: { fontSize: 13, color: '#E2E8F0', fontStyle: 'italic', lineHeight: 18 },
-  coordsText: { fontSize: 11, color: '#94A3B8', marginTop: 8, fontFamily: 'monospace' },
+  clienteNome: { fontSize: 17, fontWeight: '900', color: '#F5F0E8' },
+  clienteRef: { fontSize: 13, color: '#38BDF8', lineHeight: 18, fontWeight: '600', marginTop: 4 },
+  coordsText: { fontSize: 11, color: '#94A3B8', marginTop: 6, fontFamily: 'monospace' },
   transporteCard: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10, padding: 14, borderWidth: 1, borderColor: 'rgba(242,201,76,0.3)', marginBottom: 16 },
-  transporteLabel: { fontSize: 11, fontWeight: '800', color: '#F2C94C', letterSpacing: 1.2, marginBottom: 8 },
+  transporteLabel: { fontSize: 10, fontWeight: '800', color: '#F2C94C', letterSpacing: 1, marginBottom: 8 },
   transporteGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 },
   transporteBtn: { backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   transporteBtnAtivo: { backgroundColor: '#F2C94C', borderColor: '#F2C94C' },
   transporteBtnText: { color: '#F5F0E8', fontSize: 11, fontWeight: '700' },
   transporteBtnTextAtivo: { color: '#1A1A2E', fontWeight: '900' },
   transporteNota: { fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 4, lineHeight: 15 },
-  btnMapas: { backgroundColor: '#1E3A5F', borderRadius: 8, paddingVertical: 14, alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: '#60A5FA' },
+  btnIniciar: { backgroundColor: '#4ADE80', borderRadius: 8, paddingVertical: 18, alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
+  btnIniciarText: { color: '#0F2D1A', fontWeight: '900', fontSize: 14, textTransform: 'uppercase', letterSpacing: 0.5 },
+  btnMapas: { backgroundColor: '#1E3A5F', borderRadius: 8, paddingVertical: 14, alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#60A5FA' },
   btnMapasText: { color: '#60A5FA', fontWeight: '800', fontSize: 14 },
-  btnOrcamento: { backgroundColor: 'rgba(242,201,76,0.12)', borderRadius: 8, paddingVertical: 14, alignItems: 'center', marginBottom: 10, borderWidth: 1.5, borderColor: '#F2C94C' },
-  btnOrcamentoText: { color: '#F2C94C', fontWeight: '800', fontSize: 14 },
   btnPrimary: { backgroundColor: '#166534', borderRadius: 8, paddingVertical: 16, alignItems: 'center', borderWidth: 2, borderColor: '#4ADE80' },
   btnPrimaryText: { color: '#fff', fontWeight: '900', fontSize: 14, textTransform: 'uppercase', letterSpacing: 0.5 },
+  arrivedBox: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  arrivedTitle: { fontSize: 22, fontWeight: '900', color: '#4ADE80', marginBottom: 6 },
+  arrivedSub: { fontSize: 13, color: 'rgba(255,255,255,0.7)', textAlign: 'center', lineHeight: 18 },
 })

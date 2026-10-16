@@ -12,8 +12,10 @@ export default function MestreACaminhoScreen() {
     distanciaM?: string
     etaMinutos?: string
     categoriaEmoji?: string
-    transporte?: string
   }>()
+
+  const [jobStatus, setJobStatus] = useState<'a_preparar' | 'en_route' | 'arrived' | 'in_service'>('a_preparar')
+  const [transporteUtilizado, setTransporteUtilizado] = useState<string>('carro_proprio')
 
   const [mestreInfo, setMestreInfo] = useState({
     nome: params.mestreNome || 'Provedor 1',
@@ -21,80 +23,59 @@ export default function MestreACaminhoScreen() {
     avatar: params.mestreFoto || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
     categoria: 'Mecânico',
   })
-  const [temProposta, setTemProposta] = useState(false)
-  const [propostaValor, setPropostaValor] = useState<number | null>(null)
 
   const etaMinutos = params.etaMinutos ?? '8'
   const distanciaM = params.distanciaM ?? '2100'
   const categoriaEmoji = params.categoriaEmoji ?? '🔧'
-  const transporteDesc = params.transporte === 'chapa' ? '🚐 Chapa' :
-                         params.transporte === 'moto' ? '🏍️ Moto/Txopela' :
-                         params.transporte === 'tpm' ? '🚌 TPM' :
-                         params.transporte === 'amigo' ? '🤝 Boleia' :
-                         params.transporte === 'a_pe' ? '🚶 A pé' : '🚗 Carro Próprio'
 
-  // Carregar dados reais do mestre e escutar propostas de preço
+  const transporteDesc = transporteUtilizado === 'chapa' ? '🚐 Chapa' :
+                         transporteUtilizado === 'moto' ? '🏍️ Moto/Txopela' :
+                         transporteUtilizado === 'tpm' ? '🚌 TPM (Autocarro)' :
+                         transporteUtilizado === 'amigo' ? '🤝 Boleia' :
+                         transporteUtilizado === 'a_pe' ? '🚶 A pé' : '🚗 Carro Pessoal'
+
   useEffect(() => {
     if (!params.jobId) return
 
     let pollTimer: NodeJS.Timeout
 
-    const verificarPropostaEMestre = async () => {
+    const verificarProgressoMestre = async () => {
       try {
-        // 1. Verificar se mestre propôs preço
-        const { data: prop } = await supabase
-          .from('job_price_proposals')
-          .select('*')
-          .or(`job_id.eq.${params.jobId}`)
-          .order('created_at', { ascending: false })
-          .limit(1)
+        const { data: job } = await supabase
+          .from('jobs')
+          .select('status, cancel_reason, arrived_at')
+          .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
           .maybeSingle()
 
-        if (prop) {
-          setTemProposta(true)
-          setPropostaValor(prop.amount)
-        }
+        if (job) {
+          if (job.cancel_reason) {
+            setTransporteUtilizado(job.cancel_reason)
+          }
 
-        // 2. Verificar dados do mestre via service_requests / jobs
-        const { data: req } = await supabase
-          .from('service_requests')
-          .select('*, provider_profiles:target_provider_id(business_name, rating_avg, profiles:profile_id(full_name, avatar_url))')
-          .eq('id', params.jobId)
-          .maybeSingle()
-
-        if (req?.provider_profiles) {
-          const prov = req.provider_profiles as any
-          setMestreInfo({
-            nome: prov.business_name || prov.profiles?.full_name || mestreInfo.nome,
-            nota: prov.rating_avg ? Number(prov.rating_avg).toFixed(1) : mestreInfo.nota,
-            avatar: prov.profiles?.avatar_url || mestreInfo.avatar,
-            categoria: req.title || 'Mestre Pro'
-          })
-          if (req.status === 'price_proposed' || req.budget_max) {
-            setTemProposta(true)
-            if (req.budget_max) setPropostaValor(req.budget_max)
+          if (job.status === 'en_route') {
+            setJobStatus('en_route')
+          } else if (job.status === 'arrived') {
+            setJobStatus('arrived')
+          } else if (job.status === 'in_service' || job.status === 'completed') {
+            setJobStatus('in_service')
+          } else {
+            setJobStatus('a_preparar')
           }
         }
       } catch (err) {
-        console.warn('Erro ao verificar mestre/proposta:', err)
+        console.warn('Erro ao verificar progresso do mestre:', err)
       }
     }
 
-    verificarPropostaEMestre()
-    pollTimer = setInterval(verificarPropostaEMestre, 2000)
+    verificarProgressoMestre()
+    pollTimer = setInterval(verificarProgressoMestre, 2000)
 
-    // Subscrição Realtime
     const channel = supabase
-      .channel(`client_mestre_cam_${params.jobId}_${Date.now()}`)
+      .channel(`client_track_${params.jobId}_${Date.now()}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'job_price_proposals' },
-        () => verificarPropostaEMestre()
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'service_requests', filter: `id=eq.${params.jobId}` },
-        () => verificarPropostaEMestre()
+        { event: '*', schema: 'public', table: 'jobs' },
+        () => verificarProgressoMestre()
       )
       .subscribe()
 
@@ -104,24 +85,17 @@ export default function MestreACaminhoScreen() {
     }
   }, [params.jobId])
 
-  const abrirProposta = () => {
-    router.push({
-      pathname: '/pedido/proposta-preco',
-      params: {
-        jobId: params.jobId,
-        mestreNome: mestreInfo.nome,
-        categoriaEmoji
-      }
-    })
-  }
-
   return (
     <View style={styles.container}>
       {/* Mapa de Acompanhamento */}
       <View style={styles.mapPlaceholder}>
         <Text style={styles.mapPlaceholderText}>🗺️</Text>
-        <Text style={styles.mapPlaceholderSub}>Acompanhamento em Tempo Real</Text>
-        <Text style={styles.mapPlaceholderHint}>A aproximação do mestre é monitorizada no sistema</Text>
+        <Text style={styles.mapPlaceholderSub}>
+          {jobStatus === 'a_preparar' ? 'Pagamento Retido · Mestre a preparar saída' :
+           jobStatus === 'en_route' ? `Mestre a caminho (${transporteDesc})` :
+           'Mestre chegou ao ponto de encontro!'}
+        </Text>
+        <Text style={styles.mapPlaceholderHint}>A aproximação do mestre é acompanhada em tempo real</Text>
 
         <View style={styles.mestrePlacaMap}>
           <Text style={styles.mestrePlacaMapEmoji}>{categoriaEmoji}</Text>
@@ -132,17 +106,32 @@ export default function MestreACaminhoScreen() {
       <View style={styles.painel}>
         <View style={styles.dragHandle} />
 
-        {/* Notificação de Proposta no Sistema */}
-        {temProposta && (
-          <TouchableOpacity style={styles.propostaAlerta} onPress={abrirProposta} activeOpacity={0.85}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.propostaAlertaTitulo}>💼 NOVA PROPOSTA DE ORÇAMENTO!</Text>
-              <Text style={styles.propostaAlertaTexto}>
-                O mestre propôs MT {propostaValor ? propostaValor.toLocaleString('pt-MZ') : '...'}. Decide no sistema: Concordo, Não concordo ou Está puxado.
-              </Text>
-            </View>
-            <Text style={styles.propostaAlertaSeta}>Ver →</Text>
-          </TouchableOpacity>
+        {/* Notificação de Estado */}
+        {jobStatus === 'a_preparar' && (
+          <View style={styles.prepararBox}>
+            <Text style={styles.prepararBoxTitulo}>🔒 PAGAMENTO CONFIRMADO (ESCROW)</Text>
+            <Text style={styles.prepararBoxTexto}>
+              O mestre recebeu a confirmação do pagamento e está a preparar os materiais para iniciar a deslocação.
+            </Text>
+          </View>
+        )}
+
+        {jobStatus === 'en_route' && (
+          <View style={styles.aCaminhoBox}>
+            <Text style={styles.aCaminhoBoxTitulo}>🚗 MESTRE EM DESLOCAÇÃO</Text>
+            <Text style={styles.aCaminhoBoxTexto}>
+              O profissional está a deslocar-se de {transporteDesc}. Acompanhe a aproximação no mapa.
+            </Text>
+          </View>
+        )}
+
+        {jobStatus === 'arrived' && (
+          <View style={styles.chegouBox}>
+            <Text style={styles.chegouBoxTitulo}>📍 O MESTRE CHEGOU AO LOCAL!</Text>
+            <Text style={styles.chegouBoxTexto}>
+              O profissional está no ponto de encontro consigo para iniciar a execução do serviço acordado.
+            </Text>
+          </View>
         )}
 
         {/* Informações Reais do Mestre */}
@@ -160,30 +149,37 @@ export default function MestreACaminhoScreen() {
         {/* ETA */}
         <View style={styles.etaCard}>
           <View style={styles.etaItem}>
-            <Text style={styles.etaValor}>{etaMinutos} min</Text>
+            <Text style={styles.etaValor}>
+              {jobStatus === 'arrived' ? '0 min' : etaMinutos + ' min'}
+            </Text>
             <Text style={styles.etaLabel}>Previsão</Text>
           </View>
           <View style={styles.etaDivider} />
           <View style={styles.etaItem}>
-            <Text style={styles.etaValor}>{(parseInt(distanciaM) / 1000).toFixed(1)} km</Text>
+            <Text style={styles.etaValor}>
+              {jobStatus === 'arrived' ? 'No local' : (parseInt(distanciaM) / 1000).toFixed(1) + ' km'}
+            </Text>
             <Text style={styles.etaLabel}>Distância</Text>
           </View>
           <View style={styles.etaDivider} />
           <View style={styles.etaItem}>
-            <Text style={styles.etaValor}>{transporteDesc}</Text>
+            <Text style={styles.etaValor}>{transporteDesc.split(' ')[0]}</Text>
             <Text style={styles.etaLabel}>Transporte</Text>
           </View>
         </View>
 
-        {/* Botão de Negociação / Orçamento no Sistema (Sem telefone fora da plataforma) */}
-        <TouchableOpacity style={styles.btnOrcamentoSistema} onPress={abrirProposta} activeOpacity={0.8}>
-          <Text style={styles.btnOrcamentoSistemaText}>
-            💼 {temProposta ? 'VER ORÇAMENTO & NEGOCIAR NO SISTEMA →' : 'ORÇAMENTO & PROPOSTA NO SISTEMA →'}
-          </Text>
-        </TouchableOpacity>
+        {jobStatus === 'arrived' && (
+          <TouchableOpacity 
+            style={styles.btnAcompanharServico} 
+            onPress={() => router.push({ pathname: '/pedido/confirmar', params: { jobId: params.jobId } })}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.btnAcompanharServicoText}>🔧 Acompanhar Execução do Serviço →</Text>
+          </TouchableOpacity>
+        )}
 
         <Text style={styles.aviso}>
-          🔒 Segurança Bué de Mestres: Todo o orçamento e negociação decorrem dentro da plataforma. Sem chamadas telefónicas externas.
+          🔒 Segurança Bué de Mestres: Sem dinheiro em mão. O pagamento foi retido na plataforma e só é libertado após confirmar a conclusão.
         </Text>
       </View>
     </View>
@@ -210,22 +206,27 @@ const styles = StyleSheet.create({
   },
   mestrePlacaMapEmoji: { fontSize: 22 },
   painel: { backgroundColor: PAPEL, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 32, borderTopWidth: 2, borderColor: TINTA },
-  dragHandle: { width: 40, height: 4, backgroundColor: '#D1D5DB', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
-  propostaAlerta: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', padding: 14, borderRadius: 8, borderWidth: 1.5, borderColor: '#F59E0B', marginBottom: 16 },
-  propostaAlertaTitulo: { color: '#B45309', fontWeight: '900', fontSize: 12, letterSpacing: 0.5, marginBottom: 2 },
-  propostaAlertaTexto: { color: '#78350F', fontSize: 12, lineHeight: 16 },
-  propostaAlertaSeta: { color: '#B45309', fontWeight: '900', fontSize: 16, marginLeft: 10 },
-  mestreRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  mestreAvatarImg: { width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: AMARELO, marginRight: 14, backgroundColor: '#334155' },
+  dragHandle: { width: 40, height: 4, backgroundColor: '#D1D5DB', borderRadius: 2, alignSelf: 'center', marginBottom: 14 },
+  prepararBox: { backgroundColor: '#EFF6FF', borderWidth: 1.5, borderColor: '#3B82F6', borderRadius: 8, padding: 12, marginBottom: 14 },
+  prepararBoxTitulo: { color: '#1D4ED8', fontWeight: '900', fontSize: 11, letterSpacing: 0.5, marginBottom: 2 },
+  prepararBoxTexto: { color: '#1E40AF', fontSize: 12, lineHeight: 16 },
+  aCaminhoBox: { backgroundColor: '#FEF3C7', borderWidth: 1.5, borderColor: '#F59E0B', borderRadius: 8, padding: 12, marginBottom: 14 },
+  aCaminhoBoxTitulo: { color: '#B45309', fontWeight: '900', fontSize: 11, letterSpacing: 0.5, marginBottom: 2 },
+  aCaminhoBoxTexto: { color: '#78350F', fontSize: 12, lineHeight: 16 },
+  chegouBox: { backgroundColor: '#ECFDF5', borderWidth: 1.5, borderColor: '#10B981', borderRadius: 8, padding: 12, marginBottom: 14 },
+  chegouBoxTitulo: { color: '#047857', fontWeight: '900', fontSize: 12, letterSpacing: 0.5, marginBottom: 2 },
+  chegouBoxTexto: { color: '#065F46', fontSize: 12, lineHeight: 16 },
+  mestreRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  mestreAvatarImg: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: AMARELO, marginRight: 12, backgroundColor: '#334155' },
   mestreInfo: { flex: 1 },
   mestreNome: { fontSize: 18, fontWeight: '900', color: TINTA, marginBottom: 2 },
   mestreNota: { fontSize: 13, color: ZINCO, fontWeight: '600' },
-  etaCard: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 8, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#E5E7EB' },
+  etaCard: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 8, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: '#E5E7EB' },
   etaItem: { flex: 1, alignItems: 'center' },
-  etaValor: { fontSize: 16, fontWeight: '900', color: TINTA, marginBottom: 2 },
+  etaValor: { fontSize: 15, fontWeight: '900', color: TINTA, marginBottom: 2 },
   etaLabel: { fontSize: 10, color: ZINCO, textTransform: 'uppercase', letterSpacing: 0.5 },
   etaDivider: { width: 1, backgroundColor: '#E5E7EB' },
-  btnOrcamentoSistema: { backgroundColor: TINTA, borderRadius: 8, paddingVertical: 16, alignItems: 'center', borderWidth: 2, borderColor: AMARELO, marginBottom: 12 },
-  btnOrcamentoSistemaText: { color: AMARELO, fontWeight: '900', fontSize: 13, letterSpacing: 0.5, textTransform: 'uppercase' },
+  btnAcompanharServico: { backgroundColor: '#166534', borderRadius: 8, paddingVertical: 16, alignItems: 'center', borderWidth: 2, borderColor: '#4ADE80', marginBottom: 12 },
+  btnAcompanharServicoText: { color: '#fff', fontWeight: '900', fontSize: 14, textTransform: 'uppercase', letterSpacing: 0.5 },
   aviso: { fontSize: 11, color: ZINCO, textAlign: 'center', lineHeight: 16 },
 })
