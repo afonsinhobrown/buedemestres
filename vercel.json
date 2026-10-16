@@ -2,11 +2,5 @@
   "framework": "nextjs",
   "installCommand": "pnpm install",
   "buildCommand": "pnpm --filter web run build",
-  "outputDirectory": ".next",
-  "crons": [
-    {
-      "path": "/api/cron/expire-negotiations",
-      "schedule": "* * * * *"
-    }
-  ]
+  "outputDirectory": ".next"
 }
