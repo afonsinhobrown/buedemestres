@@ -7,12 +7,16 @@ import { validateAntiPhoneBypass } from '@/lib/antiPhoneBypass'
 
 // Categorias disponíveis para pedido imediato (on-demand) alinhadas com a base de dados
 export const CATEGORIAS_IMEDIATAS = [
-  { id: 2, slug: 'mecanico', emoji: '🔧', nome: 'Mecânico', desc: 'Avaria, motor, travões, socorro' },
+  { id: 2, slug: 'mecanico', emoji: '🚗', nome: 'Mecânico', desc: 'Avaria, motor, travões, socorro' },
   { id: 11, slug: 'electricista', emoji: '⚡', nome: 'Electricista', desc: 'Instalações, avarias, curto-circuito' },
   { id: 10, slug: 'canalizador', emoji: '🚿', nome: 'Canalizador', desc: 'Fugas de água, torneiras, entupimentos' },
-  { id: 13, slug: 'chaveiro', emoji: '🔑', nome: 'Chaveiro / Serralheiro', desc: 'Fechaduras, portões, cópias' },
   { id: 8, slug: 'pedreiro', emoji: '🧱', nome: 'Pedreiro', desc: 'Obras rápidas, reboco, fissuras' },
+  { id: 12, slug: 'pintor', emoji: '🎨', nome: 'Pintor', desc: 'Paredes, tetos, retoques' },
+  { id: 9, slug: 'carpinteiro', emoji: '🪚', nome: 'Carpinteiro', desc: 'Móveis, portas, fechaduras' },
+  { id: 13, slug: 'chaveiro', emoji: '🔑', nome: 'Chaveiro / Serralheiro', desc: 'Fechaduras, portões, cópias' },
   { id: 31, slug: 'limpeza', emoji: '🧹', nome: 'Limpeza', desc: 'Residencial, escritórios, pós-obra' },
+  { id: 32, slug: 'jardinagem', emoji: '🌿', nome: 'Jardineiro', desc: 'Poda, relva, manutenção' },
+  { id: 33, slug: 'mudancas', emoji: '📦', nome: 'Mudanças', desc: 'Transporte e cargas' },
 ]
 
 export default function NovoPedidoImediatoScreen() {
@@ -50,7 +54,8 @@ export default function NovoPedidoImediatoScreen() {
       const found = CATEGORIAS_IMEDIATAS.find(c =>
         c.slug === param ||
         c.id.toString() === param ||
-        (param === 'eletricista' && c.slug === 'electricista')
+        (param === 'eletricista' && c.slug === 'electricista') ||
+        (param === 'jardineiro' && c.slug === 'jardinagem')
       )
       if (found) {
         setCategoria(found)

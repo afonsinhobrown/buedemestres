@@ -135,6 +135,11 @@ export default function PedidosScreen() {
     }
   }
 
+  const formatTitle = (title?: string) => {
+    if (!title || title.includes('undefined')) return 'Pedido de Assistência';
+    return title;
+  };
+
   const retomarPedido = (p: any) => {
     if (p.status === 'price_proposed' || p.status === 'accepted') {
       router.push({
@@ -237,7 +242,7 @@ export default function PedidosScreen() {
               <View key={p.id} style={[styles.orderCard, p.status === 'price_proposed' && styles.orderCardHighlight]}>
                 <View style={styles.cardHeader}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.cardTitle}>{p.title || 'Pedido de Assistência'}</Text>
+                    <Text style={styles.cardTitle}>{formatTitle(p.title)}</Text>
                     <Text style={styles.cardDate}>🕒 {dataFormatada}</Text>
                   </View>
                   <View style={[styles.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>

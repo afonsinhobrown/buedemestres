@@ -224,7 +224,11 @@ export default function HomeScreen() {
               <Text style={styles.activeOrderTime}>Hoje</Text>
             </View>
 
-            <Text style={styles.activeOrderTitle}>{activeOrder.title || 'Assistência Solicitada'}</Text>
+            <Text style={styles.activeOrderTitle}>
+              {(!activeOrder.title || activeOrder.title.includes('undefined'))
+                ? 'Pedido urgente: Mecânico'
+                : activeOrder.title}
+            </Text>
             
             {activeOrder.status === 'price_proposed' ? (
               <View style={styles.proposalNoticeBox}>

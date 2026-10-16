@@ -4,6 +4,25 @@ import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../lib/useAuthStore'
 
+const formatJobTitle = (title?: string, catId?: number) => {
+  if (!title || title.includes('undefined')) {
+    const catMap: Record<number, string> = {
+      2: 'Mecânico',
+      11: 'Electricista',
+      10: 'Canalizador',
+      8: 'Pedreiro',
+      9: 'Carpinteiro',
+      12: 'Pintor',
+      13: 'Chaveiro / Serralheiro',
+      31: 'Limpeza',
+      32: 'Jardinagem'
+    };
+    const name = catId ? catMap[catId] : null;
+    return name ? `Pedido urgente: ${name}` : 'Pedido urgente: Mecânico';
+  }
+  return title;
+};
+
 export default function ProHomeScreen() {
   const [isOnline, setIsOnline] = useState(false)
   const [newRequest, setNewRequest] = useState<any>(null)
@@ -181,7 +200,9 @@ export default function ProHomeScreen() {
 
   const aceitarTrabalho = async (req: any) => {
     const requestId = typeof req === 'string' ? req : req.id
-    const jobTitle = typeof req === 'object' ? (req.title || req.problem_description || 'Serviço') : 'Serviço'
+    const jobTitle = typeof req === 'object' 
+      ? formatJobTitle(req.title || req.problem_description, req.category_id) 
+      : 'Serviço'
     const activeProId = providerProfile?.profile_id || user?.id
 
     // 1. Atualizar o pedido para status 'accepted' com target_provider_id
@@ -337,7 +358,7 @@ export default function ProHomeScreen() {
             </View>
             
             <View style={styles.modalBody}>
-              <Text style={styles.modalCategory}>{newRequest?.title || 'Serviço Solicitado'}</Text>
+              <Text style={styles.modalCategory}>{formatJobTitle(newRequest?.title, newRequest?.category_id)}</Text>
               <Text style={styles.modalDescription}>
                 {newRequest?.description || 'O cliente precisa da sua ajuda nesta área o mais rápido possível.'}
               </Text>
@@ -409,7 +430,7 @@ export default function ProHomeScreen() {
             <View key={job.id} style={{ backgroundColor: '#1E293B', padding: 16, borderRadius: 10, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                 <Text style={{ color: '#F8FAFC', fontSize: 16, fontWeight: 'bold' }}>
-                  {job.title || job.problem_description || 'Pedido de Serviço'}
+                  {formatJobTitle(job.title || job.problem_description, job.category_id)}
                 </Text>
                 <View style={{ backgroundColor: 'rgba(242,201,76,0.2)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
                   <Text style={{ color: '#F2C94C', fontSize: 11, fontWeight: 'bold' }}>URGENTE</Text>

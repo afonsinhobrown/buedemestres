@@ -85,12 +85,25 @@ export default function AProcurarMestreScreen() {
       }, { onConflict: 'id' });
 
       // 2. Criar o pedido associado ao cliente real com a categoria certa
+      const catMap: Record<number, string> = {
+        2: 'Mecânico',
+        11: 'Electricista',
+        10: 'Canalizador',
+        8: 'Pedreiro',
+        13: 'Chaveiro / Serralheiro',
+        31: 'Limpeza'
+      };
+      const catId = parseInt(params.categoriaId || '2');
+      const nomeCategoria = (params.categoriaNome && params.categoriaNome !== 'undefined' && params.categoriaNome.trim() !== '')
+        ? params.categoriaNome
+        : (catMap[catId] || 'Mestre Profissional');
+
       const { data, error } = await supabase
         .from('service_requests')
         .insert({
           client_id: realUserId,
-          title: `Pedido urgente: ${params.categoriaNome}`,
-          category_id: parseInt(params.categoriaId || '2'),
+          title: `Pedido urgente: ${nomeCategoria}`,
+          category_id: catId,
           description: params.descricao || 'Pedido urgente de assistência',
           location_note: params.referencia || '',
           mode: 'on_demand',

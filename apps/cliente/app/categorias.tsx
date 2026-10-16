@@ -3,14 +3,16 @@ import { router } from 'expo-router'
 import { useAuthStore } from '@/lib/useAuthStore'
 
 const categorias = [
-  { id: 'eletricista', nome: 'Eletricista', icone: '⚡', desc: 'Instalações, reparos, quadros elétricos', cor: '#2444C8', text: '#FFF' },
-  { id: 'canalizador', nome: 'Canalizador', icone: '🔧', desc: 'Vazamentos, desentupimentos, instalações', cor: '#FFC61A', text: '#12163A' },
+  { id: 'mecanico', nome: 'Mecânico', icone: '🚗', desc: 'Avaria mecânica, motor, travões, socorro', cor: '#BF3A21', text: '#FFF' },
+  { id: 'eletricista', nome: 'Electricista', icone: '⚡', desc: 'Instalações, avarias, quadros elétricos', cor: '#2444C8', text: '#FFF' },
+  { id: 'canalizador', nome: 'Canalizador', icone: '🚿', desc: 'Vazamentos, desentupimentos, torneiras', cor: '#FFC61A', text: '#12163A' },
+  { id: 'pedreiro', nome: 'Pedreiro', icone: '🧱', desc: 'Obras rápidas, reboco, fissuras', cor: '#FFFFFF', text: '#12163A', border: '#2444C8' },
   { id: 'pintor', nome: 'Pintor', icone: '🎨', desc: 'Interiores, exteriores, retoques', cor: '#2444C8', text: '#FFF' },
   { id: 'carpinteiro', nome: 'Carpinteiro', icone: '🪚', desc: 'Móveis, portas, decks', cor: '#FFFFFF', text: '#12163A', border: '#2444C8' },
-  { id: 'jardineiro', nome: 'Jardineiro', icone: '🌿', desc: 'Poda, plantio, manutenção', cor: '#BF3A21', text: '#FFF' },
   { id: 'limpeza', nome: 'Limpeza', icone: '🧹', desc: 'Residencial, pós-obra, escritórios', cor: '#FFC61A', text: '#12163A' },
+  { id: 'jardineiro', nome: 'Jardineiro', icone: '🌿', desc: 'Poda, plantio, manutenção', cor: '#BF3A21', text: '#FFF' },
   { id: 'mudancas', nome: 'Mudanças', icone: '📦', desc: 'Transporte, embalagem, montagem', cor: '#2444C8', text: '#FFF' },
-  { id: 'outros', nome: 'Outros serviços', icone: '🔨', desc: 'Pequenos reparos, montagens', cor: '#FFFFFF', text: '#12163A', border: '#12163A' },
+  { id: 'chaveiro', nome: 'Chaveiro / Serralheiro', icone: '🔑', desc: 'Fechaduras, portões, cópias', cor: '#FFFFFF', text: '#12163A', border: '#12163A' },
 ]
 
 export default function CategoriasScreen() {
