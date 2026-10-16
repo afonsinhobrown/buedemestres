@@ -75,37 +75,7 @@ export default function ProHomeScreen() {
     return () => clearInterval(heartbeat)
   }, [isOnline, providerProfile])
 
-  // Fetch initial pending jobs filtrados estritamente pela categoria do mestre
-  useEffect(() => {
-    if (!providerProfile) return
-    const activeProId = providerProfile.profile_id
-    const activeCatId = providerProfile.primary_category_id
-
-    const fetchJobs = async () => {
-      // Pedidos directos para este mestre
-      const { data: jobs } = await supabase
-        .from('service_jobs')
-        .select('*')
-        .eq('provider_id', activeProId)
-        .eq('status', 'pending')
-        
-      // Pedidos abertos da mesma categoria do mestre
-      let reqQuery = supabase
-        .from('service_requests')
-        .select('*')
-        .eq('status', 'open')
-        
-      if (activeCatId) {
-        reqQuery = reqQuery.eq('category_id', activeCatId)
-      }
-      
-      const { data: requests } = await reqQuery
-      setPendingJobs([...(jobs || []), ...(requests || [])])
-    }
-    fetchJobs()
-  }, [providerProfile])
-
-  // Ouve novos pedidos em tempo real filtrando pela categoria do mestre
+  // Busca e actualização constante de pedidos (Polling activo a cada 2.5s + Realtime)
   useEffect(() => {
     if (!isOnline || !providerProfile) {
       setNewRequest(null)
@@ -115,18 +85,61 @@ export default function ProHomeScreen() {
     const activeProId = providerProfile.profile_id
     const activeCatId = providerProfile.primary_category_id
 
+    const pollPedidos = async () => {
+      try {
+        // 1. Pedidos directos para este mestre
+        const { data: jobs } = await supabase
+          .from('service_jobs')
+          .select('*')
+          .eq('provider_id', activeProId)
+          .eq('status', 'pending')
+
+        // 2. Pedidos urgentes abertos da especialidade
+        let reqQuery = supabase
+          .from('service_requests')
+          .select('*')
+          .eq('status', 'open')
+          .order('created_at', { ascending: false })
+
+        if (activeCatId) {
+          reqQuery = reqQuery.eq('category_id', activeCatId)
+        }
+
+        const { data: requests, error } = await reqQuery
+
+        if (!error && requests && requests.length > 0) {
+          const todos = [...(jobs || []), ...requests]
+          setPendingJobs(todos)
+          // Se ainda não estiver a exibir um pedido no modal, abre imediatamente o mais recente!
+          setNewRequest(current => {
+            if (current) return current
+            return requests[0]
+          })
+        } else {
+          setPendingJobs(jobs || [])
+          setNewRequest(null)
+        }
+      } catch (err) {
+        console.warn('Erro ao sondar pedidos:', err)
+      }
+    }
+
+    // Executa imediatamente e a cada 2.5 segundos
+    pollPedidos()
+    const pollInterval = setInterval(pollPedidos, 2500)
+
+    // Subscrição Realtime com ID único para notificação instantânea (sub-segundo)
+    const channelId = `pro_realtime_${activeProId}_${Date.now()}`
     const channel = supabase
-      .channel('pro_requests_' + activeProId)
+      .channel(channelId)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'service_requests' },
         (payload) => {
-          // FILTRO: Só notifica se for da mesma categoria do mestre!
           if (activeCatId && payload.new.category_id && Number(payload.new.category_id) !== Number(activeCatId)) {
-            console.log(`Ignorado pedido de categoria diferente (${payload.new.category_id}) para mestre da categoria (${activeCatId})`)
             return
           }
-          console.log('🚨 RECEBIDO NOVO PEDIDO URGENTE DA MINHA CATEGORIA:', payload.new)
+          console.log('🚨 RECEBIDO NOVO PEDIDO URGENTE VIA REALTIME:', payload.new)
           setNewRequest(payload.new)
           setPendingJobs(prev => [payload.new, ...prev.filter(j => j.id !== payload.new.id)])
         }
@@ -135,29 +148,18 @@ export default function ProHomeScreen() {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'service_requests' },
         (payload) => {
-          // Se o pedido não está mais 'open' (foi aceite por outro ou cancelado), limpa
           if (payload.new.status !== 'open') {
             setPendingJobs(prev => prev.filter(j => j.id !== payload.new.id))
             setNewRequest((curr: any) => (curr?.id === payload.new.id ? null : curr))
           }
         }
       )
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'jobs' },
-        (payload) => {
-          if (payload.new.provider_id === activeProId) {
-            console.log('🚨 RECEBIDO NOVO PEDIDO DIRECTO:', payload.new)
-            setNewRequest(payload.new)
-            setPendingJobs(prev => [payload.new, ...prev.filter(j => j.id !== payload.new.id)])
-          }
-        }
-      )
       .subscribe((status) => {
-        console.log(`📡 Pro Realtime Status [${providerProfile.business_name} - Cat ${activeCatId}]:`, status)
+        console.log(`📡 Pro Realtime Status [${channelId}]:`, status)
       })
 
     return () => {
+      clearInterval(pollInterval)
       supabase.removeChannel(channel)
     }
   }, [isOnline, providerProfile])
@@ -333,7 +335,7 @@ export default function ProHomeScreen() {
               <TouchableOpacity style={styles.btnRecusar} onPress={() => newRequest?.id && recusarTrabalho(newRequest.id)}>
                 <Text style={styles.btnRecusarText}>Recusar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.btnAceitar} onPress={() => aceitarTrabalho(newRequest?.id)}>
+              <TouchableOpacity style={styles.btnAceitar} onPress={() => aceitarTrabalho(newRequest)}>
                 <Text style={styles.btnAceitarText}>ACEITAR</Text>
               </TouchableOpacity>
             </View>

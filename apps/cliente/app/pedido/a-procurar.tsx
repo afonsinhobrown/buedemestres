@@ -113,15 +113,64 @@ export default function AProcurarMestreScreen() {
     criarPedido();
   }, []);
 
-  // Escutar ofertas aceites e progressão de rondas
+  // Escutar ofertas aceites e progressão de rondas (Polling activo + Realtime)
   useEffect(() => {
     if (!requestId) return;
 
     let timer: NodeJS.Timeout;
+    let pollTimer: NodeJS.Timeout;
 
-    // Subscrição para ver se o estado muda para 'accepted'
+    const tratarAceitacao = async (targetProviderId: string | null) => {
+      clearInterval(timer);
+      clearInterval(pollTimer);
+
+      let mNome = 'Provedor 1';
+      let mTel = '+258 84 999 9999';
+      let mNota = '5.0';
+
+      if (targetProviderId) {
+        const { data: prov } = await supabase
+          .from('provider_profiles')
+          .select('business_name, rating_avg, profiles:profile_id(full_name, phone)')
+          .eq('profile_id', targetProviderId)
+          .single();
+
+        if (prov) {
+          mNome = prov.business_name || (prov.profiles as any)?.full_name || mNome;
+          mTel = (prov.profiles as any)?.phone || mTel;
+          if (prov.rating_avg) mNota = Number(prov.rating_avg).toFixed(1);
+        }
+      }
+
+      setMestreDados({ nome: mNome, telefone: mTel, nota: mNota });
+      setAceite(true);
+    };
+
+    // 1. Polling contínuo a cada 2 segundos (garante detecção imediata mesmo com aba em background)
+    const verificarEstadoPedido = async () => {
+      try {
+        const { data: req } = await supabase
+          .from('service_requests')
+          .select('id, status, target_provider_id')
+          .eq('id', requestId)
+          .maybeSingle();
+
+        if (req && req.status === 'accepted') {
+          console.log('✅ Pedido aceite detectado via polling:', req);
+          await tratarAceitacao(req.target_provider_id);
+        }
+      } catch (err) {
+        console.warn('Erro ao verificar estado do pedido:', err);
+      }
+    };
+
+    verificarEstadoPedido();
+    pollTimer = setInterval(verificarEstadoPedido, 2000);
+
+    // 2. Subscrição Realtime instantânea
+    const clientChannelId = `client_req_${requestId}_${Date.now()}`;
     const channel = supabase
-      .channel(`request_${requestId}`)
+      .channel(clientChannelId)
       .on(
         'postgres_changes',
         {
@@ -132,49 +181,32 @@ export default function AProcurarMestreScreen() {
         },
         async (payload) => {
           if (payload.new.status === 'accepted') {
-            // Um mestre aceitou!
-            clearInterval(timer);
-            
-            let mNome = 'Mestre Profissional';
-            let mTel = '';
-            let mNota = '4.9';
-
-            if (payload.new.target_provider_id) {
-              const { data: prov } = await supabase
-                .from('provider_profiles')
-                .select('business_name, rating_avg, profiles:profile_id(full_name, phone)')
-                .eq('profile_id', payload.new.target_provider_id)
-                .single();
-
-              if (prov) {
-                mNome = prov.business_name || (prov.profiles as any)?.full_name || mNome;
-                mTel = (prov.profiles as any)?.phone || '';
-                if (prov.rating_avg) mNota = Number(prov.rating_avg).toFixed(1);
-              }
-            }
-
-            setMestreDados({ nome: mNome, telefone: mTel, nota: mNota });
-            setAceite(true);
+            console.log('✅ Pedido aceite detectado via Realtime:', payload.new);
+            await tratarAceitacao(payload.new.target_provider_id);
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`📡 Cliente Realtime Status [${clientChannelId}]:`, status);
+      });
 
-    // Rondas (fallback caso ninguém aceite)
+    // 3. Rondas de procura com tempo confortável (35s por ronda = ~105s total)
     timer = setInterval(() => {
       setRondaAtual((prev) => {
         if (prev >= RONDAS.length - 1) {
           clearInterval(timer);
+          clearInterval(pollTimer);
           setEsgotado(true);
           return prev;
         }
         return prev + 1;
       });
-    }, 15000); // 15 segundos por ronda (45s total em demo)
+    }, 35000);
 
     return () => {
-      supabase.removeChannel(channel);
       clearInterval(timer);
+      clearInterval(pollTimer);
+      supabase.removeChannel(channel);
     };
   }, [requestId]);
 
