@@ -133,15 +133,37 @@ export default function NovoPedidoImediatoScreen() {
     let acc = 25
 
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync()
-      if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
-        lat = loc.coords.latitude
-        lng = loc.coords.longitude
-        acc = Math.round(loc.coords.accuracy ?? 25)
-        setLocation(loc)
+      const permResult = await Promise.race([
+        Location.requestForegroundPermissionsAsync(),
+        new Promise<{ status: string }>((res) => setTimeout(() => res({ status: 'timeout' }), 2000))
+      ])
+
+      if (permResult && permResult.status === 'granted') {
+        const loc = await Promise.race([
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+          new Promise<null>((res) => setTimeout(() => res(null), 2500))
+        ])
+        if (loc && loc.coords) {
+          lat = loc.coords.latitude
+          lng = loc.coords.longitude
+          acc = Math.round(loc.coords.accuracy ?? 25)
+          setLocation(loc)
+        } else {
+          setLocation({
+            coords: {
+              latitude: lat,
+              longitude: lng,
+              altitude: null,
+              accuracy: acc,
+              altitudeAccuracy: null,
+              heading: null,
+              speed: null,
+            },
+            timestamp: Date.now()
+          } as Location.LocationObject)
+        }
       } else {
-        // Fallback gracioso
+        // Fallback gracioso imediato
         setLocation({
           coords: {
             latitude: lat,
@@ -156,7 +178,7 @@ export default function NovoPedidoImediatoScreen() {
         } as Location.LocationObject)
       }
     } catch {
-      // Fallback
+      // Fallback garantido
       setLocation({
         coords: {
           latitude: lat,
