@@ -30,7 +30,6 @@ export default function ProporPrecoScreen() {
         return;
       }
       try {
-        // Obter job ou service_request correspondente
         const { data: job } = await supabase
           .from('jobs')
           .select('id, request_id, price_proposed, price_estimate_min')
@@ -39,7 +38,6 @@ export default function ProporPrecoScreen() {
 
         if (job) {
           setActualJobId(job.id);
-          // Verificar se houve proposta recente ou "Está puxado"
           const { data: prop } = await supabase
             .from('job_price_proposals')
             .select('*')
@@ -73,6 +71,13 @@ export default function ProporPrecoScreen() {
     setLines(lines.filter(line => line.id !== id));
   };
 
+  // 1-Clique: Quando a descrição do cliente é diferente ou o cliente não quer fazer o conserto maior
+  const handleApenasDeslocacao = () => {
+    setLines([
+      { id: 'deslocacao_diag', description: 'Taxa de Deslocação e Diagnóstico no Terreno (Problema diferente do descrito)', price: '250' }
+    ]);
+  };
+
   const total = lines.reduce((acc, line) => {
     const p = parseFloat(line.price) || 0;
     return acc + p;
@@ -88,10 +93,8 @@ export default function ProporPrecoScreen() {
         return;
       }
 
-      // 1. Garantir que temos um job id válido
       let jId = actualJobId;
       if (!jId) {
-        // Procurar ou criar
         const { data: req } = await supabase
           .from('service_requests')
           .select('id, client_id')
@@ -116,7 +119,6 @@ export default function ProporPrecoScreen() {
       }
 
       if (jId) {
-        // Inserir proposta em job_price_proposals
         await supabase.from('job_price_proposals').insert({
           job_id: jId,
           proposed_by: '22222222-2222-2222-2222-222222222222',
@@ -125,7 +127,6 @@ export default function ProporPrecoScreen() {
           status: 'pending'
         });
 
-        // Actualizar jobs
         await supabase
           .from('jobs')
           .update({
@@ -135,7 +136,6 @@ export default function ProporPrecoScreen() {
           .eq('id', jId);
       }
 
-      // Actualizar service_requests
       await supabase
         .from('service_requests')
         .update({
@@ -181,6 +181,23 @@ export default function ProporPrecoScreen() {
           <Text style={styles.feedbackHint}>Ajusta o valor abaixo para fechar o acordo no sistema.</Text>
         </View>
       )}
+
+      {/* Proteção do Mestre: Avaria Diferente no Terreno */}
+      <View style={styles.discrepanciaCard}>
+        <Text style={styles.discrepanciaLabel}>🚨 ENCONTROU PROBLEMA DIFERENTE DO DESCRITO?</Text>
+        <Text style={styles.discrepanciaText}>
+          Se a avaria real exigir outro profissional/oficina ou se o cliente recusar a reparação maior, cobre apenas a deslocação e diagnóstico presencial para não ficar no prejuízo.
+        </Text>
+        <TouchableOpacity 
+          style={styles.btnApenasDeslocacao}
+          onPress={handleApenasDeslocacao}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.btnApenasDeslocacaoText}>
+            ⚡ Aplicar apenas Taxa de Deslocação & Diagnóstico (MT 250)
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <ScrollView style={styles.scroll}>
         <Text style={styles.sectionLabel}>ITENS DO ORÇAMENTO (DETALHE)</Text>
@@ -253,34 +270,39 @@ export default function ProporPrecoScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0F2D1A', padding: 20, paddingTop: 48 },
-  header: { marginBottom: 16 },
-  backBtn: { marginBottom: 8 },
-  backBtnText: { color: '#F2C94C', fontWeight: '800', fontSize: 14 },
-  headerTitle: { fontSize: 24, fontWeight: '900', color: '#F5F0E8', marginBottom: 4 },
+  header: { marginBottom: 14 },
+  backBtn: { marginBottom: 6 },
+  backBtnText: { color: '#F2C94C', fontWeight: '800', fontSize: 13 },
+  headerTitle: { fontSize: 22, fontWeight: '900', color: '#F5F0E8', marginBottom: 2 },
   headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.6)' },
-  feedbackBanner: { backgroundColor: 'rgba(242, 201, 76, 0.15)', borderWidth: 1.5, borderColor: '#F2C94C', borderRadius: 8, padding: 14, marginBottom: 16 },
-  feedbackTitle: { color: '#F2C94C', fontWeight: '900', fontSize: 12, letterSpacing: 0.5, marginBottom: 4 },
-  feedbackText: { color: '#F5F0E8', fontSize: 14, fontWeight: '700', marginBottom: 4 },
+  discrepanciaCard: { backgroundColor: 'rgba(239, 68, 68, 0.12)', borderWidth: 1.5, borderColor: '#EF4444', borderRadius: 8, padding: 12, marginBottom: 14 },
+  discrepanciaLabel: { color: '#F87171', fontWeight: '900', fontSize: 11, letterSpacing: 0.5, marginBottom: 4 },
+  discrepanciaText: { color: '#FCA5A5', fontSize: 12, lineHeight: 16, marginBottom: 8 },
+  btnApenasDeslocacao: { backgroundColor: '#B91C1C', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 6, alignItems: 'center' },
+  btnApenasDeslocacaoText: { color: '#fff', fontWeight: '900', fontSize: 12 },
+  feedbackBanner: { backgroundColor: 'rgba(242, 201, 76, 0.15)', borderWidth: 1.5, borderColor: '#F2C94C', borderRadius: 8, padding: 12, marginBottom: 14 },
+  feedbackTitle: { color: '#F2C94C', fontWeight: '900', fontSize: 11, letterSpacing: 0.5, marginBottom: 4 },
+  feedbackText: { color: '#F5F0E8', fontSize: 13, fontWeight: '700', marginBottom: 2 },
   feedbackHint: { color: 'rgba(255,255,255,0.7)', fontSize: 11 },
   scroll: { flex: 1 },
-  sectionLabel: { fontSize: 11, fontWeight: '800', color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 },
-  itemCard: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  itemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  sectionLabel: { fontSize: 11, fontWeight: '800', color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 },
+  itemCard: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  itemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   itemNum: { fontSize: 11, fontWeight: '800', color: '#F2C94C', textTransform: 'uppercase' },
   removerText: { color: '#EF4444', fontSize: 12, fontWeight: '700' },
-  inputDesc: { backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 6, padding: 12, color: '#fff', fontSize: 14, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
-  priceRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 12 },
-  currencyPrefix: { color: '#F2C94C', fontWeight: '900', fontSize: 16, marginRight: 8 },
-  inputPrice: { flex: 1, paddingVertical: 10, color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  btnAddLine: { paddingVertical: 12, alignItems: 'center', borderRadius: 6, borderWidth: 1.5, borderColor: '#38BDF8', borderStyle: 'dashed', backgroundColor: 'rgba(56, 189, 248, 0.08)', marginBottom: 16 },
-  btnAddLineText: { color: '#38BDF8', fontWeight: '800', fontSize: 13 },
-  totalCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', padding: 16, borderRadius: 8, borderWidth: 1, borderColor: '#F2C94C', marginBottom: 16 },
+  inputDesc: { backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 6, padding: 10, color: '#fff', fontSize: 13, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+  priceRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 10 },
+  currencyPrefix: { color: '#F2C94C', fontWeight: '900', fontSize: 15, marginRight: 8 },
+  inputPrice: { flex: 1, paddingVertical: 8, color: '#fff', fontSize: 15, fontWeight: 'bold' },
+  btnAddLine: { paddingVertical: 10, alignItems: 'center', borderRadius: 6, borderWidth: 1.5, borderColor: '#38BDF8', borderStyle: 'dashed', backgroundColor: 'rgba(56, 189, 248, 0.08)', marginBottom: 14 },
+  btnAddLineText: { color: '#38BDF8', fontWeight: '800', fontSize: 12 },
+  totalCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', padding: 14, borderRadius: 8, borderWidth: 1, borderColor: '#F2C94C', marginBottom: 14 },
   totalLabel: { fontSize: 11, fontWeight: '900', color: '#F2C94C', textTransform: 'uppercase', letterSpacing: 1 },
   totalNota: { fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
-  totalValor: { fontSize: 24, fontWeight: '900', color: '#F5F0E8' },
-  infoBox: { flexDirection: 'row', gap: 10, padding: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, marginBottom: 20 },
-  infoIcon: { fontSize: 20 },
-  infoText: { flex: 1, color: 'rgba(255,255,255,0.7)', fontSize: 12, lineHeight: 18 },
-  btnSubmit: { backgroundColor: '#4ADE80', borderRadius: 8, paddingVertical: 18, alignItems: 'center' },
-  btnSubmitText: { color: '#0F2D1A', fontSize: 15, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
+  totalValor: { fontSize: 22, fontWeight: '900', color: '#F5F0E8' },
+  infoBox: { flexDirection: 'row', gap: 10, padding: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, marginBottom: 16 },
+  infoIcon: { fontSize: 18 },
+  infoText: { flex: 1, color: 'rgba(255,255,255,0.7)', fontSize: 11, lineHeight: 16 },
+  btnSubmit: { backgroundColor: '#4ADE80', borderRadius: 8, paddingVertical: 16, alignItems: 'center' },
+  btnSubmitText: { color: '#0F2D1A', fontSize: 14, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
 });

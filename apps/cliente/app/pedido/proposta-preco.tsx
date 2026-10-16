@@ -21,7 +21,11 @@ export default function PropostaPrecoScreen() {
 
   // Estados de Negociação ("Concordo", "Não concordo", "Está puxado")
   const [pagamentoFeito, setPagamentoFeito] = useState(false)
+  const [mensagemSucesso, setMensagemSucesso] = useState('Acordo Fechado no Sistema!')
+  const [subSucesso, setSubSucesso] = useState('O valor está retido na plataforma (Escrow) e só será libertado ao mestre quando confirmares o fim do serviço.')
+  
   const [modalPuxadoVisivel, setModalPuxadoVisivel] = useState(false)
+  const [modalNaoConcordoVisivel, setModalNaoConcordoVisivel] = useState(false)
   const [contraValor, setContraValor] = useState('')
   const [contraNota, setContraNota] = useState('')
   const [puxadoEnviado, setPuxadoEnviado] = useState(false)
@@ -35,7 +39,6 @@ export default function PropostaPrecoScreen() {
       }
 
       try {
-        // 1. Procurar proposta em job_price_proposals
         const { data: prop } = await supabase
           .from('job_price_proposals')
           .select('*')
@@ -57,11 +60,9 @@ export default function PropostaPrecoScreen() {
               })))
             }
           } catch {
-            // Descrição em texto simples
             setLines([{ descricao: prop.description || 'Orçamento do Mestre', valor: prop.amount }])
           }
         } else {
-          // Fallback via service_requests
           const { data: req } = await supabase
             .from('service_requests')
             .select('budget_max, title')
@@ -82,7 +83,6 @@ export default function PropostaPrecoScreen() {
 
     carregarPropostaReal()
 
-    // Subscrição a novas propostas ajustadas pelo mestre
     const channel = supabase
       .channel(`client_prop_${params.jobId}_${Date.now()}`)
       .on(
@@ -97,13 +97,12 @@ export default function PropostaPrecoScreen() {
     }
   }, [params.jobId])
 
-  // 1. OPÇÃO: "CONCORDO" (Aceita proposta e retém valor no sistema)
+  // 1. OPÇÃO: "CONCORDO" (Aceita proposta completa e retém valor)
   const handleConcordo = async () => {
     try {
       setIsSubmitting(true)
       const target = actualJobId || params.jobId
 
-      // Actualizar proposta para aceite
       if (proposalData?.id) {
         await supabase
           .from('job_price_proposals')
@@ -111,7 +110,6 @@ export default function PropostaPrecoScreen() {
           .eq('id', proposalData.id)
       }
 
-      // Actualizar job para price_agreed / in_service
       await supabase
         .from('jobs')
         .update({
@@ -120,7 +118,6 @@ export default function PropostaPrecoScreen() {
         })
         .or(`id.eq.${target},request_id.eq.${target}`)
 
-      // Actualizar service_request
       await supabase
         .from('service_requests')
         .update({
@@ -129,7 +126,6 @@ export default function PropostaPrecoScreen() {
         })
         .or(`id.eq.${target}`)
 
-      // Registar retenção em job_payments se existir
       try {
         await supabase.from('job_payments').upsert({
           job_id: target,
@@ -147,6 +143,8 @@ export default function PropostaPrecoScreen() {
         console.warn('Job payments upsert:', e)
       }
 
+      setMensagemSucesso('Acordo Fechado no Sistema!')
+      setSubSucesso(`MT ${total.toLocaleString('pt-MZ')} retido em segurança (Escrow). O mestre já foi notificado e pode iniciar o trabalho.`)
       setPagamentoFeito(true)
     } catch (err: any) {
       Alert.alert('Erro', err.message || 'Não foi possível confirmar o acordo.')
@@ -155,7 +153,7 @@ export default function PropostaPrecoScreen() {
     }
   }
 
-  // 2. OPÇÃO: "ESTÁ PUXADO" (Negociação / Contra-proposta de desconto)
+  // 2. OPÇÃO: "ESTÁ PUXADO" (Negociação / Contra-proposta)
   const handleEnviarPuxado = async () => {
     if (!contraValor || parseFloat(contraValor) <= 0) {
       Alert.alert('Valor', 'Indica o valor que pretendes pagar.')
@@ -168,7 +166,6 @@ export default function PropostaPrecoScreen() {
       const counterMt = parseFloat(contraValor)
       const notaFinal = `[ESTÁ PUXADO - CONTRA-PROPOSTA]: MT ${counterMt}${contraNota ? ` ("${contraNota}")` : ''}`
 
-      // Enviar mensagem de negociação na proposta
       if (proposalData?.id) {
         await supabase
           .from('job_price_proposals')
@@ -187,7 +184,6 @@ export default function PropostaPrecoScreen() {
         })
       }
 
-      // Actualizar jobs com a contra-oferta
       await supabase
         .from('jobs')
         .update({
@@ -204,29 +200,70 @@ export default function PropostaPrecoScreen() {
     }
   }
 
-  // 3. OPÇÃO: "NÃO CONCORDO" (Recusar proposta)
-  const handleNaoConcordo = () => {
-    Alert.alert(
-      'Recusar Proposta',
-      'Tens a certeza que não concordas com este orçamento? O mestre será informado.',
-      [
-        { text: 'Voltar', style: 'cancel' },
-        {
-          text: 'Recusar',
-          style: 'destructive',
-          onPress: async () => {
-            const target = actualJobId || params.jobId
-            if (proposalData?.id) {
-              await supabase
-                .from('job_price_proposals')
-                .update({ status: 'rejected' })
-                .eq('id', proposalData.id)
-            }
-            router.back()
-          }
-        }
-      ]
-    )
+  // 3. OPÇÃO: RESOLUÇÃO DE PROBLEMA DIFERENTE (Liquidar apenas deslocação/diagnóstico)
+  const handlePagarApenasDeslocacao = async () => {
+    try {
+      setIsSubmitting(true)
+      const target = actualJobId || params.jobId
+      const taxaDeslocacao = 250
+
+      if (proposalData?.id) {
+        await supabase
+          .from('job_price_proposals')
+          .update({
+            amount: taxaDeslocacao,
+            description: 'Taxa de Deslocação e Diagnóstico Presencial (Problema diferente do descrito)',
+            status: 'accepted'
+          })
+          .eq('id', proposalData.id)
+      }
+
+      await supabase
+        .from('jobs')
+        .update({
+          status: 'completed',
+          agreed_amount: taxaDeslocacao
+        })
+        .or(`id.eq.${target},request_id.eq.${target}`)
+
+      await supabase
+        .from('service_requests')
+        .update({
+          status: 'completed',
+          budget_max: taxaDeslocacao
+        })
+        .or(`id.eq.${target}`)
+
+      setModalNaoConcordoVisivel(false)
+      setTotal(taxaDeslocacao)
+      setMensagemSucesso('Taxa de Diagnóstico Liquidada')
+      setSubSucesso('Pagaste apenas MT 250 pela deslocação e inspecção técnica do mestre no terreno. O pedido foi encerrado com sucesso.')
+      setPagamentoFeito(true)
+    } catch (err: any) {
+      Alert.alert('Erro', err.message || 'Erro ao liquidar taxa de deslocação.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleCancelarSemCustos = async () => {
+    const target = actualJobId || params.jobId
+    if (proposalData?.id) {
+      await supabase
+        .from('job_price_proposals')
+        .update({ status: 'rejected' })
+        .eq('id', proposalData.id)
+    }
+    setModalNaoConcordoVisivel(false)
+    router.back()
+  }
+
+  const handlePedirReboque = () => {
+    setModalNaoConcordoVisivel(false)
+    router.push({
+      pathname: '/pedido/novo',
+      params: { categoriaId: '6', categoriaNome: 'Reboque e Socorro' }
+    })
   }
 
   if (loading) {
@@ -241,19 +278,17 @@ export default function PropostaPrecoScreen() {
     return (
       <View style={styles.successContainer}>
         <Text style={styles.successIcon}>🔒</Text>
-        <Text style={styles.successTitle}>Acordo Fechado no Sistema!</Text>
-        <Text style={styles.successDesc}>
-          MT {total.toLocaleString('pt-MZ')} está retido na plataforma (Escrow). Só será libertado ao mestre quando confirmares que o serviço foi concluído com sucesso.
-        </Text>
+        <Text style={styles.successTitle}>{mensagemSucesso}</Text>
+        <Text style={styles.successDesc}>{subSucesso}</Text>
         <View style={styles.successCard}>
           <Text style={styles.successCardLabel}>✓ Mestre Notificado em Tempo Real</Text>
-          <Text style={styles.successCardSub}>O profissional sabe que os fundos estão garantidos e inicia o serviço agora.</Text>
+          <Text style={styles.successCardSub}>O valor acordado foi processado na plataforma sem contacto telefónico.</Text>
         </View>
         <TouchableOpacity
           style={styles.btnPrimary}
           onPress={() => router.push({ pathname: '/pedido/confirmar', params: { jobId: params.jobId } })}
         >
-          <Text style={styles.btnText}>Acompanhar Execução →</Text>
+          <Text style={styles.btnText}>Continuar no Sistema →</Text>
         </TouchableOpacity>
       </View>
     )
@@ -332,11 +367,11 @@ export default function PropostaPrecoScreen() {
           {/* 3. NÃO CONCORDO */}
           <TouchableOpacity 
             style={styles.btnNaoConcordo} 
-            onPress={handleNaoConcordo}
+            onPress={() => setModalNaoConcordoVisivel(true)}
             disabled={isSubmitting}
             activeOpacity={0.8}
           >
-            <Text style={styles.btnNaoConcordoText}>✕ Não Concordo (Recusar Proposta)</Text>
+            <Text style={styles.btnNaoConcordoText}>✕ Não Concordo (Problema Diferente / Recusar)</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -404,6 +439,55 @@ export default function PropostaPrecoScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* MODAL "NÃO CONCORDO / PROBLEMA DIFERENTE NO TERRENO" */}
+      <Modal visible={modalNaoConcordoVisivel} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>⚠️ Não Concorda com o Orçamento?</Text>
+            <Text style={styles.modalSub}>
+              Se o problema no terreno for diferente do que descreveu ou se não pretende avançar com a reparação completa, escolha como deseja proceder:
+            </Text>
+
+            <TouchableOpacity 
+              style={styles.opcaoResolucaoCard}
+              onPress={handlePagarApenasDeslocacao}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.opcaoResolucaoTitulo}>⚡ 1. Pagar Apenas Deslocação & Diagnóstico (MT 250)</Text>
+              <Text style={styles.opcaoResolucaoTexto}>
+                Compensa o mestre pelo tempo e combustível gastos até ao local. O serviço é encerrado sem dívidas.
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.opcaoResolucaoCard, { borderColor: '#38BDF8', backgroundColor: '#F0F9FF' }]}
+              onPress={handlePedirReboque}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.opcaoResolucaoTitulo, { color: '#0369A1' }]}>🚜 2. O Carro Precisa de Oficina (Pedir Reboque)</Text>
+              <Text style={[styles.opcaoResolucaoTexto, { color: '#0C4A6E' }]}>
+                Chama um reboque para levar o veículo para a sua oficina de confiança.
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity 
+                style={styles.modalBtnCancel} 
+                onPress={() => setModalNaoConcordoVisivel(false)}
+              >
+                <Text style={styles.modalBtnCancelText}>Voltar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalBtnCancel, { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' }]} 
+                onPress={handleCancelarSemCustos}
+              >
+                <Text style={{ color: '#B91C1C', fontWeight: 'bold' }}>Rejeitar e Sair</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -455,8 +539,8 @@ const styles = StyleSheet.create({
   // Modal Puxado
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 36 },
-  modalTitle: { fontSize: 22, fontWeight: '900', color: TINTA, marginBottom: 6 },
-  modalSub: { fontSize: 14, color: ZINCO, lineHeight: 20, marginBottom: 16 },
+  modalTitle: { fontSize: 20, fontWeight: '900', color: TINTA, marginBottom: 6 },
+  modalSub: { fontSize: 13, color: ZINCO, lineHeight: 19, marginBottom: 16 },
   inputRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 2, borderColor: '#F59E0B', borderRadius: 8, paddingHorizontal: 12, marginBottom: 12, backgroundColor: '#FFFBEB' },
   mtPrefix: { fontSize: 18, fontWeight: '900', color: '#B45309', marginRight: 8 },
   inputContra: { flex: 1, fontSize: 20, fontWeight: '900', color: TINTA, paddingVertical: 12 },
@@ -464,9 +548,13 @@ const styles = StyleSheet.create({
   quickBtn: { flex: 1, backgroundColor: '#F3F4F6', paddingVertical: 10, borderRadius: 6, alignItems: 'center' },
   quickBtnText: { fontSize: 12, fontWeight: '700', color: TINTA },
   inputNota: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 12, fontSize: 13, color: TINTA, marginBottom: 20, backgroundColor: '#FAFAFA' },
-  modalActions: { flexDirection: 'row', gap: 10 },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
   modalBtnCancel: { flex: 1, paddingVertical: 14, alignItems: 'center', borderRadius: 6, borderWidth: 1, borderColor: '#D1D5DB' },
   modalBtnCancelText: { color: ZINCO, fontWeight: '700', fontSize: 14 },
   modalBtnConfirm: { flex: 2, paddingVertical: 14, alignItems: 'center', borderRadius: 6, backgroundColor: '#F59E0B' },
   modalBtnConfirmText: { color: '#1A1A2E', fontWeight: '900', fontSize: 14 },
+  // Resolução Discrepância Card
+  opcaoResolucaoCard: { backgroundColor: '#FFFBEB', borderWidth: 1.5, borderColor: '#F59E0B', borderRadius: 8, padding: 14, marginBottom: 12 },
+  opcaoResolucaoTitulo: { fontSize: 14, fontWeight: '900', color: '#B45309', marginBottom: 4 },
+  opcaoResolucaoTexto: { fontSize: 12, color: '#78350F', lineHeight: 17 },
 })
