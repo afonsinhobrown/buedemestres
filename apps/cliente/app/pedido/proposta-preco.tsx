@@ -3,6 +3,9 @@ import { useLocalSearchParams, router } from 'expo-router'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 
+const CLIENT_ACCOUNT_ID = '11111111-1111-1111-1111-111111111111'
+const PRO_ACCOUNT_ID = '22222222-2222-2222-2222-222222222222'
+
 export default function PropostaPrecoScreen() {
   const params = useLocalSearchParams<{
     jobId: string
@@ -28,8 +31,12 @@ export default function PropostaPrecoScreen() {
   const [modalNaoConcordoVisivel, setModalNaoConcordoVisivel] = useState(false)
   const [contraValor, setContraValor] = useState('')
   const [contraNota, setContraNota] = useState('')
-  const [puxadoEnviado, setPuxadoEnviado] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Autoria da negociação: quem deve responder à última proposta
+  const [aguardandoMestre, setAguardandoMestre] = useState(false)
+  const [semOrcamentoMestre, setSemOrcamentoMestre] = useState(false)
+  const [contraDeCliente, setContraDeCliente] = useState(0)
 
   useEffect(() => {
     async function carregarPropostaReal() {
@@ -41,26 +48,33 @@ export default function PropostaPrecoScreen() {
       try {
         const { data: jobMap } = await supabase
           .from('jobs')
-          .select('id, request_id')
+          .select('id, request_id, status, agreed_amount')
           .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
           .maybeSingle()
 
         const resolvedJobId = jobMap?.id || params.jobId
 
-        const { data: prop } = await supabase
+        const { data: props } = await supabase
           .from('job_price_proposals')
           .select('*')
           .or(`job_id.eq.${resolvedJobId},job_id.eq.${params.jobId}`)
           .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
 
-        if (prop) {
-          setProposalData(prop)
-          setTotal(prop.amount)
-          setActualJobId(prop.job_id)
+        const lista: any[] = props || []
+        const propostaMaster = lista.find((p) => p.proposed_by === PRO_ACCOUNT_ID)
+        const ultima = lista[0]
+        const ultimaEhDoCliente = !!ultima && (
+          ultima.proposed_by === CLIENT_ACCOUNT_ID ||
+          (ultima.description && ultima.description.includes('[ESTÁ PUXADO'))
+        )
+
+        // Preço de referência = última proposta feita pelo mestre
+        if (propostaMaster) {
+          setProposalData(propostaMaster)
+          setTotal(Number(propostaMaster.amount))
+          setActualJobId(propostaMaster.job_id)
           try {
-            const parsedLines = JSON.parse(prop.description)
+            const parsedLines = JSON.parse(propostaMaster.description)
             if (Array.isArray(parsedLines) && parsedLines.length > 0) {
               setLines(parsedLines.map((l: any) => ({
                 descricao: l.description || 'Serviço',
@@ -68,9 +82,9 @@ export default function PropostaPrecoScreen() {
               })))
             }
           } catch {
-            setLines([{ descricao: prop.description || 'Orçamento do Mestre', valor: prop.amount }])
+            setLines([{ descricao: propostaMaster.description || 'Orçamento do Mestre', valor: Number(propostaMaster.amount) }])
           }
-        } else {
+        } else if (!ultimaEhDoCliente) {
           const { data: req } = await supabase
             .from('service_requests')
             .select('budget_max, title')
@@ -78,9 +92,23 @@ export default function PropostaPrecoScreen() {
             .maybeSingle()
 
           if (req?.budget_max) {
-            setTotal(req.budget_max)
-            setLines([{ descricao: req.title || 'Serviço solicitado', valor: req.budget_max }])
+            setTotal(Number(req.budget_max))
+            setLines([{ descricao: req.title || 'Serviço solicitado', valor: Number(req.budget_max) }])
           }
+        }
+
+        // Se a última proposta é do cliente, o mestre é quem tem de aceitar/recusar.
+        const aguardar = ultimaEhDoCliente && ultima.status !== 'accepted'
+        setAguardandoMestre(aguardar)
+        setContraDeCliente(aguardar ? Number(ultima.amount) : 0)
+        setSemOrcamentoMestre(!propostaMaster && !aguardar)
+
+        // Se o mestre aceitou e o pagamento já foi retido, mostrar sucesso
+        if (jobMap?.status === 'price_agreed' || jobMap?.status === 'in_service') {
+          const valorFinal = Number(jobMap.agreed_amount || (ultima?.amount) || 0)
+          setMensagemSucesso('Acordo Fechado no Sistema!')
+          setSubSucesso(`MT ${valorFinal.toLocaleString('pt-MZ')} retido em segurança (Escrow). O mestre já foi notificado e pode iniciar o trabalho.`)
+          setPagamentoFeito(true)
         }
       } catch (err) {
         console.warn('Erro ao carregar proposta:', err)
@@ -214,25 +242,15 @@ export default function PropostaPrecoScreen() {
       const rId = job?.request_id || target
 
       // 2. Registar em job_price_proposals com amount da contra-proposta
+      //    (cria uma NOVA linha — nunca alterar a proposta original do mestre,
+      //     senão perde-se a autoria e ninguém sabe quem deve responder)
       await supabase.from('job_price_proposals').insert({
         job_id: jId,
-        proposed_by: '11111111-1111-1111-1111-111111111111',
+        proposed_by: CLIENT_ACCOUNT_ID,
         amount: counterMt,
         description: notaFinal,
         status: 'pending'
       })
-
-      // Se houver proposta anterior, também actualizar
-      if (proposalData?.id) {
-        await supabase
-          .from('job_price_proposals')
-          .update({
-            amount: counterMt,
-            description: notaFinal,
-            status: 'pending'
-          })
-          .eq('id', proposalData.id)
-      }
 
       // 3. Actualizar jobs com status 'puxado' e price_estimate_min
       await supabase
@@ -274,7 +292,9 @@ export default function PropostaPrecoScreen() {
       }
 
       setModalPuxadoVisivel(false)
-      setPuxadoEnviado(true)
+      setAguardandoMestre(true)
+      setContraDeCliente(counterMt)
+      setSemOrcamentoMestre(false)
     } catch (err: any) {
       console.error('Erro ao enviar contra-proposta:', err)
       Alert.alert('Erro', err.message || 'Erro ao enviar negociação.')
@@ -398,16 +418,6 @@ export default function PropostaPrecoScreen() {
       </View>
 
       <ScrollView style={styles.scroll}>
-        {/* Banner se já enviou contra-proposta "Está puxado" */}
-        {puxadoEnviado && (
-          <View style={styles.negociacaoCard}>
-            <Text style={styles.negociacaoTitle}>⏳ NEGOCIAÇÃO ENVIADA ("ESTÁ PUXADO")</Text>
-            <Text style={styles.negociacaoDesc}>
-              Propuseste MT {parseFloat(contraValor || '0').toLocaleString('pt-MZ')}. O mestre recebeu o teu pedido e está a rever o valor no aplicativo.
-            </Text>
-          </View>
-        )}
-
         {/* Tabela do Orçamento Detalhado */}
         <View style={styles.tabela}>
           <Text style={styles.tabelaLabel}>DETALHE DO ORÇAMENTO APRESENTADO</Text>
@@ -430,41 +440,59 @@ export default function PropostaPrecoScreen() {
           </Text>
         </View>
 
-        {/* AS 3 OPÇÕES EXIGIDAS NO SISTEMA */}
-        <View style={styles.botoesContainer}>
-          {/* 1. CONCORDO */}
-          <TouchableOpacity 
-            style={styles.btnConcordo} 
-            onPress={handleConcordo}
-            disabled={isSubmitting}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.btnConcordoText}>✓ Concordo (MT {total.toLocaleString('pt-MZ')})</Text>
-          </TouchableOpacity>
+        {aguardandoMestre ? (
+          /* O cliente enviou uma contra-proposta: só o mestre pode aceitar/recusar */
+          <View style={styles.negociacaoCard}>
+            <Text style={styles.negociacaoTitle}>⏳ CONTRA-PROPOSTA ENVIADA AO MESTRE</Text>
+            <Text style={styles.negociacaoDesc}>
+              Propuseste MT {contraDeCliente.toLocaleString('pt-MZ')}. Aguarda a resposta do mestre no sistema — só ele pode aceitar ou recusar a tua contra-proposta.
+            </Text>
+          </View>
+        ) : semOrcamentoMestre ? (
+          /* O mestre aceitou o pedido mas ainda não enviou o orçamento */
+          <View style={styles.negociacaoCard}>
+            <Text style={styles.negociacaoTitle}>⏳ À ESPERA DO ORÇAMENTO DO MESTRE</Text>
+            <Text style={styles.negociacaoDesc}>
+              O mestre aceitou o teu pedido e está a preparar o orçamento. Vais poder concordar ou negociar assim que ele enviar o valor.
+            </Text>
+          </View>
+        ) : (
+          /* AS 3 OPÇÕES EXIGIDAS NO SISTEMA (só quando o mestre já propôs um valor) */
+          <View style={styles.botoesContainer}>
+            {/* 1. CONCORDO */}
+            <TouchableOpacity 
+              style={styles.btnConcordo} 
+              onPress={handleConcordo}
+              disabled={isSubmitting}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.btnConcordoText}>✓ Concordo (MT {total.toLocaleString('pt-MZ')})</Text>
+            </TouchableOpacity>
 
-          {/* 2. ESTÁ PUXADO (Negociar / Pedir Desconto) */}
-          <TouchableOpacity 
-            style={styles.btnPuxado} 
-            onPress={() => {
-              setContraValor(Math.round(total * 0.85).toString())
-              setModalPuxadoVisivel(true)
-            }}
-            disabled={isSubmitting}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.btnPuxadoText}>💬 Está Puxado (Pedir Desconto / Contra-oferta)</Text>
-          </TouchableOpacity>
+            {/* 2. ESTÁ PUXADO (Negociar / Pedir Desconto) */}
+            <TouchableOpacity 
+              style={styles.btnPuxado} 
+              onPress={() => {
+                setContraValor(Math.round(total * 0.85).toString())
+                setModalPuxadoVisivel(true)
+              }}
+              disabled={isSubmitting}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.btnPuxadoText}>💬 Está Puxado (Pedir Desconto / Contra-oferta)</Text>
+            </TouchableOpacity>
 
-          {/* 3. NÃO CONCORDO */}
-          <TouchableOpacity 
-            style={styles.btnNaoConcordo} 
-            onPress={() => setModalNaoConcordoVisivel(true)}
-            disabled={isSubmitting}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.btnNaoConcordoText}>✕ Não Concordo (Problema Diferente / Recusar)</Text>
-          </TouchableOpacity>
-        </View>
+            {/* 3. NÃO CONCORDO */}
+            <TouchableOpacity 
+              style={styles.btnNaoConcordo} 
+              onPress={() => setModalNaoConcordoVisivel(true)}
+              disabled={isSubmitting}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.btnNaoConcordoText}>✕ Não Concordo (Problema Diferente / Recusar)</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
       {/* MODAL "ESTÁ PUXADO" PARA CONTRA-PROPOSTA NO SISTEMA */}

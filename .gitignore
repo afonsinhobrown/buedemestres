@@ -51,3 +51,4 @@ apk/
 *.apk
 *.aab
 dist/
+dist-web/

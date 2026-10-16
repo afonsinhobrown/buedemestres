@@ -4,6 +4,9 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { validateAntiPhoneBypass } from '../../lib/antiPhoneBypass';
 
+const CLIENT_ACCOUNT_ID = '11111111-1111-1111-1111-111111111111';
+const PRO_ACCOUNT_ID = '22222222-2222-2222-2222-222222222222';
+
 interface ServiceLine {
   id: string;
   description: string;
@@ -32,6 +35,7 @@ export default function ProporPrecoScreen() {
   const [jobData, setJobData] = useState<any>(null);
   const [actualJobId, setActualJobId] = useState<string>('');
   const [clientFeedback, setClientFeedback] = useState<string | null>(null);
+  const [contraValorCliente, setContraValorCliente] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -53,10 +57,10 @@ export default function ProporPrecoScreen() {
           setJobData(req);
         }
 
-        // Carregar job se existir
+        // Carregar job se existir (pode ser criado pelo cliente após o "Está puxado")
         const { data: job } = await supabase
           .from('jobs')
-          .select('id, request_id, price_proposed, price_estimate_min')
+          .select('id, request_id, status, price_proposed, price_estimate_min')
           .or(`id.eq.${targetId},request_id.eq.${targetId}`)
           .maybeSingle();
 
@@ -70,8 +74,17 @@ export default function ProporPrecoScreen() {
             .limit(1)
             .maybeSingle();
 
-          if (prop?.description && prop.description.includes('[ESTÁ PUXADO')) {
-            setClientFeedback(prop.description);
+          const propEhDoCliente = !!prop && (
+            prop.proposed_by === CLIENT_ACCOUNT_ID ||
+            (prop.description && prop.description.includes('[ESTÁ PUXADO'))
+          );
+
+          if (propEhDoCliente) {
+            setClientFeedback(prop!.description);
+            setContraValorCliente(Number(prop!.amount));
+          } else if (job.status !== 'puxado') {
+            setClientFeedback(null);
+            setContraValorCliente(null);
           }
         }
       } catch (e) {
@@ -80,7 +93,22 @@ export default function ProporPrecoScreen() {
         setLoading(false);
       }
     }
+
     loadCurrentJob();
+
+    // O cliente pode enviar a contra-proposta enquanto o mestre está neste ecrã.
+    const pollTimer = setInterval(loadCurrentJob, 3000);
+    const channel = supabase
+      .channel(`pro_prop_${targetId}_${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'job_price_proposals' }, () => loadCurrentJob())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => loadCurrentJob())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_requests' }, () => loadCurrentJob())
+      .subscribe();
+
+    return () => {
+      clearInterval(pollTimer);
+      supabase.removeChannel(channel);
+    };
   }, [targetId]);
 
   const handleMensagemChange = (text: string) => {
@@ -182,7 +210,7 @@ export default function ProporPrecoScreen() {
       // 2. Registar a proposta de orçamento em job_price_proposals
       await supabase.from('job_price_proposals').insert({
         job_id: jId || targetId,
-        proposed_by: '22222222-2222-2222-2222-222222222222',
+        proposed_by: PRO_ACCOUNT_ID,
         amount: totalCalculado,
         description: payloadDesc,
         status: 'pending'
@@ -195,9 +223,10 @@ export default function ProporPrecoScreen() {
           id: jId || undefined,
           request_id: targetId,
           client_id: clientUserId,
-          provider_id: '22222222-2222-2222-2222-222222222222',
+          provider_id: PRO_ACCOUNT_ID,
           status: 'price_proposed',
           price_proposed: totalCalculado,
+          price_estimate_min: null,
           updated_at: new Date().toISOString()
         }, { onConflict: 'request_id' });
 
@@ -277,7 +306,19 @@ export default function ProporPrecoScreen() {
           <View style={styles.feedbackBanner}>
             <Text style={styles.feedbackTitle}>⚠️ NEGOCIAÇÃO EM CURSO COM CLIENTE</Text>
             <Text style={styles.feedbackText}>{clientFeedback}</Text>
-            <Text style={styles.feedbackHint}>Ajusta o valor abaixo para fechar o acordo no sistema.</Text>
+            {contraValorCliente ? (
+              <Text style={styles.feedbackValor}>
+                O cliente propôs: MT {contraValorCliente.toLocaleString('pt-MZ')}
+              </Text>
+            ) : null}
+            <Text style={styles.feedbackHint}>Aceita a contra-proposta ou ajusta o valor abaixo para fechar o acordo no sistema.</Text>
+            <TouchableOpacity
+              style={styles.btnResponder}
+              onPress={() => router.push(`/trabalho/aguardar-pagamento?jobId=${actualJobId || targetId}&valor=${contraValorCliente ?? ''}`)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.btnResponderText}>Rever e Responder à Contra-Proposta →</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -439,6 +480,9 @@ const styles = StyleSheet.create({
   feedbackTitle: { color: '#F2C94C', fontWeight: '900', fontSize: 11, letterSpacing: 0.5, marginBottom: 4 },
   feedbackText: { color: '#F5F0E8', fontSize: 13, fontWeight: '700', marginBottom: 2 },
   feedbackHint: { color: 'rgba(255,255,255,0.7)', fontSize: 11 },
+  feedbackValor: { color: '#F2C94C', fontSize: 16, fontWeight: '900', marginVertical: 4 },
+  btnResponder: { backgroundColor: '#F2C94C', borderRadius: 6, paddingVertical: 12, alignItems: 'center', marginTop: 10 },
+  btnResponderText: { color: '#1A1A2E', fontWeight: '900', fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5 },
   sectionLabel: { fontSize: 10, fontWeight: '800', color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 },
   modoSelector: { flexDirection: 'row', gap: 8, marginBottom: 14 },
   modoBtn: { flex: 1, paddingVertical: 12, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center' },
