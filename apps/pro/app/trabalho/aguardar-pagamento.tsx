@@ -8,27 +8,54 @@ export default function AguardarPagamentoScreen() {
   const params = useLocalSearchParams<{ jobId?: string; offerId?: string; valor?: string }>();
   const jobId = params.jobId || params.offerId || '';
 
-  const [status, setStatus] = useState<'pending' | 'held' | 'puxado' | 'rejected'>('pending');
+  const [status, setStatus] = useState<'pending' | 'held' | 'puxado' | 'rejected' | 'expirado'>('pending');
   const [feedback, setFeedback] = useState<string>('');
   const [propostaValor, setPropostaValor] = useState<number>(params.valor ? parseFloat(params.valor) : 0);
   const [contraPropostaValor, setContraPropostaValor] = useState<number>(0);
+  const [turnoExpiraEm, setTurnoExpiraEm] = useState<number | null>(null);
+  const [segundosTurno, setSegundosTurno] = useState<number | null>(null);
+
+  // Relógio do turno (conta decrescente)
+  useEffect(() => {
+    if (!turnoExpiraEm) {
+      setSegundosTurno(null);
+      return;
+    }
+    const tick = () => setSegundosTurno(Math.max(0, Math.round((turnoExpiraEm - Date.now()) / 1000)));
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [turnoExpiraEm]);
 
   useEffect(() => {
     if (!jobId) return;
 
     let pollTimer: NodeJS.Timeout;
 
+    // Fecha negociações vencidas (o cron também o faz; aqui é imediato)
+    supabase.rpc('expire_stale_negotiations').then(() => {}, () => {});
+
     const verificarEstado = async () => {
       try {
         // 1. Obter job mapeando ambos os IDs (job.id e job.request_id)
         const { data: job } = await supabase
           .from('jobs')
-          .select('id, request_id, status, price_proposed, price_estimate_min, agreed_amount')
+          .select('id, request_id, status, price_proposed, price_estimate_min, agreed_amount, cancel_reason, turn_expires_at, turn_owner, negotiation_rounds')
           .or(`id.eq.${jobId},request_id.eq.${jobId}`)
           .maybeSingle();
 
         const actualJobId = job?.id || jobId;
         const actualReqId = job?.request_id || jobId;
+
+        // Negociação expirada => estado terminal
+        if (job?.status === 'cancelled' && String(job?.cancel_reason || '').startsWith('expirado')) {
+          setStatus('expirado');
+          setTurnoExpiraEm(null);
+          return;
+        }
+
+        // Relógio do turno actual
+        setTurnoExpiraEm(job?.turn_expires_at ? new Date(job.turn_expires_at).getTime() : null);
 
         // 2. Verificar estado no service_request
         const { data: req } = await supabase
@@ -140,6 +167,13 @@ export default function AguardarPagamentoScreen() {
         })
         .or(`id.eq.${rId},id.eq.${jId}`);
 
+      // Passa o turno ao cliente (o cliente confirma e paga) com prazo
+      await supabase.rpc('set_negotiation_turn', {
+        p_job: jId,
+        p_owner: 'client',
+        p_is_counter: false
+      });
+
       setPropostaValor(valorFinal);
       setStatus('pending');
       Alert.alert('Contra-proposta Aceite!', `Aceitaste o valor de MT ${valorFinal}. O cliente já pode efectuar o pagamento retido em segurança.`);
@@ -156,8 +190,29 @@ export default function AguardarPagamentoScreen() {
     });
   };
 
+  const tempoTurno = segundosTurno != null
+    ? `${Math.floor(segundosTurno / 60)}:${String(segundosTurno % 60).padStart(2, '0')}`
+    : null;
+
   return (
     <View style={styles.container}>
+      {status === 'expirado' && (
+        <View style={[styles.card, { borderColor: '#EF4444', borderWidth: 2 }]}>
+          <Text style={{ fontSize: 48, marginBottom: 12 }}>⌛</Text>
+          <Text style={[styles.title, { color: '#F87171' }]}>Negociação Expirada</Text>
+          <Text style={styles.sub}>
+            O prazo terminou sem acordo. O pedido foi reaberto para outros profissionais e não ficou retido.
+          </Text>
+          <TouchableOpacity
+            style={styles.btnAjustar}
+            onPress={() => router.replace('/')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.btnAjustarText}>Voltar ao Início</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {status === 'pending' && (
         <View style={styles.card}>
           <View style={styles.iconCircle}>
@@ -167,6 +222,7 @@ export default function AguardarPagamentoScreen() {
           <Text style={styles.sub}>
             A proposta de MT {propostaValor ? propostaValor.toLocaleString('pt-MZ') : '...'} foi enviada para o aplicativo do cliente.
           </Text>
+          {tempoTurno && <Text style={styles.turnoText}>⏱ Resposta do cliente: {tempoTurno}</Text>}
 
           <View style={styles.regraSegurancaBox}>
             <Text style={styles.regraSegurancaTitulo}>🛑 ATENÇÃO: NÃO SAIA DO SEU LOCAL AINDA</Text>
@@ -202,6 +258,7 @@ export default function AguardarPagamentoScreen() {
           <Text style={styles.counterOfferSub}>
             Podes aceitar o valor proposto pelo cliente para fechar logo o acordo ou enviar uma nova proposta ajustada.
           </Text>
+          {tempoTurno && <Text style={styles.turnoText}>⏱ Tens {tempoTurno} para responder</Text>}
 
           <View style={styles.counterActionsRow}>
             {contraPropostaValor > 0 && (
@@ -297,6 +354,7 @@ const styles = StyleSheet.create({
   counterOfferValue: { fontSize: 32, fontWeight: '900', color: '#78350F', marginVertical: 4 },
   counterOfferNote: { fontSize: 12, color: '#92400E', fontStyle: 'italic', textAlign: 'center' },
   counterOfferSub: { fontSize: 13, color: '#E2E8F0', textAlign: 'center', marginBottom: 16, lineHeight: 18 },
+  turnoText: { color: '#F2C94C', fontWeight: '900', fontSize: 13, textAlign: 'center', marginBottom: 12 },
 
   counterActionsRow: { width: '100%' },
   btnAceitarContra: {

@@ -325,6 +325,29 @@ export default function ProHomeScreen() {
 
         <Text style={styles.logo}>🔨 Bué de Mestres Pro</Text>
 
+        {/* Acesso aos trabalhos em curso (negociações, deslocações, serviço) */}
+        <TouchableOpacity
+          onPress={() => router.push('/trabalhos')}
+          activeOpacity={0.85}
+          style={{
+            marginTop: 14,
+            backgroundColor: 'rgba(242,201,76,0.12)',
+            borderWidth: 1.5,
+            borderColor: '#F2C94C',
+            borderRadius: 8,
+            paddingVertical: 12,
+            paddingHorizontal: 14,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}
+        >
+          <Text style={{ color: '#F2C94C', fontWeight: '900', fontSize: 13 }}>
+            📋 OS MEUS TRABALHOS EM CURSO
+          </Text>
+          <Text style={{ color: '#F2C94C', fontWeight: '900', fontSize: 16 }}>→</Text>
+        </TouchableOpacity>
+
         {/* Seletor rápido de Especialidade / Mestre Registado */}
         {availableProviders.length > 1 && (
           <View style={{ flexDirection: 'row', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>

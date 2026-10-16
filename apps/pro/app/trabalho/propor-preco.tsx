@@ -259,6 +259,13 @@ export default function ProporPrecoScreen() {
       }
 
       // O mestre aguarda a aprovação e pagamento do cliente antes de sair!
+      // Passa o turno ao cliente com prazo (reinicia o relógio da negociação).
+      await supabase.rpc('set_negotiation_turn', {
+        p_job: jId || targetId,
+        p_owner: 'client',
+        p_is_counter: false
+      })
+
       router.push(`/trabalho/aguardar-pagamento?jobId=${jId || targetId}&valor=${totalCalculado}`);
     } catch (error: any) {
       console.error('Erro ao enviar proposta:', error);

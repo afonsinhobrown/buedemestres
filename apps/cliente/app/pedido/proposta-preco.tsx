@@ -37,6 +37,21 @@ export default function PropostaPrecoScreen() {
   const [aguardandoMestre, setAguardandoMestre] = useState(false)
   const [semOrcamentoMestre, setSemOrcamentoMestre] = useState(false)
   const [contraDeCliente, setContraDeCliente] = useState(0)
+  const [turnoExpiraEm, setTurnoExpiraEm] = useState<number | null>(null)
+  const [segundosTurno, setSegundosTurno] = useState<number | null>(null)
+  const [negociacaoExpirada, setNegociacaoExpirada] = useState(false)
+
+  // Relógio do turno (conta decrescente por segundo)
+  useEffect(() => {
+    if (!turnoExpiraEm) {
+      setSegundosTurno(null)
+      return
+    }
+    const tick = () => setSegundosTurno(Math.max(0, Math.round((turnoExpiraEm - Date.now()) / 1000)))
+    tick()
+    const t = setInterval(tick, 1000)
+    return () => clearInterval(t)
+  }, [turnoExpiraEm])
 
   useEffect(() => {
     async function carregarPropostaReal() {
@@ -48,7 +63,7 @@ export default function PropostaPrecoScreen() {
       try {
         const { data: jobMap } = await supabase
           .from('jobs')
-          .select('id, request_id, status, agreed_amount')
+          .select('id, request_id, status, agreed_amount, cancel_reason, turn_owner, turn_expires_at, negotiation_rounds')
           .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
           .maybeSingle()
 
@@ -103,6 +118,12 @@ export default function PropostaPrecoScreen() {
         setContraDeCliente(aguardar ? Number(ultima.amount) : 0)
         setSemOrcamentoMestre(!propostaMaster && !aguardar)
 
+        // Relógio do turno actual e deteção de expiração
+        setTurnoExpiraEm(jobMap?.turn_expires_at ? new Date(jobMap.turn_expires_at).getTime() : null)
+        setNegociacaoExpirada(
+          jobMap?.status === 'cancelled' && String(jobMap?.cancel_reason || '').startsWith('expirado')
+        )
+
         // Se o mestre aceitou e o pagamento já foi retido, mostrar sucesso
         if (jobMap?.status === 'price_agreed' || jobMap?.status === 'in_service') {
           const valorFinal = Number(jobMap.agreed_amount || (ultima?.amount) || 0)
@@ -118,6 +139,8 @@ export default function PropostaPrecoScreen() {
     }
 
     carregarPropostaReal()
+    // Fecha negociações vencidas (o cron também o faz; aqui é imediato)
+    supabase.rpc('expire_stale_negotiations').then(() => {}, () => {})
     const pollInterval = setInterval(carregarPropostaReal, 2500)
 
     const channel = supabase
@@ -186,6 +209,9 @@ export default function PropostaPrecoScreen() {
         console.warn('Job payments upsert:', e)
       }
 
+      // 3. Fechar a negociação (estado terminal, sem turno pendente)
+      await supabase.rpc('close_negotiation', { p_job: target })
+
       setMensagemSucesso('Acordo Fechado no Sistema!')
       setSubSucesso(`MT ${total.toLocaleString('pt-MZ')} retido em segurança (Escrow). O mestre já foi notificado e pode iniciar o trabalho.`)
       setPagamentoFeito(true)
@@ -240,6 +266,24 @@ export default function PropostaPrecoScreen() {
 
       const jId = job?.id || target
       const rId = job?.request_id || target
+
+      // 1b. Validar rondas e passar o turno ao mestre (reinicia o relógio)
+      const { error: turnErr } = await supabase.rpc('set_negotiation_turn', {
+        p_job: jId,
+        p_owner: 'provider',
+        p_is_counter: true
+      })
+      if (turnErr) {
+        if (String(turnErr.message).includes('max_rounds_reached')) {
+          Alert.alert(
+            'Limite de negociação',
+            'Atingiste o número máximo de contra-propostas para este pedido. Concorda com o valor ou cancela.'
+          )
+          setIsSubmitting(false)
+          return
+        }
+        console.warn('set_negotiation_turn:', turnErr.message)
+      }
 
       // 2. Registar em job_price_proposals com amount da contra-proposta
       //    (cria uma NOVA linha — nunca alterar a proposta original do mestre,
@@ -337,6 +381,8 @@ export default function PropostaPrecoScreen() {
         })
         .or(`id.eq.${target}`)
 
+      await supabase.rpc('close_negotiation', { p_job: target })
+
       setModalNaoConcordoVisivel(false)
       setTotal(taxaDeslocacao)
       setMensagemSucesso('Taxa de Diagnóstico Liquidada')
@@ -357,6 +403,12 @@ export default function PropostaPrecoScreen() {
         .update({ status: 'rejected' })
         .eq('id', proposalData.id)
     }
+    // Estado terminal: rejeitado pelo cliente, sem turno pendente
+    await supabase
+      .from('jobs')
+      .update({ status: 'cancelled', cancel_reason: 'rejeitado_cliente', updated_at: new Date().toISOString() })
+      .or(`id.eq.${target},request_id.eq.${target}`)
+    await supabase.rpc('close_negotiation', { p_job: target })
     setModalNaoConcordoVisivel(false)
     router.back()
   }
@@ -368,6 +420,10 @@ export default function PropostaPrecoScreen() {
       params: { categoriaId: '6', categoriaNome: 'Reboque e Socorro' }
     })
   }
+
+  const tempoTurno = segundosTurno != null
+    ? `${Math.floor(segundosTurno / 60)}:${String(segundosTurno % 60).padStart(2, '0')}`
+    : null
 
   if (loading) {
     return (
@@ -440,13 +496,25 @@ export default function PropostaPrecoScreen() {
           </Text>
         </View>
 
-        {aguardandoMestre ? (
+        {negociacaoExpirada ? (
+          /* A janela de negociação fechou sem acordo */
+          <View style={[styles.negociacaoCard, styles.negociacaoCardExpirada]}>
+            <Text style={styles.negociacaoTitle}>⌛ NEGOCIAÇÃO EXPIRADA</Text>
+            <Text style={styles.negociacaoDesc}>
+              A janela de negociação fechou sem acordo. O pedido foi reaberto para outros mestres.
+            </Text>
+            <TouchableOpacity style={styles.btnPrimary} onPress={() => router.replace('/')}>
+              <Text style={styles.btnText}>Voltar ao Início</Text>
+            </TouchableOpacity>
+          </View>
+        ) : aguardandoMestre ? (
           /* O cliente enviou uma contra-proposta: só o mestre pode aceitar/recusar */
           <View style={styles.negociacaoCard}>
             <Text style={styles.negociacaoTitle}>⏳ CONTRA-PROPOSTA ENVIADA AO MESTRE</Text>
             <Text style={styles.negociacaoDesc}>
               Propuseste MT {contraDeCliente.toLocaleString('pt-MZ')}. Aguarda a resposta do mestre no sistema — só ele pode aceitar ou recusar a tua contra-proposta.
             </Text>
+            {tempoTurno && <Text style={styles.turnoTempo}>⏱ Resposta do mestre: {tempoTurno}</Text>}
           </View>
         ) : semOrcamentoMestre ? (
           /* O mestre aceitou o pedido mas ainda não enviou o orçamento */
@@ -455,10 +523,16 @@ export default function PropostaPrecoScreen() {
             <Text style={styles.negociacaoDesc}>
               O mestre aceitou o teu pedido e está a preparar o orçamento. Vais poder concordar ou negociar assim que ele enviar o valor.
             </Text>
+            {tempoTurno && <Text style={styles.turnoTempo}>⏱ Orçamento do mestre: {tempoTurno}</Text>}
           </View>
         ) : (
           /* AS 3 OPÇÕES EXIGIDAS NO SISTEMA (só quando o mestre já propôs um valor) */
           <View style={styles.botoesContainer}>
+            {tempoTurno && (
+              <Text style={[styles.turnoTempo, { textAlign: 'center', color: '#78350F' }]}>
+                ⏱ Tens {tempoTurno} para responder
+              </Text>
+            )}
             {/* 1. CONCORDO */}
             <TouchableOpacity 
               style={styles.btnConcordo} 
@@ -625,8 +699,10 @@ const styles = StyleSheet.create({
   headerTitle: { color: PAPEL, fontSize: 22, fontWeight: '900', letterSpacing: -0.5, marginBottom: 4 },
   headerSub: { color: AMARELO, fontSize: 13, fontWeight: '700' },
   negociacaoCard: { marginHorizontal: 20, backgroundColor: '#FEF3C7', padding: 14, borderRadius: 8, borderWidth: 1.5, borderColor: '#F59E0B', marginBottom: 16 },
+  negociacaoCardExpirada: { backgroundColor: '#FEE2E2', borderColor: '#EF4444' },
   negociacaoTitle: { color: '#B45309', fontWeight: '900', fontSize: 12, marginBottom: 4 },
   negociacaoDesc: { color: '#78350F', fontSize: 13, lineHeight: 18 },
+  turnoTempo: { color: '#B45309', fontWeight: '900', fontSize: 13, marginTop: 8 },
   tabela: { marginHorizontal: 20, backgroundColor: '#fff', borderRadius: 8, padding: 18, borderWidth: 2, borderColor: '#E5E7EB', marginBottom: 14 },
   tabelaLabel: { fontSize: 10, fontWeight: '800', color: ZINCO, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 12 },
   tabelaLinha: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderColor: '#F3F4F6' },

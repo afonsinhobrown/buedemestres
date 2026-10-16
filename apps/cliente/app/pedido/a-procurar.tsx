@@ -107,6 +107,7 @@ export default function AProcurarMestreScreen() {
           description: params.descricao || 'Pedido urgente de assistência',
           location_note: params.referencia || '',
           mode: 'on_demand',
+          urgency: 'sos',
           location: `POINT(${lng} ${lat})`,
           search_radius_m: 5000,
         })
