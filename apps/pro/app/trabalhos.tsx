@@ -39,6 +39,7 @@ export default function TrabalhosScreen() {
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [proId, setProId] = useState<string | null>(null);
+  const [stats, setStats] = useState<{ abandon_count?: number; cooldown_until?: string | null } | null>(null);
 
   const resolverProvider = useCallback(async () => {
     const { data: provs } = await supabase
@@ -74,6 +75,12 @@ export default function TrabalhosScreen() {
       setProId(providerId);
       await supabase.rpc('expire_stale_negotiations').then(() => {}, () => {});
       await carregar(providerId);
+      const { data: st } = await supabase
+        .from('reliability_stats')
+        .select('abandon_count, cooldown_until')
+        .eq('profile_id', providerId)
+        .maybeSingle();
+      setStats(st || null);
       setLoading(false);
 
       pollTimer = setInterval(() => carregar(providerId), 3000);
@@ -119,6 +126,15 @@ export default function TrabalhosScreen() {
         </View>
       ) : (
         <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 40 }}>
+          {stats?.cooldown_until && new Date(stats.cooldown_until).getTime() > Date.now() && (
+            <View style={styles.cooldownBanner}>
+              <Text style={styles.cooldownTitle}>⚠️ TEMPORARIAMENTE SUSPENSO</Text>
+              <Text style={styles.cooldownText}>
+                Não respondeste a tempo várias vezes. Ficas sem aceitar novos pedidos até às{' '}
+                {new Date(stats.cooldown_until).toLocaleTimeString('pt-MZ', { hour: '2-digit', minute: '2-digit' })}.
+              </Text>
+            </View>
+          )}
           {jobs.length === 0 ? (
             <View style={styles.empty}>
               <Text style={{ fontSize: 40, marginBottom: 10 }}>🛠️</Text>
@@ -170,8 +186,10 @@ const styles = StyleSheet.create({
   sub: { fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scroll: { flex: 1, paddingHorizontal: 20 },
-  empty: { backgroundColor: 'rgba(255,255,255,0.05)', padding: 28, borderRadius: 12, alignItems: 'center', marginTop: 24 },
-  emptyTitle: { color: '#F5F0E8', fontSize: 16, fontWeight: '900', marginBottom: 6 },
+  cooldownBanner: { backgroundColor: 'rgba(239,68,68,0.18)', borderWidth: 1.5, borderColor: '#EF4444', borderRadius: 10, padding: 14, marginBottom: 16 },
+  cooldownTitle: { color: '#F87171', fontWeight: '900', fontSize: 12, letterSpacing: 0.5, marginBottom: 4 },
+  cooldownText: { color: '#FCA5A5', fontSize: 12, lineHeight: 17 },
+  empty: { backgroundColor: 'rgba(255,255,255,0.05)', padding: 28, borderRadius: 12, alignItems: 'center', marginTop: 24 },  emptyTitle: { color: '#F5F0E8', fontSize: 16, fontWeight: '900', marginBottom: 6 },
   emptyDesc: { color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', lineHeight: 19 },
   card: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10, padding: 16, marginBottom: 12, borderLeftWidth: 5, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },

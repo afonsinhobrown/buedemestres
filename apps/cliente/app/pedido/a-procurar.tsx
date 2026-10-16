@@ -84,6 +84,20 @@ export default function AProcurarMestreScreen() {
         role: 'client'
       }, { onConflict: 'id' });
 
+      // 1b. Verificar limite de pedidos activos / cooldown (anti-abuso)
+      const { data: podeAbrir } = await supabase.rpc('client_can_open_request', { p_client: realUserId });
+      if (podeAbrir === false) {
+        const { data: cooldown } = await supabase.rpc('profile_on_cooldown', { p_profile: realUserId });
+        Alert.alert(
+          'Limite de pedidos atingido',
+          cooldown
+            ? 'Estiveste inactivo em demasiadas negociações. Aguarda alguns minutos antes de abrir um novo pedido.'
+            : 'Já tens pedidos à procura de mestre. Conclui ou cancela um deles antes de abrir outro.',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+        return;
+      }
+
       // 2. Criar o pedido associado ao cliente real com a categoria certa
       const catMap: Record<number, string> = {
         2: 'Mecânico',
@@ -116,7 +130,12 @@ export default function AProcurarMestreScreen() {
         
       if (error) {
         console.error('Insert Error:', error);
-        Alert.alert('Erro', 'Não foi possível criar o pedido.');
+        Alert.alert(
+          'Erro',
+          String(error.message).includes('client_rate_limited')
+            ? 'Já tens pedidos à procura de mestre. Conclui ou cancela um deles antes de abrir outro.'
+            : 'Não foi possível criar o pedido.'
+        );
         router.back();
         return;
       }

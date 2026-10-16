@@ -205,6 +205,18 @@ export default function ProHomeScreen() {
       : 'Serviço'
     const activeProId = providerProfile?.profile_id || user?.id
 
+    // Anti-abuso: cooldown por faltas repetidas em negociações
+    if (activeProId) {
+      const { data: podeAceitar } = await supabase.rpc('provider_can_accept', { p_provider: activeProId })
+      if (podeAceitar === false) {
+        Alert.alert(
+          'Temporariamente suspenso',
+          'Não respondeste a tempo em demasiadas negociações. Aguarda alguns minutos antes de aceitar novos pedidos.'
+        )
+        return
+      }
+    }
+
     // 1. Atualizar o pedido para status 'accepted' com target_provider_id
     const { error: reqErr } = await supabase
       .from('service_requests')
