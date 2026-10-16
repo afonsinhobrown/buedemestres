@@ -30,7 +30,7 @@ export default function ProporPrecoScreen() {
   const [msgBypassError, setMsgBypassError] = useState<string | null>(null);
 
   const [jobData, setJobData] = useState<any>(null);
-  const [actualJobId, setActualJobId] = useState<string>(targetId);
+  const [actualJobId, setActualJobId] = useState<string>('');
   const [clientFeedback, setClientFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -144,16 +144,24 @@ export default function ProporPrecoScreen() {
           .eq('id', targetId)
           .maybeSingle();
 
-        if (req) {
+        const { data: existingJob } = await supabase
+          .from('jobs')
+          .select('id')
+          .or(`id.eq.${targetId},request_id.eq.${targetId}`)
+          .maybeSingle();
+
+        if (existingJob) {
+          jId = existingJob.id;
+        } else {
           const { data: createdJob } = await supabase
             .from('jobs')
             .upsert({
-              request_id: req.id,
-              client_id: req.client_id,
+              request_id: targetId,
+              client_id: req?.client_id || '11111111-1111-1111-1111-111111111111',
               provider_id: '22222222-2222-2222-2222-222222222222',
               status: 'price_proposed',
               price_proposed: totalCalculado
-            })
+            }, { onConflict: 'request_id' })
             .select()
             .single();
 

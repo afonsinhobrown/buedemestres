@@ -39,10 +39,18 @@ export default function PropostaPrecoScreen() {
       }
 
       try {
+        const { data: jobMap } = await supabase
+          .from('jobs')
+          .select('id, request_id')
+          .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
+          .maybeSingle()
+
+        const resolvedJobId = jobMap?.id || params.jobId
+
         const { data: prop } = await supabase
           .from('job_price_proposals')
           .select('*')
-          .or(`job_id.eq.${params.jobId}`)
+          .or(`job_id.eq.${resolvedJobId},job_id.eq.${params.jobId}`)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle()
@@ -173,12 +181,34 @@ export default function PropostaPrecoScreen() {
       const counterMt = parseFloat(contraValor)
       const notaFinal = `[ESTÁ PUXADO - CONTRA-PROPOSTA]: MT ${counterMt}${contraNota ? ` ("${contraNota}")` : ''}`
 
-      // 1. Obter o job real para mapear ambos os IDs
-      const { data: job } = await supabase
+      // 1. Obter o job real (ou criá-lo) para mapear ambos os IDs
+      let { data: job } = await supabase
         .from('jobs')
         .select('id, request_id, provider_id')
         .or(`id.eq.${target},request_id.eq.${target}`)
         .maybeSingle()
+
+      if (!job) {
+        const { data: req } = await supabase
+          .from('service_requests')
+          .select('id, client_id, target_provider_id')
+          .eq('id', target)
+          .maybeSingle()
+
+        const { data: createdJob } = await supabase
+          .from('jobs')
+          .upsert({
+            request_id: req?.id || target,
+            client_id: req?.client_id || '11111111-1111-1111-1111-111111111111',
+            provider_id: req?.target_provider_id || '22222222-2222-2222-2222-222222222222',
+            status: 'puxado',
+            price_estimate_min: counterMt
+          }, { onConflict: 'request_id' })
+          .select('id, request_id, provider_id')
+          .single()
+
+        if (createdJob) job = createdJob
+      }
 
       const jId = job?.id || target
       const rId = job?.request_id || target
