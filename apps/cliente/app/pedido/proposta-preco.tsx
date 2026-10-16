@@ -82,6 +82,7 @@ export default function PropostaPrecoScreen() {
     }
 
     carregarPropostaReal()
+    const pollInterval = setInterval(carregarPropostaReal, 2500)
 
     const channel = supabase
       .channel(`client_prop_${params.jobId}_${Date.now()}`)
@@ -90,9 +91,15 @@ export default function PropostaPrecoScreen() {
         { event: '*', schema: 'public', table: 'job_price_proposals' },
         () => carregarPropostaReal()
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'jobs' },
+        () => carregarPropostaReal()
+      )
       .subscribe()
 
     return () => {
+      clearInterval(pollInterval)
       supabase.removeChannel(channel)
     }
   }, [params.jobId])
@@ -166,34 +173,80 @@ export default function PropostaPrecoScreen() {
       const counterMt = parseFloat(contraValor)
       const notaFinal = `[ESTÁ PUXADO - CONTRA-PROPOSTA]: MT ${counterMt}${contraNota ? ` ("${contraNota}")` : ''}`
 
+      // 1. Obter o job real para mapear ambos os IDs
+      const { data: job } = await supabase
+        .from('jobs')
+        .select('id, request_id, provider_id')
+        .or(`id.eq.${target},request_id.eq.${target}`)
+        .maybeSingle()
+
+      const jId = job?.id || target
+      const rId = job?.request_id || target
+
+      // 2. Registar em job_price_proposals com amount da contra-proposta
+      await supabase.from('job_price_proposals').insert({
+        job_id: jId,
+        proposed_by: '11111111-1111-1111-1111-111111111111',
+        amount: counterMt,
+        description: notaFinal,
+        status: 'pending'
+      })
+
+      // Se houver proposta anterior, também actualizar
       if (proposalData?.id) {
         await supabase
           .from('job_price_proposals')
           .update({
+            amount: counterMt,
             description: notaFinal,
             status: 'pending'
           })
           .eq('id', proposalData.id)
-      } else {
-        await supabase.from('job_price_proposals').insert({
-          job_id: target,
-          proposed_by: '11111111-1111-1111-1111-111111111111',
-          amount: counterMt,
-          description: notaFinal,
-          status: 'pending'
-        })
       }
 
+      // 3. Actualizar jobs com status 'puxado' e price_estimate_min
       await supabase
         .from('jobs')
         .update({
-          price_estimate_min: counterMt
+          status: 'puxado',
+          price_estimate_min: counterMt,
+          updated_at: new Date().toISOString()
         })
-        .or(`id.eq.${target},request_id.eq.${target}`)
+        .or(`id.eq.${jId},request_id.eq.${rId}`)
+
+      // 4. Actualizar service_requests com status 'puxado' e budget_max
+      await supabase
+        .from('service_requests')
+        .update({
+          status: 'puxado',
+          budget_max: counterMt,
+          updated_at: new Date().toISOString()
+        })
+        .or(`id.eq.${rId},id.eq.${jId}`)
+
+      // 5. Inserir notificação para o mestre
+      const proId = job?.provider_id || '22222222-2222-2222-2222-222222222222'
+      try {
+        await supabase.from('notifications').insert({
+          profile_id: proId,
+          type: 'contra_proposta',
+          title: 'Contra-proposta Recebida ("Está Puxado")',
+          body: `O cliente propôs o valor de MT ${counterMt}.`,
+          data: {
+            jobId: jId,
+            requestId: rId,
+            amount: counterMt,
+            nota: contraNota
+          }
+        })
+      } catch (notifErr) {
+        console.warn('Erro ao inserir notificação para mestre:', notifErr)
+      }
 
       setModalPuxadoVisivel(false)
       setPuxadoEnviado(true)
     } catch (err: any) {
+      console.error('Erro ao enviar contra-proposta:', err)
       Alert.alert('Erro', err.message || 'Erro ao enviar negociação.')
     } finally {
       setIsSubmitting(false)

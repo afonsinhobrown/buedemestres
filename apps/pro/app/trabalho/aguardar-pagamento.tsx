@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 
@@ -11,6 +11,7 @@ export default function AguardarPagamentoScreen() {
   const [status, setStatus] = useState<'pending' | 'held' | 'puxado' | 'rejected'>('pending');
   const [feedback, setFeedback] = useState<string>('');
   const [propostaValor, setPropostaValor] = useState<number>(params.valor ? parseFloat(params.valor) : 0);
+  const [contraPropostaValor, setContraPropostaValor] = useState<number>(0);
 
   useEffect(() => {
     if (!jobId) return;
@@ -19,17 +20,43 @@ export default function AguardarPagamentoScreen() {
 
     const verificarEstado = async () => {
       try {
-        // Verificar propostas
+        // 1. Obter job mapeando ambos os IDs (job.id e job.request_id)
+        const { data: job } = await supabase
+          .from('jobs')
+          .select('id, request_id, status, price_proposed, price_estimate_min, agreed_amount')
+          .or(`id.eq.${jobId},request_id.eq.${jobId}`)
+          .maybeSingle();
+
+        const actualJobId = job?.id || jobId;
+        const actualReqId = job?.request_id || jobId;
+
+        // 2. Verificar estado no service_request
+        const { data: req } = await supabase
+          .from('service_requests')
+          .select('status, budget_max')
+          .or(`id.eq.${actualReqId},id.eq.${actualJobId}`)
+          .maybeSingle();
+
+        // Detectar se o cliente pediu revisão / contra-proposta
+        if (job?.status === 'puxado' || req?.status === 'puxado' || (job?.price_estimate_min && job.price_estimate_min > 0)) {
+          setStatus('puxado');
+          const cp = job?.price_estimate_min || req?.budget_max || 0;
+          if (cp) setContraPropostaValor(cp);
+        }
+
+        // 3. Verificar propostas por ambos os IDs
         const { data: prop } = await supabase
           .from('job_price_proposals')
           .select('*')
-          .or(`job_id.eq.${jobId}`)
+          .or(`job_id.eq.${actualJobId},job_id.eq.${actualReqId}`)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
 
         if (prop) {
-          setPropostaValor(prop.amount);
+          if (prop.amount && status !== 'puxado' && !job?.price_estimate_min) {
+            setPropostaValor(prop.amount);
+          }
           if (prop.status === 'accepted') {
             setStatus('held');
             return;
@@ -39,16 +66,10 @@ export default function AguardarPagamentoScreen() {
           } else if (prop.description && prop.description.includes('[ESTÁ PUXADO')) {
             setStatus('puxado');
             setFeedback(prop.description);
+            if (prop.amount) setContraPropostaValor(prop.amount);
             return;
           }
         }
-
-        // Verificar jobs e pagamentos
-        const { data: job } = await supabase
-          .from('jobs')
-          .select('status, price_proposed, price_estimate_min, agreed_amount')
-          .or(`id.eq.${jobId},request_id.eq.${jobId}`)
-          .maybeSingle();
 
         if (job) {
           if (job.status === 'price_agreed' || job.status === 'in_service' || job.status === 'en_route') {
@@ -66,23 +87,67 @@ export default function AguardarPagamentoScreen() {
 
     const channel = supabase
       .channel(`pro_wait_${jobId}_${Date.now()}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'job_price_proposals' },
-        () => verificarEstado()
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'jobs' },
-        () => verificarEstado()
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'job_price_proposals' }, () => verificarEstado())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => verificarEstado())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_requests' }, () => verificarEstado())
       .subscribe();
 
     return () => {
       clearInterval(pollTimer);
       supabase.removeChannel(channel);
     };
-  }, [jobId]);
+  }, [jobId, status]);
+
+  const handleAceitarContraProposta = async () => {
+    try {
+      const valorFinal = contraPropostaValor || propostaValor;
+
+      const { data: job } = await supabase
+        .from('jobs')
+        .select('id, request_id')
+        .or(`id.eq.${jobId},request_id.eq.${jobId}`)
+        .maybeSingle();
+
+      const jId = job?.id || jobId;
+      const rId = job?.request_id || jobId;
+
+      await supabase
+        .from('job_price_proposals')
+        .insert({
+          job_id: jId,
+          proposed_by: '22222222-2222-2222-2222-222222222222',
+          amount: valorFinal,
+          description: `Acordo fechado: Mestre aceitou a contra-proposta de MT ${valorFinal}`,
+          status: 'pending'
+        });
+
+      await supabase
+        .from('jobs')
+        .update({
+          status: 'price_proposed',
+          price_proposed: valorFinal,
+          price_estimate_min: null,
+          updated_at: new Date().toISOString()
+        })
+        .or(`id.eq.${jId},request_id.eq.${rId}`);
+
+      await supabase
+        .from('service_requests')
+        .update({
+          status: 'price_proposed',
+          budget_max: valorFinal,
+          updated_at: new Date().toISOString()
+        })
+        .or(`id.eq.${rId},id.eq.${jId}`);
+
+      setPropostaValor(valorFinal);
+      setStatus('pending');
+      Alert.alert('Contra-proposta Aceite!', `Aceitaste o valor de MT ${valorFinal}. O cliente já pode efectuar o pagamento retido em segurança.`);
+    } catch (e: any) {
+      console.error('Erro ao aceitar contra-proposta:', e);
+      Alert.alert('Erro', e.message || 'Erro ao aceitar contra-proposta.');
+    }
+  };
 
   const handleIniciarDeslocacao = () => {
     router.push({
@@ -120,19 +185,43 @@ export default function AguardarPagamentoScreen() {
       )}
 
       {status === 'puxado' && (
-        <View style={[styles.card, { borderColor: '#F59E0B', borderWidth: 2 }]}>
-          <Text style={{ fontSize: 48, marginBottom: 12 }}>💬</Text>
+        <View style={[styles.card, { borderColor: '#F59E0B', borderWidth: 2.5, backgroundColor: 'rgba(245, 158, 11, 0.08)' }]}>
+          <Text style={{ fontSize: 52, marginBottom: 8 }}>💬</Text>
           <Text style={[styles.title, { color: '#F59E0B' }]}>O Cliente Achou Puxado!</Text>
-          <Text style={styles.feedbackBoxText}>
-            {feedback || 'O cliente solicitou uma revisão do valor para poder fechar o serviço.'}
+          
+          <View style={styles.counterOfferBox}>
+            <Text style={styles.counterOfferLabel}>CONTRA-PROPOSTA DO CLIENTE:</Text>
+            <Text style={styles.counterOfferValue}>
+              MT {contraPropostaValor ? contraPropostaValor.toLocaleString('pt-MZ') : '...'}
+            </Text>
+            {feedback ? (
+              <Text style={styles.counterOfferNote}>"{feedback}"</Text>
+            ) : null}
+          </View>
+
+          <Text style={styles.counterOfferSub}>
+            Podes aceitar o valor proposto pelo cliente para fechar logo o acordo ou enviar uma nova proposta ajustada.
           </Text>
-          <TouchableOpacity 
-            style={styles.btnAjustar}
-            onPress={() => router.push(`/trabalho/propor-preco?jobId=${jobId}`)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.btnAjustarText}>✏️ Ajustar Preço / Negociar no Sistema</Text>
-          </TouchableOpacity>
+
+          <View style={styles.counterActionsRow}>
+            {contraPropostaValor > 0 && (
+              <TouchableOpacity 
+                style={styles.btnAceitarContra}
+                onPress={handleAceitarContraProposta}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.btnAceitarContraText}>✓ Aceitar MT {contraPropostaValor.toLocaleString('pt-MZ')}</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity 
+              style={[styles.btnAjustar, contraPropostaValor > 0 && { marginTop: 10 }]}
+              onPress={() => router.push(`/trabalho/propor-preco?jobId=${jobId}`)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.btnAjustarText}>✏️ Fazer Nova Proposta de Preço</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
@@ -193,8 +282,34 @@ const styles = StyleSheet.create({
   optionsPreview: { backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 10, padding: 14, width: '100%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   optionsTitle: { fontSize: 10, fontWeight: '800', color: '#F2C94C', letterSpacing: 1.2, marginBottom: 8, textTransform: 'uppercase' },
   optionItem: { color: '#E2E8F0', fontSize: 12, marginBottom: 4 },
-  feedbackBoxText: { color: '#F5F0E8', fontSize: 13, fontWeight: '700', textAlign: 'center', marginBottom: 18, lineHeight: 18, backgroundColor: 'rgba(0,0,0,0.3)', padding: 12, borderRadius: 8, width: '100%' },
-  btnAjustar: { backgroundColor: '#F59E0B', borderRadius: 8, paddingVertical: 16, paddingHorizontal: 20, width: '100%', alignItems: 'center' },
+
+  counterOfferBox: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 12,
+    padding: 16,
+    width: '100%',
+    alignItems: 'center',
+    marginVertical: 12,
+    borderWidth: 2,
+    borderColor: '#D97706',
+  },
+  counterOfferLabel: { fontSize: 11, fontWeight: '900', color: '#92400E', letterSpacing: 1 },
+  counterOfferValue: { fontSize: 32, fontWeight: '900', color: '#78350F', marginVertical: 4 },
+  counterOfferNote: { fontSize: 12, color: '#92400E', fontStyle: 'italic', textAlign: 'center' },
+  counterOfferSub: { fontSize: 13, color: '#E2E8F0', textAlign: 'center', marginBottom: 16, lineHeight: 18 },
+
+  counterActionsRow: { width: '100%' },
+  btnAceitarContra: {
+    backgroundColor: '#22C55E',
+    borderRadius: 8,
+    paddingVertical: 16,
+    width: '100%',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#15803D',
+  },
+  btnAceitarContraText: { color: '#FFFFFF', fontWeight: '900', fontSize: 15, textTransform: 'uppercase' },
+  btnAjustar: { backgroundColor: '#F59E0B', borderRadius: 8, paddingVertical: 15, width: '100%', alignItems: 'center' },
   btnAjustarText: { color: '#1A1A2E', fontWeight: '900', fontSize: 14, textTransform: 'uppercase', letterSpacing: 0.5 },
   btnPartir: { backgroundColor: '#4ADE80', borderRadius: 8, paddingVertical: 18, paddingHorizontal: 20, width: '100%', alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
   btnPartirText: { color: '#0F2D1A', fontWeight: '900', fontSize: 15, textTransform: 'uppercase', letterSpacing: 0.5 },
