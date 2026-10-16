@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, Platform, Modal, TextInput, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, Platform, Modal, TextInput, ActivityIndicator, Image } from 'react-native'
 import { useState, useEffect } from 'react'
 import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
@@ -23,6 +23,10 @@ export default function ProHomeScreen() {
           business_name,
           primary_category_id,
           is_available,
+          profiles:profile_id (
+            full_name,
+            avatar_url
+          ),
           categories:primary_category_id (
             id,
             name,
@@ -244,17 +248,44 @@ export default function ProHomeScreen() {
   return (
     <View style={[styles.container, { backgroundColor: isOnline ? '#0F2D1A' : '#1A1A2E' }]}>
       <View style={{ marginBottom: 24 }}>
-        <Text style={styles.logo}>🔨 Bué de Mestres Pro</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: -20, flexWrap: 'wrap' }}>
-          <View style={{ backgroundColor: '#F2C94C', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
-            <Text style={{ color: '#1A1A2E', fontWeight: '900', fontSize: 12 }}>
-              Especialidade: {providerProfile?.categories?.name || 'Mestre'}
+        {/* Barra de Perfil do Mestre Sempre Visível */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Image
+              source={{ uri: (providerProfile?.profiles as any)?.avatar_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80' }}
+              style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: '#F2C94C', backgroundColor: '#334155' }}
+            />
+            <View>
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900' }}>
+                {providerProfile?.business_name || (providerProfile?.profiles as any)?.full_name || 'Provedor 1'}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                <View style={{ backgroundColor: '#F2C94C', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                  <Text style={{ color: '#1A1A2E', fontWeight: '900', fontSize: 10 }}>
+                    {providerProfile?.categories?.name || 'Mecânico'}
+                  </Text>
+                </View>
+                <Text style={{ color: isOnline ? '#4ADE80' : '#94A3B8', fontSize: 11, fontWeight: '700' }}>
+                  {isOnline ? '🟢 Online (Disponível)' : '⚪ Pausa'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={{ alignItems: 'center' }}>
+            <Switch
+              value={isOnline}
+              onValueChange={toggleOnline}
+              trackColor={{ false: '#334155', true: '#22c55e' }}
+              thumbColor={isOnline ? '#fff' : '#cbd5e1'}
+            />
+            <Text style={{ color: '#cbd5e1', fontSize: 9, marginTop: 2, fontWeight: '800' }}>
+              {isOnline ? 'ACTIVO' : 'PAUSA'}
             </Text>
           </View>
-          <Text style={{ color: '#E2E8F0', fontSize: 13, fontWeight: '700' }}>
-            {providerProfile?.business_name || 'Mestre Registado'}
-          </Text>
         </View>
+
+        <Text style={styles.logo}>🔨 Bué de Mestres Pro</Text>
 
         {/* Seletor rápido de Especialidade / Mestre Registado */}
         {availableProviders.length > 1 && (

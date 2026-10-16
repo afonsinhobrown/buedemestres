@@ -1,5 +1,7 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, StatusBar, Dimensions } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, StatusBar, Dimensions, Image } from 'react-native'
 import { router } from 'expo-router'
+import { useEffect } from 'react'
+import { useAuthStore } from '@/lib/useAuthStore'
 
 const { width } = Dimensions.get('window')
 
@@ -11,13 +13,34 @@ const placasPrincipais = [
 ]
 
 export default function HomeScreen() {
+  const profile = useAuthStore(s => s.profile)
+  const loadProfile = useAuthStore(s => s.loadProfile)
+
+  useEffect(() => {
+    if (!profile) loadProfile()
+  }, [profile])
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#EDF0F2" />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         
         <View style={styles.header}>
-          <Text style={styles.greeting}>Bom dia,</Text>
+          <View style={styles.headerTop}>
+            <View>
+              <Text style={styles.greeting}>Bom dia,</Text>
+              <Text style={styles.userName}>{profile?.full_name || 'Cliente 1'}</Text>
+            </View>
+            <View style={styles.avatarButton}>
+              <Image 
+                source={{ uri: profile?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' }}
+                style={styles.avatarImage}
+              />
+              <View style={styles.avatarBadge}>
+                <Text style={styles.avatarBadgeText}>✓</Text>
+              </View>
+            </View>
+          </View>
           <Text style={styles.logo}>Bué de Mestres</Text>
         </View>
 
@@ -92,13 +115,53 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 32,
   },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   greeting: {
-    fontSize: 17,
+    fontSize: 14,
     color: '#5B6472', // Zinco
-    marginBottom: 4,
+    fontWeight: '600',
+  },
+  userName: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#12163A',
+  },
+  avatarButton: {
+    position: 'relative',
+  },
+  avatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: '#12163A',
+    backgroundColor: '#FFC61A',
+  },
+  avatarBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#22c55e',
+    borderRadius: 10,
+    width: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
+  avatarBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '900',
   },
   logo: {
-    fontSize: 33, // text-2xl/3xl aprox
+    fontSize: 32, // text-2xl/3xl aprox
     fontWeight: '900',
     color: '#12163A', // Tinta
     letterSpacing: -1,

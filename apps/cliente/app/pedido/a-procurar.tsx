@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, Image } from 'react-native'
 import { useLocalSearchParams, router } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -21,6 +21,12 @@ export default function AProcurarMestreScreen() {
   }>()
 
   const user = useAuthStore((s) => s.user)
+  const profile = useAuthStore((s) => s.profile)
+  const loadProfile = useAuthStore((s) => s.loadProfile)
+
+  useEffect(() => {
+    if (!profile) loadProfile()
+  }, [profile])
   const [rondaAtual, setRondaAtual] = useState(0)
   const [esgotado, setEsgotado] = useState(false)
   const [aceite, setAceite] = useState(false)
@@ -226,6 +232,23 @@ export default function AProcurarMestreScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Barra de Topo com Foto e Nome do Usuário */}
+      <View style={styles.topProfileBar}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
+        <View style={styles.userProfileBadge}>
+          <Image
+            source={{ uri: profile?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' }}
+            style={styles.userAvatar}
+          />
+          <View>
+            <Text style={styles.userName} numberOfLines={1}>{profile?.full_name || 'Cliente 1'}</Text>
+            <Text style={styles.userRole}>👤 Cliente</Text>
+          </View>
+        </View>
+      </View>
+
       {/* Animação de radar */}
       <View style={styles.radarContainer}>
         <Animated.View style={[styles.radarOuter, { transform: [{ scale: pulseAnim }] }]} />
@@ -237,6 +260,14 @@ export default function AProcurarMestreScreen() {
 
       <Text style={styles.titulo}>A procurar mestre</Text>
       <Text style={styles.subtitulo}>{params.categoriaNome}</Text>
+
+      {params.referencia ? (
+        <View style={styles.addressPill}>
+          <Text style={styles.addressText} numberOfLines={2}>
+            🛣️ {params.referencia}
+          </Text>
+        </View>
+      ) : null}
 
       {onlineCount !== null && (
         <View style={{ backgroundColor: onlineCount > 0 ? 'rgba(74, 222, 128, 0.15)' : 'rgba(242, 201, 76, 0.15)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, marginBottom: 24, borderWidth: 1, borderColor: onlineCount > 0 ? 'rgba(74, 222, 128, 0.3)' : 'rgba(242, 201, 76, 0.3)' }}>
@@ -289,8 +320,69 @@ const AMARELO = '#F2C94C'
 const ZINCO = '#6B7280'
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: TINTA, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  radarContainer: { width: 180, height: 180, alignItems: 'center', justifyContent: 'center', marginBottom: 40 },
+  container: { flex: 1, backgroundColor: TINTA, alignItems: 'center', justifyContent: 'center', padding: 24, paddingTop: 48 },
+  topProfileBar: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  backButton: {
+    padding: 8,
+  },
+  backButtonText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  userProfileBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    gap: 8,
+  },
+  userAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: AMARELO,
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
+  userName: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
+    maxWidth: 120,
+  },
+  userRole: {
+    color: AMARELO,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  addressPill: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    marginBottom: 24,
+    maxWidth: '90%',
+  },
+  addressText: {
+    color: '#E2E8F0',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  radarContainer: { width: 180, height: 180, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
   radarOuter: { position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(242,201,76,0.08)', borderWidth: 1, borderColor: 'rgba(242,201,76,0.15)' },
   radarMid: { position: 'absolute', width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(242,201,76,0.12)', borderWidth: 1, borderColor: 'rgba(242,201,76,0.25)' },
   radarCenter: { width: 64, height: 64, borderRadius: 32, backgroundColor: AMARELO, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#fff' },
