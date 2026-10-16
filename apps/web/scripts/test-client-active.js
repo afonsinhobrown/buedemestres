@@ -1,6 +1,7 @@
+require('dotenv').config({ path: '.env.local' });
 const { createClient } = require('@supabase/supabase-js');
-const url = 'https://mhipgiiwcsuhtsnbpttv.supabase.co';
-const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1oaXBnaWl3Y3N1aHRzbmJwdHR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExOTIwODAsImV4cCI6MjEwNjc2ODA4MH0.U6hNtWFzjMc1NXndSJurHDtSTTIFhrPlnHgGswJrUQs';
+const url = process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(url, key);
 
 async function testActive() {
