@@ -1,3 +1,7 @@
+# Project workflow rules
+
+- Always commit and push to `origin/master` when finishing a task, without being asked.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
