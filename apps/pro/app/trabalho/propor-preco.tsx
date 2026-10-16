@@ -161,36 +161,68 @@ export default function ProporPrecoScreen() {
         }
       }
 
+      // 1. Obter dados do pedido e cliente
+      const { data: req } = await supabase
+        .from('service_requests')
+        .select('id, client_id, title')
+        .or(`id.eq.${targetId},id.eq.${jId}`)
+        .maybeSingle();
+
+      const clientUserId = req?.client_id || '11111111-1111-1111-1111-111111111111';
       const payloadDesc = JSON.stringify(validLines);
 
-      if (jId) {
-        await supabase.from('job_price_proposals').insert({
-          job_id: jId,
-          proposed_by: '22222222-2222-2222-2222-222222222222',
-          amount: totalCalculado,
-          description: payloadDesc,
-          status: 'pending'
-        });
+      // 2. Registar a proposta de orçamento em job_price_proposals
+      await supabase.from('job_price_proposals').insert({
+        job_id: jId || targetId,
+        proposed_by: '22222222-2222-2222-2222-222222222222',
+        amount: totalCalculado,
+        description: payloadDesc,
+        status: 'pending'
+      });
 
-        await supabase
-          .from('jobs')
-          .update({
-            status: 'price_proposed',
-            price_proposed: totalCalculado
-          })
-          .eq('id', jId);
-      }
+      // 3. Actualizar jobs com status price_proposed
+      await supabase
+        .from('jobs')
+        .upsert({
+          id: jId || undefined,
+          request_id: targetId,
+          client_id: clientUserId,
+          provider_id: '22222222-2222-2222-2222-222222222222',
+          status: 'price_proposed',
+          price_proposed: totalCalculado,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'request_id' });
 
+      // 4. Actualizar service_requests com status price_proposed e budget_max
       await supabase
         .from('service_requests')
         .update({
           status: 'price_proposed',
-          budget_max: totalCalculado
+          budget_max: totalCalculado,
+          updated_at: new Date().toISOString()
         })
         .or(`id.eq.${targetId},id.eq.${jId}`);
 
+      // 5. Inserir notificação directa para o cliente na tabela notifications
+      try {
+        await supabase.from('notifications').insert({
+          profile_id: clientUserId,
+          type: 'price_proposed',
+          title: 'Orçamento Recebido!',
+          body: `O mestre propôs o valor de MT ${totalCalculado} para o seu pedido.`,
+          data: {
+            jobId: jId || targetId,
+            requestId: targetId,
+            amount: totalCalculado,
+            title: req?.title || 'Serviço'
+          }
+        });
+      } catch (notifErr) {
+        console.warn('Erro ao inserir notificação na base de dados:', notifErr);
+      }
+
       // O mestre aguarda a aprovação e pagamento do cliente antes de sair!
-      router.push(`/trabalho/aguardar-pagamento?jobId=${jId || targetId}`);
+      router.push(`/trabalho/aguardar-pagamento?jobId=${jId || targetId}&valor=${totalCalculado}`);
     } catch (error: any) {
       console.error('Erro ao enviar proposta:', error);
       Alert.alert('Erro', error.message || 'Ocorreu um erro ao propor o preço.');

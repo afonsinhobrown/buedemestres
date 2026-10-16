@@ -5,12 +5,12 @@ import { supabase } from '../../lib/supabase';
 
 export default function AguardarPagamentoScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ jobId?: string; offerId?: string }>();
+  const params = useLocalSearchParams<{ jobId?: string; offerId?: string; valor?: string }>();
   const jobId = params.jobId || params.offerId || '';
 
   const [status, setStatus] = useState<'pending' | 'held' | 'puxado' | 'rejected'>('pending');
   const [feedback, setFeedback] = useState<string>('');
-  const [propostaValor, setPropostaValor] = useState<number>(0);
+  const [propostaValor, setPropostaValor] = useState<number>(params.valor ? parseFloat(params.valor) : 0);
 
   useEffect(() => {
     if (!jobId) return;

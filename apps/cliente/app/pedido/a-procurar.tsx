@@ -155,9 +155,19 @@ export default function AProcurarMestreScreen() {
           .eq('id', requestId)
           .maybeSingle();
 
-        if (req && req.status === 'accepted') {
-          console.log('✅ Pedido aceite detectado via polling:', req);
+        if (req && (req.status === 'accepted' || req.status === 'price_proposed')) {
+          console.log('✅ Pedido aceite ou orçamento recebido detectado via polling:', req);
           await tratarAceitacao(req.target_provider_id);
+          if (req.status === 'price_proposed') {
+            router.replace({
+              pathname: '/pedido/proposta-preco',
+              params: {
+                jobId: requestId,
+                mestreNome: 'Provedor 1',
+                categoriaEmoji: '🔧'
+              }
+            });
+          }
         }
       } catch (err) {
         console.warn('Erro ao verificar estado do pedido:', err);
@@ -180,9 +190,19 @@ export default function AProcurarMestreScreen() {
           filter: `id=eq.${requestId}`,
         },
         async (payload) => {
-          if (payload.new.status === 'accepted') {
-            console.log('✅ Pedido aceite detectado via Realtime:', payload.new);
+          if (payload.new.status === 'accepted' || payload.new.status === 'price_proposed') {
+            console.log('✅ Pedido aceite ou orçamento recebido detectado via Realtime:', payload.new);
             await tratarAceitacao(payload.new.target_provider_id);
+            if (payload.new.status === 'price_proposed') {
+              router.replace({
+                pathname: '/pedido/proposta-preco',
+                params: {
+                  jobId: requestId,
+                  mestreNome: 'Provedor 1',
+                  categoriaEmoji: '🔧'
+                }
+              });
+            }
           }
         }
       )

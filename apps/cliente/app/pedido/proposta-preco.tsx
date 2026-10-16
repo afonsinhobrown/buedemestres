@@ -305,7 +305,7 @@ export default function PropostaPrecoScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.push('/')} style={styles.backBtn}>
           <Text style={styles.backBtnText}>← Voltar</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Orçamento do Mestre</Text>
