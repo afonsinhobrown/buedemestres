@@ -4,8 +4,8 @@ import { router } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 
 export default function EntrarScreen() {
-  const [email, setEmail] = useState('cliente@teste.com')
-  const [senha, setSenha] = useState('password123')
+  const [email, setEmail] = useState('')
+  const [senha, setSenha] = useState('')
   const [carregando, setCarregando] = useState(false)
   const [isLogin, setIsLogin] = useState(true)
   const [aceitouTermos, setAceitouTermos] = useState(false)
