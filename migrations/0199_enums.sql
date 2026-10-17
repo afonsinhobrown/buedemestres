@@ -4,8 +4,14 @@ alter type job_status add value if not exists 'accepted';
 alter type job_status add value if not exists 'en_route';
 alter type job_status add value if not exists 'arrived';
 alter type job_status add value if not exists 'price_proposed';
+alter type job_status add value if not exists 'price_agreed';
+alter type job_status add value if not exists 'in_service';
+alter type job_status add value if not exists 'puxado';
 alter type job_status add value if not exists 'awaiting_confirmation';
 alter type job_status add value if not exists 'expired';
+
+alter type request_status add value if not exists 'price_proposed';
+alter type request_status add value if not exists 'puxado';
 
 alter type payment_method add value if not exists 'cash';
 

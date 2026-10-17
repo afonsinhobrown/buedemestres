@@ -33,8 +33,12 @@ export default function AProcurarMestreScreen() {
   const [esgotado, setEsgotado] = useState(false)
   const [aceite, setAceite] = useState(false)
   const [temProposta, setTemProposta] = useState(false)
+  const [expirado, setExpirado] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [requestId, setRequestId] = useState<string | null>(null)
+  const aceiteRef = useRef(false)
+  const navegouRef = useRef(false)
+  const mestreNomeRef = useRef('Provedor 1')
   const [onlineCount, setOnlineCount] = useState<number | null>(null)
   const [mestreDados, setMestreDados] = useState<{ nome: string; telefone: string; nota: string }>({
     nome: 'Mestre Profissional',
@@ -174,31 +178,76 @@ export default function AProcurarMestreScreen() {
     let timer: NodeJS.Timeout;
     let pollTimer: NodeJS.Timeout;
 
+    // Não parar o polling aqui: o orçamento pode chegar depois da aceitação e
+    // não podemos depender apenas do Realtime (que falha com a app em segundo
+    // plano ou com a rede instável). Sem polling o cliente ficava preso em
+    // "A aguardar o orçamento..." para sempre.
     const tratarAceitacao = async (targetProviderId: string | null, status: string) => {
-      clearInterval(timer);
-      clearInterval(pollTimer);
+      if (!aceiteRef.current) {
+        let mNome = 'Provedor 1';
+        let mTel = '+258 84 999 9999';
+        let mNota = '5.0';
 
-      let mNome = 'Provedor 1';
-      let mTel = '+258 84 999 9999';
-      let mNota = '5.0';
+        if (targetProviderId) {
+          try {
+            const { data: prov } = await supabase
+              .from('provider_profiles')
+              .select('business_name, rating_avg, profiles:profile_id(full_name, phone)')
+              .eq('profile_id', targetProviderId)
+              .maybeSingle();
 
-      if (targetProviderId) {
-        const { data: prov } = await supabase
-          .from('provider_profiles')
-          .select('business_name, rating_avg, profiles:profile_id(full_name, phone)')
-          .eq('profile_id', targetProviderId)
-          .single();
-
-        if (prov) {
-          mNome = prov.business_name || (prov.profiles as any)?.full_name || mNome;
-          mTel = (prov.profiles as any)?.phone || mTel;
-          if (prov.rating_avg) mNota = Number(prov.rating_avg).toFixed(1);
+            if (prov) {
+              mNome = prov.business_name || (prov.profiles as any)?.full_name || mNome;
+              mTel = (prov.profiles as any)?.phone || mTel;
+              if (prov.rating_avg) mNota = Number(prov.rating_avg).toFixed(1);
+            }
+          } catch (err) {
+            console.warn('Erro ao carregar dados do mestre:', err);
+          }
         }
+
+        setMestreDados({ nome: mNome, telefone: mTel, nota: mNota });
+        mestreNomeRef.current = mNome;
       }
 
-      setMestreDados({ nome: mNome, telefone: mTel, nota: mNota });
       setTemProposta(status === 'price_proposed');
+      aceiteRef.current = true;
       setAceite(true);
+    };
+
+    const abrirOrcamento = () => {
+      if (navegouRef.current) return;
+      navegouRef.current = true;
+      router.replace({
+        pathname: '/pedido/proposta-preco',
+        params: {
+          jobId: requestId,
+          mestreNome: mestreNomeRef.current,
+          categoriaEmoji: '🔧'
+        }
+      });
+    };
+
+    const tratarEstado = async (req: { status: string; target_provider_id: string | null }) => {
+      if (req.status === 'price_proposed') {
+        setEsgotado(false);
+        await tratarAceitacao(req.target_provider_id, req.status);
+        abrirOrcamento();
+        return;
+      }
+
+      if (req.status === 'accepted') {
+        setEsgotado(false);
+        await tratarAceitacao(req.target_provider_id, req.status);
+        return;
+      }
+
+      // O turno expirou e o pedido voltou ao pool: não deixar o spinner eterno.
+      if (aceiteRef.current && (req.status === 'open' || req.status === 'cancelled' || req.status === 'expired')) {
+        aceiteRef.current = false;
+        setAceite(false);
+        setExpirado(true);
+      }
     };
 
     // 1. Polling contínuo a cada 2 segundos (garante detecção imediata mesmo com aba em background)
@@ -210,19 +259,9 @@ export default function AProcurarMestreScreen() {
           .eq('id', requestId)
           .maybeSingle();
 
-        if (req && (req.status === 'accepted' || req.status === 'price_proposed')) {
-          console.log('✅ Pedido aceite ou orçamento recebido detectado via polling:', req);
-          await tratarAceitacao(req.target_provider_id, req.status);
-          if (req.status === 'price_proposed') {
-            router.replace({
-              pathname: '/pedido/proposta-preco',
-              params: {
-                jobId: requestId,
-                mestreNome: 'Provedor 1',
-                categoriaEmoji: '🔧'
-              }
-            });
-          }
+        if (req) {
+          console.log('📡 Estado do pedido via polling:', req.status);
+          await tratarEstado(req);
         }
       } catch (err) {
         console.warn('Erro ao verificar estado do pedido:', err);
@@ -245,19 +284,9 @@ export default function AProcurarMestreScreen() {
           filter: `id=eq.${requestId}`,
         },
         async (payload) => {
-          if (payload.new.status === 'accepted' || payload.new.status === 'price_proposed') {
-            console.log('✅ Pedido aceite ou orçamento recebido detectado via Realtime:', payload.new);
-            await tratarAceitacao(payload.new.target_provider_id, payload.new.status);
-            if (payload.new.status === 'price_proposed') {
-              router.replace({
-                pathname: '/pedido/proposta-preco',
-                params: {
-                  jobId: requestId,
-                  mestreNome: 'Provedor 1',
-                  categoriaEmoji: '🔧'
-                }
-              });
-            }
+          if (payload.new) {
+            console.log('✅ Estado do pedido via Realtime:', payload.new.status);
+            await tratarEstado(payload.new as { status: string; target_provider_id: string | null });
           }
         }
       )
@@ -265,12 +294,13 @@ export default function AProcurarMestreScreen() {
         console.log(`📡 Cliente Realtime Status [${clientChannelId}]:`, status);
       });
 
-    // 3. Rondas de procura com tempo confortável (35s por ronda = ~105s total)
+    // 3. Rondas de procura (indicador visual). O pedido continua aberto no
+    // servidor, por isso o polling nunca é desligado: um mestre pode aceitar
+    // depois das rondas e o cliente tem de continuar a detectar o orçamento.
     timer = setInterval(() => {
       setRondaAtual((prev) => {
         if (prev >= RONDAS.length - 1) {
           clearInterval(timer);
-          clearInterval(pollTimer);
           setEsgotado(true);
           return prev;
         }
@@ -347,6 +377,24 @@ export default function AProcurarMestreScreen() {
           <Text style={styles.btnOutlineText}>Tentar novamente</Text>
         </TouchableOpacity>
       </ScrollView>
+    )
+  }
+
+  if (expirado) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.esgotadoIcon}>⌛</Text>
+        <Text style={styles.esgotadoTitle}>Negociação expirada</Text>
+        <Text style={styles.esgotadoDesc}>
+          O prazo para responder ao orçamento terminou e o pedido foi reaberto para outros mestres.
+        </Text>
+        <TouchableOpacity style={styles.btnPrimary} onPress={() => router.replace('/')}>
+          <Text style={styles.btnText}>Voltar ao Início</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.btnOutline} onPress={() => router.back()}>
+          <Text style={styles.btnOutlineText}>Tentar novamente</Text>
+        </TouchableOpacity>
+      </View>
     )
   }
 
