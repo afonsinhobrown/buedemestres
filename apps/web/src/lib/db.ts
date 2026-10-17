@@ -1,7 +1,26 @@
 import 'server-only'
 import pg from 'pg'
 
-const connectionString = process.env.DATABASE_URL!
+const rawConnectionString = process.env.DATABASE_URL!;
+
+function normalizeConnectionString(raw: string): string {
+  try {
+    const url = new URL(raw);
+    // Supabase: 5432 é session mode (limite baixo de clientes). Em serverless
+    // usamos o transaction pooler (6543) para não esgotar as ligações.
+    if (url.hostname.endsWith('.pooler.supabase.com') && url.port === '5432') {
+      url.port = '6543';
+    }
+    if (!url.searchParams.has('pgbouncer')) {
+      url.searchParams.set('pgbouncer', 'true');
+    }
+    return url.toString();
+  } catch {
+    return raw;
+  }
+}
+
+const connectionString = normalizeConnectionString(rawConnectionString);
 
 const isCloudDb = Boolean(
   connectionString && (
@@ -21,9 +40,10 @@ const pool =
   globalThis._pgPool ??
   new pg.Pool({
     connectionString,
-    max: 10,
-    idleTimeoutMillis: 30000,
+    max: 3,
+    idleTimeoutMillis: 15000,
     connectionTimeoutMillis: 20000,
+    allowExitOnIdle: true,
     ssl: isCloudDb ? { rejectUnauthorized: false } : false,
   })
 
