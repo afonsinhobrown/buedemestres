@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Image, ActivityIndicator, ScrollView } from 'react-native'
+import { Alert } from '../../lib/alertCompat'
 import { useLocalSearchParams, router } from 'expo-router'
 import { useState, useEffect } from 'react'
 import * as Location from 'expo-location'
@@ -40,6 +41,7 @@ export default function ProACaminhoScreen() {
   const [providerCoords, setProviderCoords] = useState<GeoPoint | null>(null)
   const [locationError, setLocationError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isStarting, setIsStarting] = useState(false)
 
   useEffect(() => {
     async function carregarDadosReais() {
@@ -192,8 +194,52 @@ export default function ProACaminhoScreen() {
   }
 
   // 3. Iniciar trabalho
+  const iniciarTrabalho = async () => {
+    try {
+      setIsStarting(true)
+      const agora = new Date().toISOString()
+      const { data: job, error } = await supabase
+        .from('jobs')
+        .update({ status: 'in_service', started_at: agora, updated_at: agora })
+        .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
+        .select('id, request_id, client_id')
+        .maybeSingle()
+
+      if (error) throw error
+      if (!job) throw new Error('Trabalho não encontrado.')
+
+      if (job.request_id) {
+        await supabase
+          .from('service_requests')
+          .update({ status: 'in_progress', updated_at: agora })
+          .eq('id', job.request_id)
+
+        await supabase.from('notifications').insert({
+          profile_id: job.client_id,
+          type: 'service_started',
+          title: 'Serviço iniciado',
+          body: 'O mestre confirmou o início do serviço.',
+          data: { jobId: job.id, requestId: job.request_id },
+        })
+      }
+
+      router.replace({ pathname: '/trabalho/em-curso', params: { jobId: params.jobId } })
+    } catch (err: any) {
+      Alert.alert('Erro', err.message || 'Não foi possível iniciar o trabalho.')
+    } finally {
+      setIsStarting(false)
+    }
+  }
+
   const handleIniciarTrabalho = () => {
-    router.push({ pathname: '/qr', params: { jobId: params.jobId, phase: 'start' } });
+    Alert.alert(
+      'Iniciar trabalho',
+      'Confirmas que estás com o cliente e vais começar o serviço agora?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Sim, iniciar', onPress: iniciarTrabalho },
+      ]
+    )
   }
 
   const transporteActual = MEIOS_TRANSPORTE.find(t => t.id === transporte) || MEIOS_TRANSPORTE[0]
@@ -314,11 +360,14 @@ export default function ProACaminhoScreen() {
             O cliente foi notificado de que já estás no ponto de encontro. Podes iniciar a execução do trabalho acordado.
           </Text>
           <TouchableOpacity 
-            style={[styles.btnPrimary, { backgroundColor: '#2563EB', borderColor: '#60A5FA', marginTop: 16 }]} 
+            style={[styles.btnPrimary, { backgroundColor: '#2563EB', borderColor: '#60A5FA', marginTop: 16 }, isStarting && { opacity: 0.6 }]} 
             onPress={handleIniciarTrabalho} 
+            disabled={isStarting}
             activeOpacity={0.8}
           >
-            <Text style={styles.btnPrimaryText}>🔧 Iniciar Trabalho →</Text>
+            <Text style={styles.btnPrimaryText}>
+              {isStarting ? 'A iniciar...' : '🔧 Iniciar Trabalho →'}
+            </Text>
           </TouchableOpacity>
         </View>
       )}

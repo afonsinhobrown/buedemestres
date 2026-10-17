@@ -84,8 +84,54 @@ export default function EmCursoScreen() {
     }
   };
 
+  const concluirServico = async () => {
+    try {
+      setIsFinishing(true)
+      const agora = new Date().toISOString()
+      const { data: job, error } = await supabase
+        .from('jobs')
+        .update({ status: 'awaiting_confirmation', updated_at: agora })
+        .or(`id.eq.${jobId},request_id.eq.${jobId}`)
+        .select('id, request_id, client_id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!job) throw new Error('Trabalho não encontrado.');
+
+      if (job.request_id) {
+        await supabase
+          .from('service_requests')
+          .update({ status: 'in_progress', updated_at: agora })
+          .eq('id', job.request_id);
+
+        await supabase.from('notifications').insert({
+          profile_id: job.client_id,
+          type: 'service_finished',
+          title: 'Serviço concluído',
+          body: 'O mestre terminou o serviço. Confirma a conclusão para libertar o pagamento.',
+          data: { jobId: job.id, requestId: job.request_id },
+        });
+      }
+
+      Alert.alert('Serviço concluído', 'O cliente foi notificado para confirmar a conclusão e libertar o pagamento.', [
+        { text: 'OK', onPress: () => router.replace('/trabalhos') },
+      ]);
+    } catch (err: any) {
+      Alert.alert('Erro', err.message || 'Não foi possível concluir o serviço.');
+    } finally {
+      setIsFinishing(false);
+    }
+  };
+
   const finishJob = () => {
-    router.push({ pathname: '/qr', params: { jobId, phase: 'finish' } });
+    Alert.alert(
+      'Concluir serviço',
+      'Confirmas que já terminaste o trabalho? O cliente será notificado para confirmar e libertar o pagamento.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Sim, concluí', onPress: concluirServico },
+      ]
+    );
   };
 
   return (
