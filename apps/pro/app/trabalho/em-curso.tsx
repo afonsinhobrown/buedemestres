@@ -92,11 +92,17 @@ export default function EmCursoScreen() {
         .from('jobs')
         .update({ status: 'awaiting_confirmation', updated_at: agora })
         .or(`id.eq.${jobId},request_id.eq.${jobId}`)
+        .eq('status', 'in_service')
         .select('id, request_id, client_id')
         .maybeSingle();
 
       if (error) throw error;
-      if (!job) throw new Error('Trabalho não encontrado.');
+      if (!job) {
+        Alert.alert('Já concluído', 'Este serviço já não está em execução.', [
+          { text: 'OK', onPress: () => router.replace('/trabalhos') },
+        ]);
+        return;
+      }
 
       if (job.request_id) {
         await supabase

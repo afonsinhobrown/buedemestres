@@ -202,11 +202,27 @@ export default function ProACaminhoScreen() {
         .from('jobs')
         .update({ status: 'in_service', started_at: agora, updated_at: agora })
         .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
+        .in('status', ['arrived', 'price_agreed'])
         .select('id, request_id, client_id')
         .maybeSingle()
 
       if (error) throw error
-      if (!job) throw new Error('Trabalho não encontrado.')
+      if (!job) {
+        const { data: atual } = await supabase
+          .from('jobs')
+          .select('status')
+          .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
+          .maybeSingle()
+        if (atual?.status === 'in_service') {
+          router.replace({ pathname: '/trabalho/em-curso', params: { jobId: params.jobId } })
+        } else if (atual?.status === 'completed' || atual?.status === 'awaiting_confirmation') {
+          Alert.alert('Serviço já concluído', 'Este serviço já foi concluído. Vê os teus ganhos na carteira.')
+          router.replace('/carteira')
+        } else {
+          Alert.alert('Estado inválido', 'Este serviço já não pode ser iniciado.')
+        }
+        return
+      }
 
       if (job.request_id) {
         await supabase
