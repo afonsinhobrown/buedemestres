@@ -28,7 +28,7 @@ export default async function SuperadminDashboard() {
         <div className="bg-white border-l-4 border-red-500 p-6 rounded-xl shadow-sm">
           <h2 className="text-gray-600 text-sm font-bold uppercase tracking-wider mb-2">Tickets com SLA Falhado</h2>
           <p className="text-4xl font-black text-gray-900">{stats.sla_breached_count}</p>
-          <Link href="/admin/tickets?view=sla_risk" className="text-red-600 hover:underline text-sm font-bold mt-4 inline-block">
+          <Link href="/tickets?view=sla_risk" className="text-red-600 hover:underline text-sm font-bold mt-4 inline-block">
             Ver Tickets &rarr;
           </Link>
         </div>
@@ -36,7 +36,7 @@ export default async function SuperadminDashboard() {
         <div className="bg-white border-l-4 border-yellow-500 p-6 rounded-xl shadow-sm">
           <h2 className="text-gray-600 text-sm font-bold uppercase tracking-wider mb-2">Pagamentos Pendentes {'>'} 48h</h2>
           <p className="text-4xl font-black text-gray-900">{stats.stale_payments_count}</p>
-          <Link href="/admin/pagamentos" className="text-yellow-600 hover:underline text-sm font-bold mt-4 inline-block">
+          <Link href="/pagamentos" className="text-yellow-600 hover:underline text-sm font-bold mt-4 inline-block">
             Rever Pagamentos &rarr;
           </Link>
         </div>
