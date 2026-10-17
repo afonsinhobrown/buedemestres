@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Image, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Image, ActivityIndicator, ScrollView } from 'react-native'
 import { useLocalSearchParams, router } from 'expo-router'
 import { useState, useEffect } from 'react'
 import * as Location from 'expo-location'
@@ -199,7 +199,7 @@ export default function ProACaminhoScreen() {
   const transporteActual = MEIOS_TRANSPORTE.find(t => t.id === transporte) || MEIOS_TRANSPORTE[0]
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       {/* Header com Status do Pagamento Garantido */}
       <View style={styles.header}>
         <View style={styles.garantiaBadge}>
@@ -322,12 +322,13 @@ export default function ProACaminhoScreen() {
           </TouchableOpacity>
         </View>
       )}
-    </View>
+    </ScrollView>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0F2D1A', padding: 20, paddingTop: 44 },
+  container: { flex: 1, backgroundColor: '#0F2D1A' },
+  scrollContent: { flexGrow: 1, padding: 20, paddingTop: 44 },
   mapWrapper: { height: 180, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', marginBottom: 12 },
   locationError: { color: '#FCA5A5', fontSize: 11, marginBottom: 8, textAlign: 'center' },
   header: { alignItems: 'center', marginBottom: 16 },

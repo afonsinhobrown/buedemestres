@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet, Platform, ScrollView } from 'react-native';
 import { Alert } from '../../lib/alertCompat'
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
@@ -238,7 +238,7 @@ export default function AguardarPagamentoScreen() {
     : null;
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       {status === 'expirado' && (
         <View style={[styles.card, { borderColor: '#EF4444', borderWidth: 2 }]}>
           <Text style={{ fontSize: 48, marginBottom: 12 }}>⌛</Text>
@@ -393,12 +393,13 @@ export default function AguardarPagamentoScreen() {
           </TouchableOpacity>
         </View>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0F2D1A', padding: 24, justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: '#0F2D1A' },
+  scrollContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 24, paddingTop: 48 },
   card: { backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 16, padding: 24, width: '100%', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   iconCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(242,201,76,0.15)', justifyContent: 'center', alignItems: 'center', marginBottom: 18 },
   title: { fontSize: 22, fontWeight: '900', color: '#F5F0E8', textAlign: 'center', marginBottom: 8 },
