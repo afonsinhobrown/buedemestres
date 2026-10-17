@@ -13,6 +13,7 @@ const RONDAS = [
 
 export default function AProcurarMestreScreen() {
   const params = useLocalSearchParams<{
+    requestId?: string
     categoriaId: string
     categoriaNome: string
     descricao: string
@@ -35,7 +36,7 @@ export default function AProcurarMestreScreen() {
   const [temProposta, setTemProposta] = useState(false)
   const [expirado, setExpirado] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
-  const [requestId, setRequestId] = useState<string | null>(null)
+  const [requestId, setRequestId] = useState<string | null>(params.requestId || null)
   const aceiteRef = useRef(false)
   const navegouRef = useRef(false)
   const mestreNomeRef = useRef('Provedor 1')
@@ -79,6 +80,14 @@ export default function AProcurarMestreScreen() {
   // Criar o pedido no Supabase (só depois da sessão estar restaurada)
   useEffect(() => {
     if (!initialized) return;
+
+    // Retomar um pedido já existente (ex.: abrir em "Os Meus Pedidos" para
+    // cancelar) em vez de tentar criar outro — senão o limite anti-abuso
+    // bloqueia e o cliente fica sem forma de cancelar o pedido antigo.
+    if (params.requestId) {
+      setRequestId(params.requestId);
+      return;
+    }
 
     let cancelado = false;
 
@@ -169,7 +178,7 @@ export default function AProcurarMestreScreen() {
     return () => {
       cancelado = true;
     };
-  }, [initialized, user?.id]);
+  }, [initialized, user?.id, params.requestId]);
 
   // Escutar ofertas aceites e progressão de rondas (Polling activo + Realtime)
   useEffect(() => {
@@ -315,6 +324,21 @@ export default function AProcurarMestreScreen() {
     };
   }, [requestId]);
 
+  const handleCancelarPedido = async () => {
+    if (requestId) {
+      const { error } = await supabase
+        .from('service_requests')
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('id', requestId)
+        .in('status', ['open', 'in_negotiation'])
+      if (error) {
+        mostrarAlerta('Erro', error.message || 'Não foi possível cancelar o pedido.')
+        return
+      }
+    }
+    router.replace('/pedidos')
+  }
+
   if (aceite) {
     return (
       <View style={[styles.container, { backgroundColor: '#0F2D1A' }]}>
@@ -373,8 +397,8 @@ export default function AProcurarMestreScreen() {
         <TouchableOpacity style={styles.btnPrimary} onPress={() => router.replace('/')}>
           <Text style={styles.btnText}>Voltar ao Início</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.btnOutline} onPress={() => router.back()}>
-          <Text style={styles.btnOutlineText}>Tentar novamente</Text>
+        <TouchableOpacity style={styles.btnOutline} onPress={() => router.replace('/pedidos')}>
+          <Text style={styles.btnOutlineText}>Ver e cancelar os meus pedidos</Text>
         </TouchableOpacity>
       </ScrollView>
     )
@@ -391,8 +415,8 @@ export default function AProcurarMestreScreen() {
         <TouchableOpacity style={styles.btnPrimary} onPress={() => router.replace('/')}>
           <Text style={styles.btnText}>Voltar ao Início</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.btnOutline} onPress={() => router.back()}>
-          <Text style={styles.btnOutlineText}>Tentar novamente</Text>
+        <TouchableOpacity style={styles.btnOutline} onPress={handleCancelarPedido}>
+          <Text style={styles.btnOutlineText}>Cancelar pedido</Text>
         </TouchableOpacity>
       </View>
     )
@@ -409,8 +433,8 @@ export default function AProcurarMestreScreen() {
         <TouchableOpacity style={styles.btnPrimary} onPress={() => router.replace('/')}>
           <Text style={styles.btnText}>Voltar ao Início</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.btnOutline} onPress={() => router.back()}>
-          <Text style={styles.btnOutlineText}>Tentar novamente</Text>
+        <TouchableOpacity style={styles.btnOutline} onPress={handleCancelarPedido}>
+          <Text style={styles.btnOutlineText}>Cancelar pedido</Text>
         </TouchableOpacity>
       </View>
     )
@@ -490,16 +514,7 @@ export default function AProcurarMestreScreen() {
 
       <TouchableOpacity
         style={styles.btnCancel}
-        onPress={async () => {
-          if (requestId) {
-            await supabase
-              .from('service_requests')
-              .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-              .eq('id', requestId)
-              .eq('status', 'open')
-          }
-          router.back()
-        }}
+        onPress={handleCancelarPedido}
       >
         <Text style={styles.btnCancelText}>Cancelar pedido</Text>
       </TouchableOpacity>

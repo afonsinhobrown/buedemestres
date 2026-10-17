@@ -169,6 +169,7 @@ export default function HomeScreen() {
       router.push({
         pathname: '/pedido/a-procurar',
         params: {
+          requestId: activeOrder.id,
           categoriaId: (activeOrder.category_id || 2).toString(),
           categoriaNome: activeOrder.title || 'Mestre',
           descricao: activeOrder.description || '',

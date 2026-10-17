@@ -3,6 +3,7 @@ import { router } from 'expo-router'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/lib/useAuthStore'
+import { Alert } from '@/lib/alertCompat'
 
 export default function PedidosScreen() {
   const profile = useAuthStore(s => s.profile)
@@ -155,6 +156,7 @@ export default function PedidosScreen() {
       router.push({
         pathname: '/pedido/a-procurar',
         params: {
+          requestId: p.id,
           categoriaId: (p.category_id || 2).toString(),
           categoriaNome: p.title || 'Mestre',
           descricao: p.description || '',
@@ -162,6 +164,32 @@ export default function PedidosScreen() {
         }
       })
     }
+  }
+
+  const cancelarPedido = (p: any) => {
+    Alert.alert(
+      'Cancelar pedido',
+      'Queres mesmo cancelar este pedido? Deixa de contar para o limite de pedidos activos.',
+      [
+        { text: 'Voltar', style: 'cancel' },
+        {
+          text: 'Cancelar pedido',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await supabase
+              .from('service_requests')
+              .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+              .eq('id', p.id)
+              .in('status', ['open', 'in_negotiation'])
+            if (error) {
+              Alert.alert('Erro', error.message || 'Não foi possível cancelar o pedido.')
+              return
+            }
+            await carregarPedidos()
+          }
+        }
+      ]
+    )
   }
 
   return (
@@ -286,6 +314,16 @@ export default function PedidosScreen() {
                     </TouchableOpacity>
                   )}
 
+                  {(p.status === 'open' || p.status === 'in_negotiation') && (
+                    <TouchableOpacity
+                      style={styles.btnCancelOrder}
+                      onPress={() => cancelarPedido(p)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.btnCancelOrderText}>✕ Cancelar</Text>
+                    </TouchableOpacity>
+                  )}
+
                   <TouchableOpacity 
                     style={styles.btnSupport}
                     onPress={() => router.push({ pathname: '/suporte', params: { jobId: p.id, assunto: p.title } })}
@@ -381,6 +419,16 @@ const styles = StyleSheet.create({
     borderColor: '#D1D5DB',
   },
   btnActionSecondaryText: { color: '#1F2937', fontWeight: '800', fontSize: 13 },
+  btnCancelOrder: {
+    backgroundColor: '#FEE2E2',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
+  },
+  btnCancelOrderText: { color: '#B91C1C', fontWeight: '900', fontSize: 13 },
   btnSupport: {
     backgroundColor: '#FFF',
     paddingVertical: 12,
