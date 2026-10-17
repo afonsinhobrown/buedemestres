@@ -3,9 +3,10 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityInd
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { validateAntiPhoneBypass } from '../../lib/antiPhoneBypass';
+import { useAuthStore } from '../../lib/useAuthStore';
+import { loadSandboxSettings } from '../../lib/sandbox';
 
-const CLIENT_ACCOUNT_ID = '11111111-1111-1111-1111-111111111111';
-const PRO_ACCOUNT_ID = '22222222-2222-2222-2222-222222222222';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || '';
 
 interface ServiceLine {
   id: string;
@@ -17,6 +18,7 @@ export default function ProporPrecoScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ jobId?: string; offerId?: string; transporte?: string }>();
   const targetId = params.jobId || params.offerId || '';
+  const user = useAuthStore((s) => s.user);
 
   // Modo: 'simples' (apenas campo de valor único) ou 'detalhado' (criar orçamento discriminado)
   const [modoPreco, setModoPreco] = useState<'simples' | 'detalhado'>('simples');
@@ -38,6 +40,27 @@ export default function ProporPrecoScreen() {
   const [contraValorCliente, setContraValorCliente] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sandbox, setSandbox] = useState<{ active: boolean; min: number; max: number }>({
+    active: true,
+    min: 1,
+    max: 10,
+  });
+
+  useEffect(() => {
+    let mounted = true
+    const carregarSandbox = async () => {
+      try {
+        const settings = await loadSandboxSettings()
+        if (mounted) setSandbox(settings)
+      } catch {
+        // mantém o default
+      }
+    }
+    carregarSandbox()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   useEffect(() => {
     async function loadCurrentJob() {
@@ -75,7 +98,7 @@ export default function ProporPrecoScreen() {
             .maybeSingle();
 
           const propEhDoCliente = !!prop && (
-            prop.proposed_by === (job.client_id || CLIENT_ACCOUNT_ID) ||
+            prop.proposed_by === job.client_id ||
             (prop.description && prop.description.includes('[ESTÁ PUXADO'))
           );
 
@@ -146,13 +169,17 @@ export default function ProporPrecoScreen() {
     ? (parseFloat(valorSimples) || 0)
     : lines.reduce((acc, line) => acc + (parseFloat(line.price) || 0), 0);
 
+  const totalProposta = sandbox.active
+    ? Math.min(sandbox.max, Math.max(sandbox.min, totalCalculado))
+    : totalCalculado;
+
   const submitProposal = async () => {
     if (msgBypassError) {
       Alert.alert('Aviso de Segurança', msgBypassError);
       return;
     }
 
-    if (totalCalculado <= 0) {
+    if (totalProposta <= 0) {
       Alert.alert('Preço Inválido', 'Indica um valor válido para o serviço.');
       return;
     }
@@ -160,12 +187,19 @@ export default function ProporPrecoScreen() {
     try {
       setIsSubmitting(true);
 
+      const fator = totalCalculado > 0 ? totalProposta / totalCalculado : 1;
       const validLines = modoPreco === 'simples'
-        ? [{ id: '1', description: jobData?.title || 'Serviço Profissional', price: valorSimples }]
-        : lines.filter(l => l.description.trim() !== '' && parseFloat(l.price) > 0);
+        ? [{ id: '1', description: jobData?.title || 'Serviço Profissional', price: String(totalProposta) }]
+        : lines
+            .filter(l => l.description.trim() !== '' && parseFloat(l.price) > 0)
+            .map(l => ({ ...l, price: (parseFloat(l.price) * fator).toFixed(2) }));
 
       let jId = actualJobId;
-      const providerId = jobData?.target_provider_id || PRO_ACCOUNT_ID;
+      const providerId = jobData?.target_provider_id || user?.id;
+      if (!providerId) {
+        Alert.alert('Sessão', 'Precisas de entrar na tua conta de mestre.');
+        return;
+      }
       if (!jId) {
         const { data: req } = await supabase
           .from('service_requests')
@@ -186,10 +220,10 @@ export default function ProporPrecoScreen() {
             .from('jobs')
             .upsert({
               request_id: targetId,
-              client_id: req?.client_id || '11111111-1111-1111-1111-111111111111',
+              client_id: req?.client_id,
               provider_id: providerId,
               status: 'price_proposed',
-              price_proposed: totalCalculado
+              price_proposed: totalProposta
             }, { onConflict: 'request_id' })
             .select()
             .single();
@@ -205,7 +239,11 @@ export default function ProporPrecoScreen() {
         .or(`id.eq.${targetId},id.eq.${jId}`)
         .maybeSingle();
 
-      const clientUserId = req?.client_id || '11111111-1111-1111-1111-111111111111';
+      const clientUserId = req?.client_id;
+      if (!clientUserId) {
+        Alert.alert('Erro', 'Cliente não encontrado para este pedido.');
+        return;
+      }
       const mensagem = mensagemDetalhes.trim();
       const payloadDesc = JSON.stringify({ lines: validLines, message: mensagem || null });
 
@@ -213,7 +251,7 @@ export default function ProporPrecoScreen() {
       await supabase.from('job_price_proposals').insert({
         job_id: jId || targetId,
         proposed_by: providerId,
-        amount: totalCalculado,
+        amount: totalProposta,
         description: payloadDesc,
         status: 'pending'
       });
@@ -227,7 +265,7 @@ export default function ProporPrecoScreen() {
           client_id: clientUserId,
           provider_id: providerId,
           status: 'price_proposed',
-          price_proposed: totalCalculado,
+          price_proposed: totalProposta,
           price_estimate_min: null,
           updated_at: new Date().toISOString()
         }, { onConflict: 'request_id' });
@@ -237,7 +275,7 @@ export default function ProporPrecoScreen() {
         .from('service_requests')
         .update({
           status: 'price_proposed',
-          budget_max: totalCalculado,
+          budget_max: totalProposta,
           updated_at: new Date().toISOString()
         })
         .or(`id.eq.${targetId},id.eq.${jId}`);
@@ -249,12 +287,12 @@ export default function ProporPrecoScreen() {
           type: 'price_proposed',
           title: 'Orçamento Recebido!',
           body: mensagem
-            ? `O mestre propôs MT ${totalCalculado} e pediu mais detalhes: "${mensagem}"`
-            : `O mestre propôs o valor de MT ${totalCalculado} para o seu pedido.`,
+            ? `O mestre propôs MT ${totalProposta} e pediu mais detalhes: "${mensagem}"`
+            : `O mestre propôs o valor de MT ${totalProposta} para o seu pedido.`,
           data: {
             jobId: jId || targetId,
             requestId: targetId,
-            amount: totalCalculado,
+            amount: totalProposta,
             message: mensagem || null,
             title: req?.title || 'Serviço'
           }
@@ -271,7 +309,7 @@ export default function ProporPrecoScreen() {
         p_is_counter: false
       })
 
-      router.push(`/trabalho/aguardar-pagamento?jobId=${jId || targetId}&valor=${totalCalculado}`);
+      router.push(`/trabalho/aguardar-pagamento?jobId=${jId || targetId}&valor=${totalProposta}`);
     } catch (error: any) {
       console.error('Erro ao enviar proposta:', error);
       Alert.alert('Erro', error.message || 'Ocorreu um erro ao propor o preço.');
@@ -298,9 +336,23 @@ export default function ProporPrecoScreen() {
         <Text style={styles.headerSub}>
           Defina o valor no sistema. O mestre só parte após o cliente concordar e pagar.
         </Text>
+        <TouchableOpacity
+          style={styles.headerChatBtn}
+          onPress={() => router.push({ pathname: '/chat', params: { jobId: targetId } })}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.headerChatBtnText}>💬 Mensagens / Pedir detalhes</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scroll}>
+        {sandbox.active && (
+          <View style={styles.sandboxBanner}>
+            <Text style={styles.sandboxBannerText}>
+              MODO SANDBOX ATIVO — os serviços custam entre MT {sandbox.min} e MT {sandbox.max}.
+            </Text>
+          </View>
+        )}
         {/* Detalhes do Pedido do Cliente */}
         <View style={styles.problemaCard}>
           <Text style={styles.problemaCardLabel}>PROBLEMA RELATADO PELO CLIENTE:</Text>
@@ -450,7 +502,7 @@ export default function ProporPrecoScreen() {
             <Text style={styles.totalLabel}>TOTAL A PROPOR</Text>
             <Text style={styles.totalNota}>O cliente paga e o valor fica retido (Escrow)</Text>
           </View>
-          <Text style={styles.totalValor}>MT {totalCalculado.toLocaleString('pt-MZ')}</Text>
+          <Text style={styles.totalValor}>MT {totalProposta.toLocaleString('pt-MZ')}</Text>
         </View>
 
         <View style={styles.infoBox}>
@@ -468,7 +520,7 @@ export default function ProporPrecoScreen() {
         activeOpacity={0.8}
       >
         <Text style={styles.btnSubmitText}>
-          {isSubmitting ? 'A Enviar...' : `Enviar Proposta ao Cliente (MT ${totalCalculado.toLocaleString('pt-MZ')}) →`}
+          {isSubmitting ? 'A Enviar...' : `Enviar Proposta ao Cliente (MT ${totalProposta.toLocaleString('pt-MZ')}) →`}
         </Text>
       </TouchableOpacity>
     </View>
@@ -482,7 +534,11 @@ const styles = StyleSheet.create({
   backBtnText: { color: '#F2C94C', fontWeight: '800', fontSize: 13 },
   headerTitle: { fontSize: 22, fontWeight: '900', color: '#F5F0E8', marginBottom: 2 },
   headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.6)' },
+  headerChatBtn: { marginTop: 10, alignSelf: 'flex-start', backgroundColor: 'rgba(242,201,76,0.12)', borderWidth: 1, borderColor: '#F2C94C', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6 },
+  headerChatBtnText: { color: '#F2C94C', fontSize: 11, fontWeight: '900' },
   scroll: { flex: 1 },
+  sandboxBanner: { backgroundColor: 'rgba(242,201,76,0.18)', borderWidth: 1.5, borderColor: '#F2C94C', borderRadius: 8, padding: 10, marginBottom: 12 },
+  sandboxBannerText: { color: '#F2C94C', fontWeight: '900', fontSize: 11, textAlign: 'center' },
   problemaCard: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   problemaCardLabel: { fontSize: 10, fontWeight: '800', color: '#F2C94C', letterSpacing: 1 },
   problemaCardTitulo: { fontSize: 16, fontWeight: '900', color: '#fff', marginTop: 2 },

@@ -2,9 +2,9 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, TextInput, Modal, Acti
 import { useLocalSearchParams, router } from 'expo-router'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { useAuthStore } from '../../lib/useAuthStore'
+import { loadSandboxSettings } from '../../lib/sandbox'
 
-const CLIENT_ACCOUNT_ID = '11111111-1111-1111-1111-111111111111'
-const PRO_ACCOUNT_ID = '22222222-2222-2222-2222-222222222222'
 // Base do servidor que fala com a PaySuite (Web). Em branco = mesma origem no web.
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || ''
 
@@ -14,6 +14,7 @@ export default function PropostaPrecoScreen() {
     mestreNome?: string
     categoriaEmoji?: string
   }>()
+  const user = useAuthStore((s) => s.user)
 
   const [loading, setLoading] = useState(true)
   const [proposalData, setProposalData] = useState<any>(null)
@@ -43,10 +44,31 @@ export default function PropostaPrecoScreen() {
   const [segundosTurno, setSegundosTurno] = useState<number | null>(null)
   const [negociacaoExpirada, setNegociacaoExpirada] = useState(false)
   const [mensagemMestre, setMensagemMestre] = useState<string | null>(null)
+  const [sandbox, setSandbox] = useState<{ active: boolean; min: number; max: number }>({
+    active: true,
+    min: 1,
+    max: 10
+  })
 
   // Pagamento (PaySuite): escolha de método + estado pendente
   const [modalPagamentoVisivel, setModalPagamentoVisivel] = useState(false)
   const [pagamentoPendente, setPagamentoPendente] = useState<{ url: string | null; reference: string } | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    const carregarSandbox = async () => {
+      try {
+        const settings = await loadSandboxSettings()
+        if (mounted) setSandbox(settings)
+      } catch {
+        // mantém o default
+      }
+    }
+    carregarSandbox()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   // Relógio do turno (conta decrescente por segundo)
   useEffect(() => {
@@ -83,8 +105,8 @@ export default function PropostaPrecoScreen() {
           .order('created_at', { ascending: false })
 
         const lista: any[] = props || []
-        const providerId = jobMap?.provider_id || PRO_ACCOUNT_ID
-        const clientId = jobMap?.client_id || CLIENT_ACCOUNT_ID
+        const providerId = jobMap?.provider_id
+        const clientId = jobMap?.client_id
         const propostaMaster = lista.find((p) => p.proposed_by === providerId)
         const ultima = lista[0]
         const ultimaEhDoCliente = !!ultima && (
@@ -280,8 +302,8 @@ export default function PropostaPrecoScreen() {
           .from('jobs')
           .upsert({
             request_id: req?.id || target,
-            client_id: req?.client_id || '11111111-1111-1111-1111-111111111111',
-            provider_id: req?.target_provider_id || '22222222-2222-2222-2222-222222222222',
+            client_id: req?.client_id,
+            provider_id: req?.target_provider_id,
             status: 'puxado',
             price_estimate_min: counterMt
           }, { onConflict: 'request_id' })
@@ -293,7 +315,12 @@ export default function PropostaPrecoScreen() {
 
       const jId = job?.id || target
       const rId = job?.request_id || target
-      const clientAuthor = job?.client_id || CLIENT_ACCOUNT_ID
+      const clientAuthor = job?.client_id || user?.id
+
+      if (!clientAuthor) {
+        Alert.alert('Sessão', 'Precisas de entrar na tua conta para negociar.')
+        return
+      }
 
       // 1b. Validar rondas e passar o turno ao mestre (reinicia o relógio)
       const { error: turnErr } = await supabase.rpc('set_negotiation_turn', {
@@ -345,8 +372,9 @@ export default function PropostaPrecoScreen() {
         .or(`id.eq.${rId},id.eq.${jId}`)
 
       // 5. Inserir notificação para o mestre
-      const proId = job?.provider_id || '22222222-2222-2222-2222-222222222222'
-      try {
+      const proId = job?.provider_id
+      if (proId) {
+        try {
         await supabase.from('notifications').insert({
           profile_id: proId,
           type: 'contra_proposta',
@@ -361,6 +389,7 @@ export default function PropostaPrecoScreen() {
         })
       } catch (notifErr) {
         console.warn('Erro ao inserir notificação para mestre:', notifErr)
+      }
       }
 
       setModalPuxadoVisivel(false)
@@ -499,6 +528,13 @@ export default function PropostaPrecoScreen() {
         <Text style={styles.headerSub}>
           {params.categoriaEmoji ?? '🔧'} {params.mestreNome ?? 'Mestre Pro'} · Negociação no Sistema
         </Text>
+        <TouchableOpacity
+          style={styles.headerChatBtn}
+          onPress={() => router.push({ pathname: '/chat', params: { jobId: params.jobId } })}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.headerChatBtnText}>💬 Mensagens</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scroll}>
@@ -523,6 +559,14 @@ export default function PropostaPrecoScreen() {
             Sem dinheiro em mão antecipado. Ao concordar, o valor fica retido na plataforma e só é pago ao mestre no fim.
           </Text>
         </View>
+
+        {sandbox.active && (
+          <View style={styles.sandboxBanner}>
+            <Text style={styles.sandboxBannerText}>
+              🧪 MODO SANDBOX ATIVO — os serviços custam entre MT {sandbox.min} e MT {sandbox.max}.
+            </Text>
+          </View>
+        )}
 
         {mensagemMestre && (
           <View style={styles.mensagemMestreBox}>
@@ -787,6 +831,8 @@ const styles = StyleSheet.create({
   backBtnText: { color: AMARELO, fontWeight: '800', fontSize: 13 },
   headerTitle: { color: PAPEL, fontSize: 22, fontWeight: '900', letterSpacing: -0.5, marginBottom: 4 },
   headerSub: { color: AMARELO, fontSize: 13, fontWeight: '700' },
+  headerChatBtn: { marginTop: 10, alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: AMARELO, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6 },
+  headerChatBtnText: { color: AMARELO, fontSize: 12, fontWeight: '900' },
   negociacaoCard: { marginHorizontal: 20, backgroundColor: '#FEF3C7', padding: 14, borderRadius: 8, borderWidth: 1.5, borderColor: '#F59E0B', marginBottom: 16 },
   negociacaoCardExpirada: { backgroundColor: '#FEE2E2', borderColor: '#EF4444' },
   negociacaoTitle: { color: '#B45309', fontWeight: '900', fontSize: 12, marginBottom: 4 },
@@ -806,6 +852,8 @@ const styles = StyleSheet.create({
   mensagemMestreBox: { marginHorizontal: 20, marginBottom: 20, backgroundColor: '#FFFBEB', borderRadius: 8, padding: 14, borderWidth: 1, borderColor: '#FCD34D' },
   mensagemMestreLabel: { fontSize: 10, fontWeight: '900', color: '#92400E', letterSpacing: 1, marginBottom: 4 },
   mensagemMestreTexto: { fontSize: 13, color: '#78350F', lineHeight: 19, fontStyle: 'italic' },
+  sandboxBanner: { marginHorizontal: 20, marginBottom: 16, backgroundColor: '#FEF9C3', borderRadius: 8, padding: 12, borderWidth: 1.5, borderColor: '#CA8A04' },
+  sandboxBannerText: { color: '#854D0E', fontSize: 12, fontWeight: '900', textAlign: 'center', lineHeight: 17 },
   botoesContainer: { marginHorizontal: 20, gap: 10, paddingBottom: 30 },
   btnConcordo: { backgroundColor: '#166534', borderRadius: 8, paddingVertical: 18, alignItems: 'center', borderWidth: 2, borderColor: '#4ADE80' },
   btnConcordoText: { color: '#fff', fontWeight: '900', fontSize: 15, textTransform: 'uppercase', letterSpacing: 0.5 },

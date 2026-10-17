@@ -11,7 +11,7 @@ export default function PedidosScreen() {
   const [pedidos, setPedidos] = useState<any[]>([])
   const [tab, setTab] = useState<'todos' | 'ativos' | 'concluidos'>('ativos')
 
-  const clientId = profile?.id || '11111111-1111-1111-1111-111111111111'
+  const clientId = profile?.id || ''
 
   const carregarPedidos = async () => {
     try {

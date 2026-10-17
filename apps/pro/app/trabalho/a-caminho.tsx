@@ -1,7 +1,10 @@
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Image, ActivityIndicator } from 'react-native'
 import { useLocalSearchParams, router } from 'expo-router'
 import { useState, useEffect } from 'react'
+import * as Location from 'expo-location'
 import { supabase } from '../../lib/supabase'
+import MapaTracking from '../../components/MapaTracking'
+import { parseGeoPoint, type GeoPoint } from '../../lib/geo'
 
 const MEIOS_TRANSPORTE = [
   { id: 'carro_proprio', label: '🚗 Carro Pessoal', etaText: 'Trânsito normal' },
@@ -34,6 +37,8 @@ export default function ProACaminhoScreen() {
   const [transporte, setTransporte] = useState<string>('carro_proprio')
   const [jobData, setJobData] = useState<any>(null)
   const [clientCoords, setClientCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [providerCoords, setProviderCoords] = useState<GeoPoint | null>(null)
+  const [locationError, setLocationError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -52,7 +57,7 @@ export default function ProACaminhoScreen() {
         if (req) {
           setJobData(req)
           if (req.location) {
-            const coords = parseWkbPoint(req.location)
+            const coords = parseGeoPoint(req.location)
             if (coords) setClientCoords(coords)
           }
         } else {
@@ -65,7 +70,7 @@ export default function ProACaminhoScreen() {
           if (j?.service_requests) {
             setJobData(j.service_requests)
             if (j.service_requests.location) {
-              const coords = parseWkbPoint(j.service_requests.location)
+              const coords = parseGeoPoint(j.service_requests.location)
               if (coords) setClientCoords(coords)
             }
           }
@@ -77,6 +82,64 @@ export default function ProACaminhoScreen() {
       }
     }
     carregarDadosReais()
+  }, [params.jobId])
+
+  useEffect(() => {
+    let subscription: Location.LocationSubscription | null = null
+    let mounted = true
+
+    const iniciar = async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync()
+      if (status !== 'granted') {
+        setLocationError('Permissão de localização negada. Abre as definições para partilhar a tua posição.')
+        return
+      }
+
+      const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+      if (mounted && current) {
+        const point = { lat: current.coords.latitude, lng: current.coords.longitude }
+        setProviderCoords(point)
+        await enviarPosicao(point, current.coords.heading)
+      }
+
+      subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 8000,
+          distanceInterval: 10,
+        },
+        async (position) => {
+          const point = { lat: position.coords.latitude, lng: position.coords.longitude }
+          if (!mounted) return
+          setProviderCoords(point)
+          await enviarPosicao(point, position.coords.heading)
+        }
+      )
+    }
+
+    const enviarPosicao = async (point: GeoPoint, heading: number | null) => {
+      if (!params.jobId) return
+      try {
+        await supabase
+          .from('jobs')
+          .update({
+            provider_lat: point.lat,
+            provider_lng: point.lng,
+            provider_heading: Number.isFinite(heading as number) ? heading : null,
+            location_updated_at: new Date().toISOString(),
+          })
+          .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
+      } catch (e) {
+        console.warn('Erro ao enviar posição:', e)
+      }
+    }
+
+    iniciar()
+
+    return () => {
+      mounted = false
+      subscription?.remove()
+    }
   }, [params.jobId])
 
   const abrirMapas = () => {
@@ -172,6 +235,13 @@ export default function ProACaminhoScreen() {
         <View style={styles.garantiaBadge}>
           <Text style={styles.garantiaText}>🔒 PAGAMENTO RETIDO NA PLATAFORMA (ESCROW)</Text>
         </View>
+        <TouchableOpacity
+          style={styles.chatBtn}
+          onPress={() => router.push({ pathname: '/chat', params: { jobId: params.jobId } })}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.chatBtnText}>💬 Mensagens</Text>
+        </TouchableOpacity>
         <Text style={styles.catEmoji}>{params.categoriaEmoji ?? '🔧'}</Text>
         <Text style={styles.headerTitle}>{jobData?.title || params.categoriaNome || 'Serviço Atribuído'}</Text>
         
@@ -181,6 +251,11 @@ export default function ProACaminhoScreen() {
           </Text>
         </View>
       </View>
+
+      <View style={styles.mapWrapper}>
+        <MapaTracking provider={providerCoords} client={clientCoords} />
+      </View>
+      {locationError && <Text style={styles.locationError}>{locationError}</Text>}
 
       {/* FASE 1: Escolha do Transporte Antes de Partir */}
       {fase === 'selecionar_transporte' && (
@@ -283,9 +358,13 @@ export default function ProACaminhoScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0F2D1A', padding: 20, paddingTop: 44 },
+  mapWrapper: { height: 180, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', marginBottom: 12 },
+  locationError: { color: '#FCA5A5', fontSize: 11, marginBottom: 8, textAlign: 'center' },
   header: { alignItems: 'center', marginBottom: 16 },
   garantiaBadge: { backgroundColor: 'rgba(74,222,128,0.15)', borderWidth: 1, borderColor: '#4ADE80', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 16, marginBottom: 12 },
   garantiaText: { color: '#4ADE80', fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
+  chatBtn: { backgroundColor: 'rgba(242,201,76,0.12)', borderWidth: 1, borderColor: '#F2C94C', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 8 },
+  chatBtnText: { color: '#F2C94C', fontSize: 11, fontWeight: '900' },
   catEmoji: { fontSize: 40, marginBottom: 4 },
   headerTitle: { fontSize: 19, fontWeight: '900', color: '#F5F0E8', marginBottom: 6, textAlign: 'center' },
   badge: { paddingHorizontal: 16, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },

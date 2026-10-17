@@ -11,7 +11,7 @@ export default async function TicketAdminInboxPage({ searchParams }: { searchPar
   const view = searchParams.view || 'unassigned'
 
   let filterSql = `WHERE t.status IN ('open', 'in_progress', 'waiting_customer')`
-  let params: any[] = []
+  const params: unknown[] = []
 
   if (view === 'unassigned') {
     filterSql += ` AND t.assigned_to IS NULL`
@@ -56,6 +56,9 @@ export default async function TicketAdminInboxPage({ searchParams }: { searchPar
       <div className="bg-white p-6 border-b flex justify-between items-center shadow-sm z-10">
         <h1 className="text-2xl font-bold">Caixa de Entrada — Tickets</h1>
         <div className="flex gap-2">
+          <Link href="/configuracoes" className="bg-gray-100 text-gray-800 px-4 py-2 rounded-lg font-bold text-sm">
+            Configurações
+          </Link>
           <input type="text" placeholder="Pesquisar TKT-..." className="p-2 border rounded-lg bg-gray-50 w-64" />
           <button className="bg-gray-900 text-white px-4 py-2 rounded-lg font-bold">Pesquisar</button>
         </div>
@@ -106,7 +109,7 @@ export default async function TicketAdminInboxPage({ searchParams }: { searchPar
                     <tr key={t.id} className="hover:bg-blue-50 transition group">
                       <td className="p-4 font-mono font-bold text-gray-700">TKT-{t.number}</td>
                       <td className="p-4">
-                        <Link href={`/tickets/${t.id}`} className="block">
+                        <Link href={`/tickets/${t.number}`} className="block">
                           <p className="font-semibold text-gray-900 truncate max-w-md">{t.subject}</p>
                           <p className="text-xs text-gray-500">{t.requester_name}</p>
                         </Link>
@@ -128,7 +131,7 @@ export default async function TicketAdminInboxPage({ searchParams }: { searchPar
                         {new Date(t.created_at).toLocaleString('pt-MZ')}
                       </td>
                       <td className="p-4">
-                        <Link href={`/tickets/${t.id}`} className="text-blue-600 font-bold hover:underline">
+                        <Link href={`/tickets/${t.number}`} className="text-blue-600 font-bold hover:underline">
                           Abrir
                         </Link>
                       </td>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyPaySuiteWebhookSignature, REF_PREFIX } from '@/lib/paysuite';
-import { confirmJobPaymentByReference, failJobPaymentByReference } from '@/lib/job-payment';
+import { confirmJobPaymentByReference, failJobPaymentByReference, confirmAddendumByReference, failAddendumByReference } from '@/lib/job-payment';
+import { confirmTopupByReference, failTopupByReference } from '@/lib/wallet-topup';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -43,17 +44,37 @@ export async function POST(req: Request) {
   const reference = body.data?.reference;
   const status = String(body.data?.status ?? '').toLowerCase();
 
-  if (!reference || !reference.startsWith(REF_PREFIX)) {
+  if (!reference || (!reference.startsWith(REF_PREFIX) && !reference.startsWith('BMTOP'))) {
     return NextResponse.json({ received: true, ignored: true });
   }
 
   try {
+    if (reference.startsWith('BMTOP')) {
+      if (isPaid(event, status)) {
+        const result = await confirmTopupByReference(reference);
+        return NextResponse.json({ received: true, result });
+      }
+      if (isFailed(event, status)) {
+        const result = await failTopupByReference(reference);
+        return NextResponse.json({ received: true, result });
+      }
+      return NextResponse.json({ received: true, ignored: event || status });
+    }
+
     if (isPaid(event, status)) {
       const result = await confirmJobPaymentByReference(reference);
+      if (result === 'not_found') {
+        const addendum = await confirmAddendumByReference(reference);
+        return NextResponse.json({ received: true, result: addendum });
+      }
       return NextResponse.json({ received: true, result });
     }
     if (isFailed(event, status)) {
       const result = await failJobPaymentByReference(reference);
+      if (result.result === 'not_found') {
+        const addendum = await failAddendumByReference(reference);
+        return NextResponse.json({ received: true, result: addendum });
+      }
       return NextResponse.json({ received: true, result });
     }
     return NextResponse.json({ received: true, ignored: event || status });

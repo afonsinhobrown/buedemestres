@@ -78,13 +78,14 @@ export async function confirmJobPaymentByReference(
   reference: string
 ): Promise<'confirmed' | 'already' | 'not_found'> {
   const { rows } = await db.query<{
+    id: string;
     job_id: string;
     client_id: string;
     provider_id: string;
     amount: string;
     status: string;
   }>(
-    `select job_id, client_id, provider_id, amount, status
+    `select id, job_id, client_id, provider_id, amount, status
        from job_payments where provider_ref = $1 limit 1`,
     [reference]
   );
@@ -94,8 +95,8 @@ export async function confirmJobPaymentByReference(
 
   await db.transaction(async (client) => {
     await client.query(
-      `update job_payments set status = 'held', held_at = now() where job_id = $1`,
-      [pay.job_id]
+      `update job_payments set status = 'held', held_at = now() where id = $1 and status = 'pending_payment'`,
+      [pay.id]
     );
     await client.query(
       `update jobs
@@ -136,4 +137,98 @@ export async function confirmJobPaymentByReference(
   }
 
   return 'confirmed';
+}
+
+type AddendumRow = {
+  id: string;
+  job_id: string;
+  amount: string;
+  status: string;
+  client_id: string;
+  provider_id: string;
+};
+
+export async function confirmAddendumByReference(
+  reference: string
+): Promise<'confirmed' | 'already' | 'not_found'> {
+  const { rows } = await db.query<AddendumRow>(
+    `select a.id, a.job_id, a.amount, a.status, j.client_id, j.provider_id
+       from job_addenda a
+       join jobs j on j.id = a.job_id
+      where a.provider_ref = $1
+      limit 1`,
+    [reference]
+  );
+  const addendum = rows[0];
+  if (!addendum) return 'not_found';
+  if (addendum.status !== 'pending_payment') return 'already';
+
+  await db.transaction(async (client) => {
+    await client.query(
+      `update job_addenda set status = 'held', held_at = now() where id = $1 and status = 'pending_payment'`,
+      [addendum.id]
+    );
+    await client.query(
+      `insert into notifications(profile_id, type, title, body, data)
+       values
+         ($1, 'addendum_paid', 'Aditamento pago', $3, $5::jsonb),
+         ($2, 'addendum_paid', 'Aditamento confirmado', $4, $5::jsonb)`,
+      [
+        addendum.provider_id,
+        addendum.client_id,
+        `O cliente pagou o aditamento de MT ${addendum.amount}. O valor está retido em segurança.`,
+        `O teu pagamento do aditamento de MT ${addendum.amount} foi confirmado e está retido em segurança.`,
+        JSON.stringify({ job_id: addendum.job_id, addendum_id: addendum.id, reference }),
+      ]
+    );
+  });
+
+  try {
+    await notify(`job-${addendum.job_id}`, 'addendum-paid', {
+      jobId: addendum.job_id,
+      addendumId: addendum.id,
+    });
+  } catch {
+    // Pusher é opcional
+  }
+
+  return 'confirmed';
+}
+
+export async function failAddendumByReference(
+  reference: string
+): Promise<'failed' | 'already' | 'not_found'> {
+  const { rows } = await db.query<AddendumRow>(
+    `select a.id, a.job_id, a.amount, a.status, j.client_id, j.provider_id
+       from job_addenda a
+       join jobs j on j.id = a.job_id
+      where a.provider_ref = $1
+      limit 1`,
+    [reference]
+  );
+  const addendum = rows[0];
+  if (!addendum) return 'not_found';
+  if (addendum.status !== 'pending_payment') return 'already';
+
+  await db.transaction(async (client) => {
+    await client.query(
+      `update job_addenda set status = 'failed' where id = $1 and status = 'pending_payment'`,
+      [addendum.id]
+    );
+    await client.query(
+      `insert into notifications(profile_id, type, title, body, data)
+       values
+         ($1, 'addendum_failed', 'Aditamento não pago', $3, $5::jsonb),
+         ($2, 'addendum_failed', 'Pagamento do aditamento não concluído', $4, $5::jsonb)`,
+      [
+        addendum.provider_id,
+        addendum.client_id,
+        `O aditamento de MT ${addendum.amount} não foi pago. O valor não está retido.`,
+        `O pagamento do aditamento de MT ${addendum.amount} foi cancelado ou recusado.`,
+        JSON.stringify({ job_id: addendum.job_id, addendum_id: addendum.id, reference }),
+      ]
+    );
+  });
+
+  return 'failed';
 }

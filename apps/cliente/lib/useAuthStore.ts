@@ -35,38 +35,55 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loadProfile: async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id || '11111111-1111-1111-1111-111111111111';
-      
+      const authUser = session?.user;
+      if (!authUser?.id) {
+        set({ profile: null });
+        return null;
+      }
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('id', authUser.id)
         .maybeSingle();
 
-      if (data && !error) {
+      if (error) throw error;
+
+      if (!data) {
+        const fullName = String(
+          authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Cliente'
+        );
+        const { data: created, error: createError } = await supabase
+          .from('profiles')
+          .insert({ id: authUser.id, full_name: fullName, role: 'client' })
+          .select('*')
+          .single();
+        if (createError) throw createError;
         const prof: UserProfile = {
-          id: data.id,
-          full_name: data.full_name || 'Cliente 1',
-          phone: data.phone || '+258 84 000 0001',
-          avatar_url: data.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-          role: data.role || 'client'
+          id: created.id,
+          full_name: created.full_name || fullName,
+          phone: created.phone || null,
+          avatar_url: created.avatar_url || null,
+          role: created.role || 'client',
         };
         set({ profile: prof });
         return prof;
       }
+
+      const prof: UserProfile = {
+        id: data.id,
+        full_name: data.full_name || 'Cliente',
+        phone: data.phone || null,
+        avatar_url: data.avatar_url || null,
+        role: data.role || 'client',
+      };
+      set({ profile: prof });
+      return prof;
     } catch (e) {
       console.warn('Erro ao carregar perfil:', e);
+      set({ profile: null });
+      return null;
     }
-
-    const fallback: UserProfile = {
-      id: '11111111-1111-1111-1111-111111111111',
-      full_name: 'Cliente 1',
-      phone: '+258 84 000 0001',
-      avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      role: 'client'
-    };
-    set({ profile: fallback });
-    return fallback;
   },
 
   initialize: async () => {

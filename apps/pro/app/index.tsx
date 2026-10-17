@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../lib/useAuthStore'
+import { loadSandboxSettings } from '../lib/sandbox'
 
 const formatJobTitle = (title?: string, catId?: number) => {
   if (!title || title.includes('undefined')) {
@@ -31,7 +32,10 @@ export default function ProHomeScreen() {
   const [providerProfile, setProviderProfile] = useState<any>(null)
   const [availableProviders, setAvailableProviders] = useState<any[]>([])
   const [walletBalance, setWalletBalance] = useState<number>(0)
+  const [unreadCount, setUnreadCount] = useState<number>(0)
+  const [sandbox, setSandbox] = useState<{ active: boolean; min: number; max: number } | null>(null)
   const user = useAuthStore(s => s.user)
+  const storeProvider = useAuthStore(s => s.providerProfile)
   const recusadosRef = useRef<Set<string>>(new Set())
 
   // Carregar dados do Mestre e sua Especialidade/Categoria Real com Join da tabela categories
@@ -56,8 +60,14 @@ export default function ProHomeScreen() {
         
         if (provs && provs.length > 0) {
           setAvailableProviders(provs)
-          const matched = provs.find(p => p.profile_id === user?.id) || provs[0]
-          
+          const matched = provs.find(p => p.profile_id === user?.id) || storeProvider
+
+          if (!matched) {
+            setProviderProfile(null)
+            setIsOnline(false)
+            return
+          }
+
           // Carregar dados de avatar/nome de profiles directamente
           const { data: profData } = await supabase
             .from('profiles')
@@ -90,7 +100,7 @@ export default function ProHomeScreen() {
       }
     }
     carregarPerfilMestre()
-  }, [user])
+  }, [user, storeProvider])
 
   useEffect(() => {
     const proId = providerProfile?.profile_id
@@ -108,6 +118,38 @@ export default function ProHomeScreen() {
 
     carregarSaldo()
     const timer = setInterval(carregarSaldo, 15000)
+    return () => {
+      active = false
+      clearInterval(timer)
+    }
+  }, [providerProfile?.profile_id])
+
+  useEffect(() => {
+    let mounted = true
+    loadSandboxSettings()
+      .then((settings) => {
+        if (mounted) setSandbox(settings)
+      })
+      .catch(() => {})
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    const proId = providerProfile?.profile_id
+    if (!proId) return
+    let active = true
+    const carregarNaoLidas = async () => {
+      const { count } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('profile_id', proId)
+        .is('read_at', null)
+      if (active) setUnreadCount(count || 0)
+    }
+    carregarNaoLidas()
+    const timer = setInterval(carregarNaoLidas, 5000)
     return () => {
       active = false
       clearInterval(timer)
@@ -249,6 +291,45 @@ export default function ProHomeScreen() {
       return
     }
 
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('plan:plan_id(max_services)')
+      .eq('provider_id', activeProId)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    let maxServices = (subscription as any)?.plan?.max_services
+    if (!maxServices) {
+      const { data: basicPlan } = await supabase
+        .from('plans')
+        .select('max_services')
+        .eq('code', 'basic')
+        .maybeSingle()
+      maxServices = basicPlan?.max_services ?? 3
+    }
+
+    const startOfMonth = new Date()
+    startOfMonth.setDate(1)
+    startOfMonth.setHours(0, 0, 0, 0)
+    const { count: monthlyJobs } = await supabase
+      .from('jobs')
+      .select('id', { count: 'exact', head: true })
+      .eq('provider_id', activeProId)
+      .gte('accepted_at', startOfMonth.toISOString())
+      .neq('status', 'cancelled')
+
+    if ((monthlyJobs || 0) >= maxServices) {
+      Alert.alert(
+        'Limite do plano atingido',
+        `O teu plano permite ${maxServices} serviços por mês. Atualiza o plano para continuares a aceitar pedidos.`,
+        [
+          { text: 'Depois', style: 'cancel' },
+          { text: 'Ver planos', onPress: () => router.push('/planos') },
+        ]
+      )
+      return
+    }
+
     const { data: acceptedRequest, error: reqErr } = await supabase
       .from('service_requests')
       .update({
@@ -286,7 +367,7 @@ export default function ProHomeScreen() {
     try {
       await supabase.from('jobs').upsert({
         request_id: requestId,
-        client_id: req?.client_id || '11111111-1111-1111-1111-111111111111',
+        client_id: req?.client_id,
         provider_id: activeProId,
         status: 'accepted',
         accepted_at: new Date().toISOString()
@@ -427,6 +508,47 @@ export default function ProHomeScreen() {
           <Text style={{ color: '#F2C94C', fontWeight: '900', fontSize: 16 }}>→</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          onPress={() => router.push('/notificacoes')}
+          activeOpacity={0.85}
+          style={{
+            marginTop: 8,
+            backgroundColor: 'rgba(255,255,255,0.08)',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.2)',
+            borderRadius: 8,
+            paddingVertical: 10,
+            paddingHorizontal: 14,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}
+        >
+          <Text style={{ color: '#F5F0E8', fontWeight: '900', fontSize: 12 }}>🔔 NOTIFICAÇÕES</Text>
+          {unreadCount > 0 ? (
+            <View style={{ backgroundColor: '#DC2626', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 1 }}>
+              <Text style={{ color: '#fff', fontWeight: '900', fontSize: 11 }}>{unreadCount}</Text>
+            </View>
+          ) : (
+            <Text style={{ color: '#94A3B8', fontWeight: '900', fontSize: 12 }}>—</Text>
+          )}
+        </TouchableOpacity>
+
+        <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+          <TouchableOpacity onPress={() => router.push('/planos')} style={styles.quickChip}>
+            <Text style={styles.quickChipText}>💳 Planos</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/carregar')} style={styles.quickChip}>
+            <Text style={styles.quickChipText}>➕ Carregar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/afiliados')} style={styles.quickChip}>
+            <Text style={styles.quickChipText}>🤝 Afiliados</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/suporte')} style={styles.quickChip}>
+            <Text style={styles.quickChipText}>🎧 Apoio</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Seletor rápido de Especialidade / Mestre Registado */}
         {availableProviders.length > 1 && (
           <View style={{ flexDirection: 'row', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
@@ -451,6 +573,13 @@ export default function ProHomeScreen() {
           </View>
         )}
       </View>
+      {sandbox?.active && (
+        <View style={styles.sandboxBanner}>
+          <Text style={styles.sandboxBannerText}>
+            🧪 MODO SANDBOX ATIVO — os serviços custam entre MT {sandbox.min} e MT {sandbox.max}.
+          </Text>
+        </View>
+      )}
       <Modal visible={!!newRequest} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -586,6 +715,17 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     letterSpacing: -0.5,
   },
+  sandboxBanner: {
+    backgroundColor: 'rgba(242,201,76,0.18)',
+    borderWidth: 1.5,
+    borderColor: '#F2C94C',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 16,
+  },
+  sandboxBannerText: { color: '#F2C94C', fontWeight: '900', fontSize: 11, textAlign: 'center' },
+  quickChip: { backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 },
+  quickChipText: { color: '#F5F0E8', fontWeight: '800', fontSize: 11 },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',

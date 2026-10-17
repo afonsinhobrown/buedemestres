@@ -72,10 +72,17 @@ export default function AProcurarMestreScreen() {
   useEffect(() => {
     async function criarPedido() {
       // Usar utilizador real autenticado da sessão
-      const realUserId = user?.id || '11111111-1111-1111-1111-111111111111';
+      const realUserId = user?.id || '';
       const realUserName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Cliente Registado';
       const lng = params.lng || '32.5700';
       const lat = params.lat || '-25.9680';
+
+      if (!realUserId) {
+        Alert.alert('Sessão', 'Precisas de entrar na tua conta para criar um pedido.', [
+          { text: 'Entrar', onPress: () => router.replace('/entrar') }
+        ]);
+        return;
+      }
 
       // 1. Garantir que o perfil existe
       await supabase.from('profiles').upsert({

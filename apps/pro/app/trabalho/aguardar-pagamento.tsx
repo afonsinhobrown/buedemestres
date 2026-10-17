@@ -158,7 +158,7 @@ export default function AguardarPagamentoScreen() {
         .from('job_price_proposals')
         .insert({
           job_id: jId,
-          proposed_by: job?.provider_id || '22222222-2222-2222-2222-222222222222',
+          proposed_by: job?.provider_id,
           amount: valorFinal,
           description: `Acordo fechado: Mestre aceitou a contra-proposta de MT ${valorFinal}`,
           status: 'pending'
@@ -272,6 +272,14 @@ export default function AguardarPagamentoScreen() {
             <Text style={styles.optionItem}>💬 <Text style={{ fontWeight: 'bold' }}>Está puxado</Text> — Pede desconto ou contra-oferta</Text>
             <Text style={styles.optionItem}>✕ <Text style={{ fontWeight: 'bold' }}>Não concordo</Text> — Rejeita orçamento</Text>
           </View>
+
+          <TouchableOpacity
+            style={styles.btnChat}
+            onPress={() => router.push({ pathname: '/chat', params: { jobId } })}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.btnChatText}>💬 Falar com o Cliente</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -406,4 +414,6 @@ const styles = StyleSheet.create({
   btnAjustarText: { color: '#1A1A2E', fontWeight: '900', fontSize: 14, textTransform: 'uppercase', letterSpacing: 0.5 },
   btnPartir: { backgroundColor: '#4ADE80', borderRadius: 8, paddingVertical: 18, paddingHorizontal: 20, width: '100%', alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
   btnPartirText: { color: '#0F2D1A', fontWeight: '900', fontSize: 15, textTransform: 'uppercase', letterSpacing: 0.5 },
+  btnChat: { marginTop: 14, width: '100%', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  btnChatText: { color: '#F2C94C', fontWeight: '900', fontSize: 13 },
 });

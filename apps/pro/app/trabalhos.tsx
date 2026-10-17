@@ -42,13 +42,7 @@ export default function TrabalhosScreen() {
   const [stats, setStats] = useState<{ abandon_count?: number; cooldown_until?: string | null } | null>(null);
 
   const resolverProvider = useCallback(async () => {
-    const { data: provs } = await supabase
-      .from('provider_profiles')
-      .select('profile_id')
-      .eq('is_published', true)
-      .limit(10);
-    const matched = (provs || []).find((p: any) => p.profile_id === user?.id) || (provs || [])[0];
-    return matched?.profile_id || null;
+    return user?.id || null;
   }, [user]);
 
   const carregar = useCallback(async (providerId: string) => {

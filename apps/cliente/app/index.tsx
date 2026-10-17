@@ -3,6 +3,7 @@ import { router } from 'expo-router'
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/lib/useAuthStore'
 import { supabase } from '@/lib/supabase'
+import { loadSandboxSettings } from '@/lib/sandbox'
 
 const { width } = Dimensions.get('window')
 
@@ -19,10 +20,12 @@ export default function HomeScreen() {
 
   const [activeOrder, setActiveOrder] = useState<any>(null)
   const [activeCount, setActiveCount] = useState<number>(0)
+  const [unreadCount, setUnreadCount] = useState<number>(0)
+  const [sandbox, setSandbox] = useState<{ active: boolean; min: number; max: number } | null>(null)
   const [modalPropostaVisivel, setModalPropostaVisivel] = useState(false)
   const [propostaModalData, setPropostaModalData] = useState<any>(null)
 
-  const clientId = profile?.id || '11111111-1111-1111-1111-111111111111'
+  const clientId = profile?.id || ''
 
   useEffect(() => {
     if (!profile) loadProfile()
@@ -120,6 +123,37 @@ export default function HomeScreen() {
     }
   }, [clientId, activeOrder?.status])
 
+  useEffect(() => {
+    let mounted = true
+    loadSandboxSettings()
+      .then((settings) => {
+        if (mounted) setSandbox(settings)
+      })
+      .catch(() => {})
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!clientId) return
+    let active = true
+    const carregarNaoLidas = async () => {
+      const { count } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('profile_id', clientId)
+        .is('read_at', null)
+      if (active) setUnreadCount(count || 0)
+    }
+    carregarNaoLidas()
+    const timer = setInterval(carregarNaoLidas, 5000)
+    return () => {
+      active = false
+      clearInterval(timer)
+    }
+  }, [clientId])
+
   const abrirPedidoAtivo = () => {
     if (!activeOrder) return
     if (activeOrder.status === 'price_proposed' || activeOrder.status === 'accepted') {
@@ -192,6 +226,19 @@ export default function HomeScreen() {
 
               <TouchableOpacity 
                 style={[styles.navChip, styles.navChipSupport]} 
+                onPress={() => router.push('/notificacoes')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.navChipText}>🔔 Alertas</Text>
+                {unreadCount > 0 && (
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countBadgeText}>{unreadCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.navChip, styles.navChipSupport]} 
                 onPress={() => router.push('/suporte')}
                 activeOpacity={0.8}
               >
@@ -200,6 +247,14 @@ export default function HomeScreen() {
             </View>
           </View>
         </View>
+
+        {sandbox?.active && (
+          <View style={styles.sandboxBanner}>
+            <Text style={styles.sandboxBannerText}>
+              🧪 MODO SANDBOX ATIVO — os serviços custam entre MT {sandbox.min} e MT {sandbox.max}.
+            </Text>
+          </View>
+        )}
 
         {/* 🚨 CARD DE RECUPERAÇÃO E ESTADO DO PEDIDO ACTIVO */}
         {activeOrder && (
@@ -393,6 +448,15 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 24,
   },
+  sandboxBanner: {
+    backgroundColor: '#FEF9C3',
+    borderWidth: 2,
+    borderColor: '#CA8A04',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 18,
+  },
+  sandboxBannerText: { color: '#854D0E', fontSize: 12, fontWeight: '900', textAlign: 'center' },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',

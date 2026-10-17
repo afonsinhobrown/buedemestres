@@ -44,6 +44,10 @@ export async function POST(req: Request) {
         `update job_payments set status = 'disputed' where job_id = $1 and status = 'held'`,
         [job.id]
       );
+      await client.query(
+        `update job_addenda set status = 'disputed' where job_id = $1 and status = 'held'`,
+        [job.id]
+      );
       await client.query(`update jobs set status = 'disputed', updated_at = now() where id = $1`, [job.id]);
 
       const { rows: ticketRows } = await client.query<{ number: string }>(

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, SafeAreaView, StatusBar } from 'react-native'
 import { router } from 'expo-router'
 import { supabase } from '@/lib/supabase'
@@ -7,7 +7,7 @@ export default function EntrarScreen() {
   const [email, setEmail] = useState('cliente@teste.com')
   const [senha, setSenha] = useState('password123')
   const [carregando, setCarregando] = useState(false)
-  const [isLogin, setIsLogin] = useState(false) // Mudei para false para criar a conta à primeira
+  const [isLogin, setIsLogin] = useState(true)
 
   const handleAuth = async () => {
     if (!email || !senha) {
@@ -38,7 +38,7 @@ export default function EntrarScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#EDF0F2" />
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.logo}>Bué de Mestres</Text>
+          <Text style={styles.logo}>BuÃ© de Mestres</Text>
           <Text style={styles.subtitle}>A sua oficina digital</Text>
         </View>
 
@@ -82,13 +82,13 @@ export default function EntrarScreen() {
 
           <TouchableOpacity style={styles.btnLink} onPress={() => setIsLogin(!isLogin)}>
             <Text style={styles.linkText}>
-              {isLogin ? 'Não tem conta? Criar uma' : 'Já tem conta? Entrar'}
+              {isLogin ? 'NÃ£o tem conta? Criar uma' : 'JÃ¡ tem conta? Entrar'}
             </Text>
           </TouchableOpacity>
         </View>
         
         <TouchableOpacity style={styles.backLink} onPress={() => router.replace('/')}>
-          <Text style={styles.backText}>Voltar ao início</Text>
+          <Text style={styles.backText}>Voltar ao inÃ­cio</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

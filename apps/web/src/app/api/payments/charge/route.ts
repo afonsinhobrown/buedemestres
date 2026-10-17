@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { buildPaymentReference, createPaySuiteCharge, type PaySuiteMethod } from '@/lib/paysuite';
+import { clampSandboxAmount, getSandboxSettings } from '@/lib/sandbox';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,17 +47,20 @@ export async function POST(req: Request) {
     const job = jobRows[0];
     if (!job) return NextResponse.json({ ok: false, error: 'trabalho não encontrado' }, { status: 404 });
 
+    const sandbox = await getSandboxSettings();
+    const chargedAmount = clampSandboxAmount(amount, sandbox);
+
     const reference = buildPaymentReference();
     const charge = await createPaySuiteCharge({
-      amountMZN: amount,
+      amountMZN: chargedAmount,
       reference,
       method: mapMethod(method),
       description: `Bué de Mestres — ${reference}`,
       webhookUrl: process.env.PAYSUITE_WEBHOOK_URL || undefined,
     });
 
-    const commission = Number((amount * COMMISSION_RATE).toFixed(2));
-    const payout = Number((amount - commission).toFixed(2));
+    const commission = Number((chargedAmount * COMMISSION_RATE).toFixed(2));
+    const payout = Number((chargedAmount - commission).toFixed(2));
 
     await db.query(
       `insert into job_payments
@@ -71,7 +75,7 @@ export async function POST(req: Request) {
          method = excluded.method,
          status = 'pending_payment',
          provider_ref = excluded.provider_ref`,
-      [job.id, job.client_id, job.provider_id, amount, COMMISSION_RATE, commission, payout,
+      [job.id, job.client_id, job.provider_id, chargedAmount, COMMISSION_RATE, commission, payout,
        paymentMethodColumn(method), charge.reference]
     );
 
@@ -81,6 +85,8 @@ export async function POST(req: Request) {
       chargeId: charge.id,
       checkoutUrl: charge.checkoutUrl ?? null,
       status: charge.status,
+      amount: chargedAmount,
+      sandbox: sandbox.active,
     });
   } catch (error) {
     console.error('[payments/charge]', error);

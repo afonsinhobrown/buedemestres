@@ -8,7 +8,7 @@ const queryClient = new QueryClient()
 
 function HomeShortcut() {
   const pathname = usePathname()
-  if (pathname === '/') return null
+  if (pathname === '/' || pathname === '/entrar') return null
 
   return (
     <TouchableOpacity
@@ -25,10 +25,19 @@ function HomeShortcut() {
 
 export default function RootLayout() {
   const initialize = useAuthStore((s) => s.initialize)
+  const initialized = useAuthStore((s) => s.initialized)
+  const session = useAuthStore((s) => s.session)
+  const pathname = usePathname()
 
   useEffect(() => {
     initialize()
   }, [initialize])
+
+  useEffect(() => {
+    if (!initialized) return
+    if (!session && pathname !== '/entrar') router.replace('/entrar')
+    if (session && pathname === '/entrar') router.replace('/')
+  }, [initialized, session, pathname])
 
   return (
     <QueryClientProvider client={queryClient}>

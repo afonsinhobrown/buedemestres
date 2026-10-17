@@ -1,7 +1,11 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Image, Linking, Alert, ActivityIndicator } from 'react-native'
 import { useLocalSearchParams, router } from 'expo-router'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import MapaTracking from '../../components/MapaTracking'
+import { parseGeoPoint, type GeoPoint } from '../../lib/geo'
+
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || ''
 
 export default function MestreACaminhoScreen() {
   const params = useLocalSearchParams<{
@@ -16,6 +20,10 @@ export default function MestreACaminhoScreen() {
 
   const [jobStatus, setJobStatus] = useState<'a_preparar' | 'en_route' | 'arrived' | 'in_service' | 'awaiting_confirmation' | 'completed' | 'disputed'>('a_preparar')
   const [transporteUtilizado, setTransporteUtilizado] = useState<string>('carro_proprio')
+  const [addendum, setAddendum] = useState<any>(null)
+  const [addendumPagando, setAddendumPagando] = useState(false)
+  const [providerPoint, setProviderPoint] = useState<GeoPoint | null>(null)
+  const [clientPoint, setClientPoint] = useState<GeoPoint | null>(null)
 
   const [mestreInfo, setMestreInfo] = useState({
     nome: params.mestreNome || 'Provedor 1',
@@ -43,11 +51,31 @@ export default function MestreACaminhoScreen() {
       try {
         const { data: job } = await supabase
           .from('jobs')
-          .select('status, transport_mode, cancel_reason, arrived_at')
+          .select('id, request_id, status, transport_mode, cancel_reason, arrived_at, provider_lat, provider_lng')
           .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
           .maybeSingle()
 
         if (job) {
+          if (job.provider_lat != null && job.provider_lng != null) {
+            setProviderPoint({ lat: Number(job.provider_lat), lng: Number(job.provider_lng) })
+          }
+
+          if (job.request_id) {
+            const { data: request } = await supabase
+              .from('service_requests')
+              .select('location')
+              .eq('id', job.request_id)
+              .maybeSingle()
+            const point = parseGeoPoint(request?.location)
+            if (point) setClientPoint(point)
+          }
+          const { data: addenda } = await supabase
+            .from('job_addenda')
+            .select('*')
+            .eq('job_id', job.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+          setAddendum(addenda?.[0] || null)
           const modo = job.transport_mode || job.cancel_reason
           if (modo) {
             setTransporteUtilizado(modo)
@@ -92,24 +120,70 @@ export default function MestreACaminhoScreen() {
     }
   }, [params.jobId])
 
+  const pagarAditamento = async (method: 'mpesa' | 'emola' | 'card') => {
+    if (!addendum?.id) return
+    try {
+      setAddendumPagando(true)
+      const res = await fetch(`${API_BASE}/api/payments/addendum/charge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addendumId: addendum.id, method })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || 'Não foi possível iniciar o pagamento do aditamento.')
+      }
+      if (data.checkoutUrl) {
+        try {
+          await Linking.openURL(data.checkoutUrl)
+        } catch {
+          // O utilizador pode abrir manualmente
+        }
+      }
+      let tries = 0
+      const timer = setInterval(async () => {
+        tries += 1
+        try {
+          const statusRes = await fetch(
+            `${API_BASE}/api/payments/addendum/status?addendumId=${encodeURIComponent(addendum.id)}`
+          )
+          const statusData = await statusRes.json().catch(() => ({}))
+          if (statusData?.paid) {
+            clearInterval(timer)
+            setAddendum((prev: any) => ({ ...prev, status: 'held' }))
+            Alert.alert('Aditamento pago', 'O valor adicional ficou retido em segurança.')
+          } else if (statusData?.failed) {
+            clearInterval(timer)
+            setAddendum((prev: any) => ({ ...prev, status: 'failed' }))
+            Alert.alert('Pagamento não concluído', 'O pagamento do aditamento foi cancelado ou recusado.')
+          }
+        } catch {
+          // continua a tentar
+        }
+        if (tries > 120) clearInterval(timer)
+      }, 3000)
+    } catch (err: any) {
+      Alert.alert('Erro', err.message || 'Falha ao pagar o aditamento.')
+    } finally {
+      setAddendumPagando(false)
+    }
+  }
+
   return (
     <View style={styles.container}>
       {/* Mapa de Acompanhamento */}
-      <View style={styles.mapPlaceholder}>
-        <Text style={styles.mapPlaceholderText}>🗺️</Text>
-        <Text style={styles.mapPlaceholderSub}>
-          {jobStatus === 'a_preparar' ? 'Pagamento Retido · Mestre a preparar saída' :
-           jobStatus === 'en_route' ? `Mestre a caminho (${transporteDesc})` :
-           jobStatus === 'arrived' ? 'Mestre chegou ao ponto de encontro!' :
-           jobStatus === 'in_service' ? 'Serviço em execução' :
-           jobStatus === 'awaiting_confirmation' ? 'Mestre terminou — confirma o serviço' :
-           jobStatus === 'disputed' ? 'Disputa em análise pela equipa de apoio' :
-           'Serviço concluído'}
-        </Text>
-        <Text style={styles.mapPlaceholderHint}>A aproximação do mestre é acompanhada em tempo real</Text>
-
-        <View style={styles.mestrePlacaMap}>
-          <Text style={styles.mestrePlacaMapEmoji}>{categoriaEmoji}</Text>
+      <View style={styles.mapWrapper}>
+        <MapaTracking provider={providerPoint} client={clientPoint} />
+        <View style={styles.mapOverlay}>
+          <Text style={styles.mapOverlayText}>
+            {jobStatus === 'a_preparar' ? 'Pagamento Retido · Mestre a preparar saída' :
+             jobStatus === 'en_route' ? `Mestre a caminho (${transporteDesc})` :
+             jobStatus === 'arrived' ? 'Mestre chegou ao ponto de encontro!' :
+             jobStatus === 'in_service' ? 'Serviço em execução' :
+             jobStatus === 'awaiting_confirmation' ? 'Mestre terminou — confirma o serviço' :
+             jobStatus === 'disputed' ? 'Disputa em análise pela equipa de apoio' :
+             'Serviço concluído'}
+          </Text>
         </View>
       </View>
 
@@ -181,6 +255,53 @@ export default function MestreACaminhoScreen() {
           </View>
         )}
 
+        {addendum && (
+          <View style={styles.addendumBox}>
+            <Text style={styles.addendumTitulo}>➕ ADITAMENTO DE ORÇAMENTO</Text>
+            <Text style={styles.addendumValor}>
+              MT {Number(addendum.amount).toLocaleString('pt-MZ')}
+            </Text>
+            {addendum.description ? (
+              <Text style={styles.addendumDesc}>{addendum.description}</Text>
+            ) : null}
+
+            {addendum.status === 'held' || addendum.status === 'released' ? (
+              <Text style={styles.addendumOk}>✓ Pago e retido em segurança.</Text>
+            ) : addendum.status === 'failed' ? (
+              <Text style={styles.addendumFalhou}>O pagamento não foi concluído. Tenta novamente:</Text>
+            ) : (
+              <Text style={styles.addendumPendente}>Paga o valor adicional para continuar:</Text>
+            )}
+
+            {(addendum.status === 'pending_payment' || addendum.status === 'failed') && (
+              <View style={styles.addendumMethods}>
+                <TouchableOpacity
+                  style={styles.addendumMethodBtn}
+                  onPress={() => pagarAditamento('mpesa')}
+                  disabled={addendumPagando}
+                >
+                  <Text style={styles.addendumMethodText}>M-Pesa</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.addendumMethodBtn}
+                  onPress={() => pagarAditamento('emola')}
+                  disabled={addendumPagando}
+                >
+                  <Text style={styles.addendumMethodText}>e-Mola</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.addendumMethodBtn}
+                  onPress={() => pagarAditamento('card')}
+                  disabled={addendumPagando}
+                >
+                  <Text style={styles.addendumMethodText}>Cartão</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {addendumPagando && <ActivityIndicator color="#2444C8" />}
+          </View>
+        )}
+
         {/* Informações Reais do Mestre */}
         <View style={styles.mestreRow}>
           <Image
@@ -245,6 +366,14 @@ export default function MestreACaminhoScreen() {
           </TouchableOpacity>
         )}
 
+        <TouchableOpacity
+          style={styles.btnChat}
+          onPress={() => router.push({ pathname: '/chat', params: { jobId: params.jobId } })}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.btnChatText}>💬 Falar com o Mestre</Text>
+        </TouchableOpacity>
+
         <Text style={styles.aviso}>
           🔒 Segurança Bué de Mestres: Sem dinheiro em mão. O pagamento foi retido na plataforma e só é libertado após confirmar a conclusão.
         </Text>
@@ -260,6 +389,9 @@ const ZINCO = '#6B7280'
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#E8E4D8' },
+  mapWrapper: { flex: 1, position: 'relative', minHeight: 220 },
+  mapOverlay: { position: 'absolute', top: 12, left: 12, right: 12, backgroundColor: 'rgba(245,240,232,0.92)', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(26,26,46,0.15)' },
+  mapOverlayText: { color: TINTA, fontWeight: '900', fontSize: 13, textAlign: 'center' },
   mapPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#D4CFB8', position: 'relative' },
   mapPlaceholderText: { fontSize: 52, marginBottom: 6 },
   mapPlaceholderSub: { fontSize: 16, color: TINTA, fontWeight: '800' },
@@ -283,6 +415,16 @@ const styles = StyleSheet.create({
   chegouBox: { backgroundColor: '#ECFDF5', borderWidth: 1.5, borderColor: '#10B981', borderRadius: 8, padding: 12, marginBottom: 14 },
   chegouBoxTitulo: { color: '#047857', fontWeight: '900', fontSize: 12, letterSpacing: 0.5, marginBottom: 2 },
   chegouBoxTexto: { color: '#065F46', fontSize: 12, lineHeight: 16 },
+  addendumBox: { backgroundColor: '#FEF3C7', borderWidth: 1.5, borderColor: '#D97706', borderRadius: 8, padding: 12, marginBottom: 14 },
+  addendumTitulo: { color: '#92400E', fontWeight: '900', fontSize: 10, letterSpacing: 0.8, marginBottom: 4 },
+  addendumValor: { color: '#78350F', fontWeight: '900', fontSize: 22, marginBottom: 4 },
+  addendumDesc: { color: '#92400E', fontSize: 12, lineHeight: 16, marginBottom: 8 },
+  addendumPendente: { color: '#78350F', fontSize: 12, fontWeight: '700', marginBottom: 8 },
+  addendumOk: { color: '#166534', fontSize: 12, fontWeight: '900' },
+  addendumFalhou: { color: '#B91C1C', fontSize: 12, fontWeight: '700', marginBottom: 8 },
+  addendumMethods: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  addendumMethodBtn: { flex: 1, backgroundColor: '#2444C8', borderRadius: 6, paddingVertical: 10, alignItems: 'center' },
+  addendumMethodText: { color: '#FFFFFF', fontWeight: '900', fontSize: 12 },
   mestreRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
   mestreAvatarImg: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: AMARELO, marginRight: 12, backgroundColor: '#334155' },
   mestreInfo: { flex: 1 },
@@ -295,5 +437,7 @@ const styles = StyleSheet.create({
   etaDivider: { width: 1, backgroundColor: '#E5E7EB' },
   btnAcompanharServico: { backgroundColor: '#166534', borderRadius: 8, paddingVertical: 16, alignItems: 'center', borderWidth: 2, borderColor: '#4ADE80', marginBottom: 12 },
   btnAcompanharServicoText: { color: '#fff', fontWeight: '900', fontSize: 14, textTransform: 'uppercase', letterSpacing: 0.5 },
+  btnChat: { backgroundColor: '#FFFFFF', borderRadius: 8, paddingVertical: 12, alignItems: 'center', borderWidth: 1.5, borderColor: '#12163A', marginBottom: 12 },
+  btnChatText: { color: '#12163A', fontWeight: '900', fontSize: 13 },
   aviso: { fontSize: 11, color: ZINCO, textAlign: 'center', lineHeight: 16 },
 })

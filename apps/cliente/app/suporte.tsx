@@ -2,7 +2,6 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, Sta
 import { router, useLocalSearchParams } from 'expo-router'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useAuthStore } from '@/lib/useAuthStore'
 import { validateAntiPhoneBypass } from '@/lib/antiPhoneBypass'
 
 const MOTIVOS = [
@@ -14,7 +13,6 @@ const MOTIVOS = [
 
 export default function SuporteScreen() {
   const params = useLocalSearchParams<{ jobId?: string; assunto?: string }>()
-  const profile = useAuthStore(s => s.profile)
 
   const [motivo, setMotivo] = useState(params.jobId ? 'disputa_valor' : 'atraso_mestre')
   const [descricao, setDescricao] = useState('')
@@ -45,31 +43,37 @@ export default function SuporteScreen() {
 
     try {
       setIsSubmitting(true)
-      const clientId = profile?.id || '11111111-1111-1111-1111-111111111111'
       const ticketSubject = MOTIVOS.find(m => m.id === motivo)?.label || 'Apoio ao Cliente'
+      const slug =
+        motivo === 'disputa_valor'
+          ? 'pagamento'
+          : motivo === 'duvida_geral'
+          ? 'conta'
+          : 'disputa'
 
-      const { data, error } = await supabase
-        .from('support_tickets')
-        .insert({
-          client_id: clientId,
-          request_id: params.jobId || null,
-          category: motivo,
-          subject: ticketSubject,
-          description: descricao.trim(),
-          status: 'open'
-        })
-        .select()
-        .single()
+      const { data: category } = await supabase
+        .from('ticket_categories')
+        .select('id')
+        .eq('slug', slug)
+        .maybeSingle()
 
-      if (error) {
-        console.warn('Erro ao inserir ticket em support_tickets:', error)
+      if (!category?.id) {
+        throw new Error('Categoria de suporte indisponível.')
       }
 
-      const ticketRef = data?.id ? data.id.substring(0, 8).toUpperCase() : `BDM-${Math.floor(1000 + Math.random() * 9000)}`
-      setTicketCriado(ticketRef)
-    } catch (err) {
+      const { data: number, error } = await supabase.rpc('create_ticket', {
+        p_category: category.id,
+        p_subject: ticketSubject,
+        p_description: descricao.trim(),
+        p_job: params.jobId || null,
+      })
+
+      if (error) throw error
+
+      setTicketCriado(number ? String(number) : 'registado')
+    } catch (err: any) {
       console.error('Erro ao submeter ticket:', err)
-      Alert.alert('Erro', 'Ocorreu um erro ao submeter o pedido de apoio.')
+      Alert.alert('Erro', err.message || 'Ocorreu um erro ao submeter o pedido de apoio.')
     } finally {
       setIsSubmitting(false)
     }
@@ -105,9 +109,15 @@ export default function SuporteScreen() {
 
             <TouchableOpacity 
               style={styles.btnVoltarHome} 
+              onPress={() => router.push({ pathname: '/suporte-chat', params: { numero: ticketCriado } })}
+            >
+              <Text style={styles.btnVoltarHomeText}>Abrir Conversa com o Apoio →</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.btnVoltarHome, { backgroundColor: '#FFFFFF', marginTop: 10, borderColor: '#12163A' }]} 
               onPress={() => router.push('/pedidos')}
             >
-              <Text style={styles.btnVoltarHomeText}>Ver Meus Pedidos →</Text>
+              <Text style={[styles.btnVoltarHomeText, { color: '#12163A' }]}>Ver Meus Pedidos →</Text>
             </TouchableOpacity>
           </View>
         ) : (
