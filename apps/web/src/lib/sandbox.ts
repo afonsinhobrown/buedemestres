@@ -7,6 +7,7 @@ export type SandboxSettings = {
 };
 
 const DEFAULTS: SandboxSettings = { active: true, min: 1, max: 10 };
+const SANDBOX_HARD_MAX = 10;
 
 export async function getSandboxSettings(): Promise<SandboxSettings> {
   try {
@@ -17,7 +18,8 @@ export async function getSandboxSettings(): Promise<SandboxSettings> {
     const rawActive = map.get('sandbox_mode');
     const active = rawActive === undefined ? DEFAULTS.active : String(rawActive) === 'true';
     const min = Number(map.get('sandbox_min_price') ?? DEFAULTS.min);
-    const max = Number(map.get('sandbox_max_price') ?? DEFAULTS.max);
+    const configuredMax = Number(map.get('sandbox_max_price') ?? DEFAULTS.max);
+    const max = active ? Math.min(configuredMax, SANDBOX_HARD_MAX) : configuredMax;
     return {
       active,
       min: Number.isFinite(min) && min > 0 ? min : DEFAULTS.min,

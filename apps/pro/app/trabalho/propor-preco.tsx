@@ -169,13 +169,19 @@ export default function ProporPrecoScreen() {
     ? (parseFloat(valorSimples) || 0)
     : lines.reduce((acc, line) => acc + (parseFloat(line.price) || 0), 0);
 
-  const totalProposta = sandbox.active
-    ? Math.min(sandbox.max, Math.max(sandbox.min, totalCalculado))
-    : totalCalculado;
+  const totalProposta = totalCalculado;
 
   const submitProposal = async () => {
     if (msgBypassError) {
       Alert.alert('Aviso de Segurança', msgBypassError);
+      return;
+    }
+
+    if (sandbox.active && (totalProposta < sandbox.min || totalProposta > sandbox.max)) {
+      Alert.alert(
+        'Modo sandbox',
+        `O valor do serviço tem de estar entre ${sandbox.min} e ${sandbox.max} MT. Valores acima de ${sandbox.max} MT são rejeitados.`
+      );
       return;
     }
 

@@ -8,26 +8,54 @@ export default function EntrarScreen() {
   const [senha, setSenha] = useState('password123')
   const [carregando, setCarregando] = useState(false)
   const [isLogin, setIsLogin] = useState(true)
+  const [aceitouTermos, setAceitouTermos] = useState(false)
+  const [aceitouEmails, setAceitouEmails] = useState(false)
 
   const handleAuth = async () => {
     if (!email || !senha) {
       Alert.alert('Erro', 'Preencha email e senha')
       return
     }
+    if (!isLogin && !aceitouTermos) {
+      Alert.alert('Termos', 'Tens de ler e aceitar os Termos e a Política de Privacidade.')
+      return
+    }
     setCarregando(true)
     try {
-      const authFunction = isLogin 
-        ? supabase.auth.signInWithPassword 
-        : supabase.auth.signUp;
-        
-      const { error } = await authFunction({ email, password: senha });
-      
-      if (error) throw error;
-      
-      router.replace('/')
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
+        if (error) throw error
+        router.replace('/')
+      } else {
+        const { data: terms } = await supabase
+          .from('terms_versions')
+          .select('id')
+          .eq('audience', 'client')
+          .eq('is_current', true)
+          .maybeSingle()
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password: senha,
+          options: {
+            data: {
+              terms_version_id: terms?.id || null,
+              email_opt_in: aceitouEmails,
+            },
+          },
+        })
+        if (error) throw error
+        if (!data.session) {
+          Alert.alert(
+            'Conta criada',
+            'Confirma o teu email antes de entrar. Depois usa a opção Entrar.'
+          )
+          setIsLogin(true)
+          return
+        }
+        router.replace('/')
+      }
     } catch (error: any) {
-      const msg = error.message || 'Erro desconhecido'
-      Alert.alert('Erro', msg)
+      Alert.alert('Erro', error.message || 'Erro desconhecido')
     } finally {
       setCarregando(false)
     }
@@ -69,6 +97,38 @@ export default function EntrarScreen() {
               autoComplete={isLogin ? 'current-password' : 'new-password'}
             />
           </View>
+
+          {!isLogin && (
+            <View style={{ marginBottom: 16 }}>
+              <TouchableOpacity
+                style={styles.checkRow}
+                onPress={() => setAceitouTermos(!aceitouTermos)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.checkbox, aceitouTermos && styles.checkboxOn]}>
+                  {aceitouTermos && <Text style={styles.checkmark}>✓</Text>}
+                </View>
+                <Text style={styles.checkText}>
+                  Li e aceito os Termos e a Política de Privacidade.
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.checkRow}
+                onPress={() => setAceitouEmails(!aceitouEmails)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.checkbox, aceitouEmails && styles.checkboxOn]}>
+                  {aceitouEmails && <Text style={styles.checkmark}>✓</Text>}
+                </View>
+                <Text style={styles.checkText}>
+                  Aceito receber emails e comunicações da plataforma.
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/termos')}>
+                <Text style={styles.termsLink}>Ler os termos completos</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {carregando ? (
             <ActivityIndicator size="large" color="#2444C8" style={styles.spinner} />
@@ -199,4 +259,10 @@ const styles = StyleSheet.create({
   spinner: {
     marginVertical: 16,
   },
+  checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
+  checkbox: { width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: '#12163A', alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  checkboxOn: { backgroundColor: '#2444C8', borderColor: '#2444C8' },
+  checkmark: { color: '#fff', fontWeight: '900', fontSize: 13 },
+  checkText: { flex: 1, color: '#12163A', fontSize: 12, lineHeight: 17 },
+  termsLink: { color: '#2444C8', fontSize: 12, fontWeight: '800', textDecorationLine: 'underline', marginLeft: 32 },
 })

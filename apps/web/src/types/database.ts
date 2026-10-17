@@ -1,7 +1,7 @@
 // Tipos gerados a partir do esquema de base de dados
 // Actualizar conforme novas tabelas forem adicionadas
 
-export type UserRole = 'client' | 'provider' | 'admin' | 'superadmin' | 'finance'
+export type UserRole = 'client' | 'provider' | 'admin' | 'superadmin' | 'finance' | 'support' | 'moderator'
 export type VerificationStatus = 'none' | 'pending' | 'approved' | 'rejected'
 export type SubStatus = 'active' | 'expired' | 'cancelled'
 

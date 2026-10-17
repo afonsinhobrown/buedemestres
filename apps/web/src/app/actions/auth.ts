@@ -149,7 +149,12 @@ export async function loginAction(
 
   const redirectTo = (formData.get('redirectTo') as string) || ''
   await createSession(user.id, user.role)
-  redirect(redirectTo && redirectTo.startsWith('/') ? redirectTo : '/painel')
+  if (redirectTo && redirectTo.startsWith('/')) redirect(redirectTo)
+  if (user.role === 'superadmin') redirect('/superadmin')
+  if (user.role === 'admin') redirect('/tickets')
+  if (user.role === 'finance') redirect('/pagamentos')
+  if (user.role === 'support' || user.role === 'moderator') redirect('/tickets')
+  redirect('/painel')
 }
 
 // ─────────────────────────────────────────────

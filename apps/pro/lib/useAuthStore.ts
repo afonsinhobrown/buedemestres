@@ -13,7 +13,7 @@ interface AuthState {
   signOut: () => Promise<void>;
 }
 
-async function ensureProvider(userId: string, fullName: string) {
+async function ensureProvider(userId: string, fullName: string, email?: string | null) {
   const { data: profile } = await supabase
     .from('profiles')
     .select('id, role, full_name')
@@ -24,10 +24,11 @@ async function ensureProvider(userId: string, fullName: string) {
     await supabase.from('profiles').insert({
       id: userId,
       full_name: fullName,
+      email: email || null,
       role: 'provider',
     });
   } else if (profile.role !== 'provider') {
-    await supabase.from('profiles').update({ role: 'provider' }).eq('id', userId);
+    await supabase.from('profiles').update({ role: 'provider', ...(email ? { email } : {}) }).eq('id', userId);
   }
 
   const { data: provider } = await supabase
@@ -45,6 +46,8 @@ async function ensureProvider(userId: string, fullName: string) {
       primary_category_id: 2,
       is_published: true,
       is_available: true,
+      trial_started_at: new Date().toISOString(),
+      trial_ends_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
     });
   }
 }
@@ -71,6 +74,19 @@ async function ensureReferral(userId: string, code: string | null | undefined) {
   await supabase.from('profiles').update({ referred_by: referrer.id }).eq('id', userId);
 }
 
+async function ensureTermsAcceptance(userId: string, metadata: any) {
+  const versionId = Number(metadata?.terms_version_id);
+  if (!Number.isFinite(versionId) || versionId <= 0) return;
+  await supabase.from('terms_acceptances').upsert(
+    {
+      profile_id: userId,
+      terms_version_id: versionId,
+      email_opt_in: Boolean(metadata?.email_opt_in),
+    },
+    { onConflict: 'profile_id,terms_version_id', ignoreDuplicates: true }
+  );
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   user: null,
@@ -91,8 +107,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const fullName = String(
         authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Mestre'
       );
-      await ensureProvider(authUser.id, fullName);
+      await ensureProvider(authUser.id, fullName, authUser.email);
       await ensureReferral(authUser.id, authUser.user_metadata?.referral_code);
+      await ensureTermsAcceptance(authUser.id, authUser.user_metadata);
       const { data: provider } = await supabase
         .from('provider_profiles')
         .select('*, categories:primary_category_id(id, name, slug)')

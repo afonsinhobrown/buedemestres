@@ -17,7 +17,7 @@ export async function updateSandbox(formData: FormData) {
     await requireAdmin()
     const active = String(formData.get('active') || '') === 'on'
     const min = Number(formData.get('min') || 1)
-    const max = Number(formData.get('max') || 10)
+    const max = Math.min(Number(formData.get('max') || 10), 10)
     if (!Number.isFinite(min) || !Number.isFinite(max) || min <= 0 || max < min) {
       return { error: 'Valores de sandbox inválidos.' }
     }
@@ -54,15 +54,18 @@ export async function updatePlan(formData: FormData) {
     const weekend = String(formData.get('weekend_priority') || '') === 'on'
     const recurring = String(formData.get('recurring_visibility') || '') === 'on'
     const ratingBoost = Number(formData.get('rating_boost') || 0)
+    const creditPrice = Number(formData.get('credit_price') || 0)
+    const maxMasters = Number(formData.get('max_masters') || 1)
 
     if (!name) return { error: 'Nome do plano em falta.' }
 
     await db.query(
       `update plans
           set name = $2, price = $3, max_services = $4, max_photos = $5,
-              weekend_priority = $6, recurring_visibility = $7, rating_boost = $8
+              weekend_priority = $6, recurring_visibility = $7, rating_boost = $8,
+              credit_price = $9, max_masters = $10
         where id = $1`,
-      [id, name, price, maxServices, maxPhotos, weekend, recurring, ratingBoost]
+      [id, name, price, maxServices, maxPhotos, weekend, recurring, ratingBoost, creditPrice, maxMasters]
     )
     revalidatePath('/configuracoes')
     return { success: true }

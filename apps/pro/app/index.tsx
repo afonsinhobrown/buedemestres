@@ -291,37 +291,77 @@ export default function ProHomeScreen() {
       return
     }
 
-    const { data: subscription } = await supabase
-      .from('subscriptions')
-      .select('plan:plan_id(max_services)')
-      .eq('provider_id', activeProId)
-      .eq('status', 'active')
+    const { data: providerProfileRow } = await supabase
+      .from('provider_profiles')
+      .select('trial_started_at, trial_ends_at')
+      .eq('profile_id', activeProId)
       .maybeSingle()
 
-    let maxServices = (subscription as any)?.plan?.max_services
-    if (!maxServices) {
-      const { data: basicPlan } = await supabase
-        .from('plans')
-        .select('max_services')
-        .eq('code', 'basic')
-        .maybeSingle()
-      maxServices = basicPlan?.max_services ?? 3
+    const { data: rateRows } = await supabase
+      .from('app_settings')
+      .select('key, value')
+      .in('key', ['trial_services', 'trial_days'])
+    const rateMap = new Map((rateRows || []).map((row: any) => [row.key, row.value]))
+    const trialServices = Number(rateMap.get('trial_services') ?? 5)
+    const trialActive = Boolean(
+      providerProfileRow?.trial_ends_at && new Date(providerProfileRow.trial_ends_at).getTime() > Date.now()
+    )
+
+    let canAccept = false
+    if (trialActive) {
+      const { count: trialJobs } = await supabase
+        .from('jobs')
+        .select('id', { count: 'exact', head: true })
+        .eq('provider_id', activeProId)
+        .gte('accepted_at', providerProfileRow?.trial_started_at || new Date(0).toISOString())
+        .neq('status', 'cancelled')
+      canAccept = (trialJobs || 0) < trialServices
     }
 
-    const startOfMonth = new Date()
-    startOfMonth.setDate(1)
-    startOfMonth.setHours(0, 0, 0, 0)
-    const { count: monthlyJobs } = await supabase
-      .from('jobs')
-      .select('id', { count: 'exact', head: true })
-      .eq('provider_id', activeProId)
-      .gte('accepted_at', startOfMonth.toISOString())
-      .neq('status', 'cancelled')
+    if (!canAccept) {
+      const { data: subscription } = await supabase
+        .from('subscriptions')
+        .select('plan:plan_id(max_services)')
+        .eq('provider_id', activeProId)
+        .eq('status', 'active')
+        .maybeSingle()
 
-    if ((monthlyJobs || 0) >= maxServices) {
+      const maxServices = (subscription as any)?.plan?.max_services
+      const startOfMonth = new Date()
+      startOfMonth.setDate(1)
+      startOfMonth.setHours(0, 0, 0, 0)
+      const { count: monthlyJobs } = await supabase
+        .from('jobs')
+        .select('id', { count: 'exact', head: true })
+        .eq('provider_id', activeProId)
+        .gte('accepted_at', startOfMonth.toISOString())
+        .neq('status', 'cancelled')
+
+      if (maxServices && (monthlyJobs || 0) < maxServices) {
+        canAccept = true
+      } else {
+        const { data: companyCanAccept } = await supabase.rpc('company_can_accept', { p_provider: activeProId })
+        if (companyCanAccept === true) {
+          canAccept = true
+        } else {
+          const { data: creditRow } = await supabase
+            .from('service_credits')
+            .select('balance')
+            .eq('provider_id', activeProId)
+            .maybeSingle()
+
+          if ((creditRow?.balance || 0) > 0) {
+            const { data: consumed } = await supabase.rpc('consume_service_credit', { p_provider: activeProId })
+            canAccept = consumed === true
+          }
+        }
+      }
+    }
+
+    if (!canAccept) {
       Alert.alert(
-        'Limite do plano atingido',
-        `O teu plano permite ${maxServices} serviços por mês. Atualiza o plano para continuares a aceitar pedidos.`,
+        'Serviços esgotados',
+        'O teu trial/plano terminou e não tens créditos. Compra um plano ou carrega créditos para continuares a aceitar pedidos.',
         [
           { text: 'Depois', style: 'cancel' },
           { text: 'Ver planos', onPress: () => router.push('/planos') },
@@ -543,6 +583,9 @@ export default function ProHomeScreen() {
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/afiliados')} style={styles.quickChip}>
             <Text style={styles.quickChipText}>🤝 Afiliados</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/empresa')} style={styles.quickChip}>
+            <Text style={styles.quickChipText}>🏢 Empresa</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/suporte')} style={styles.quickChip}>
             <Text style={styles.quickChipText}>🎧 Apoio</Text>

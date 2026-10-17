@@ -12,10 +12,10 @@ const MOTIVOS = [
 ]
 
 export default function SuporteScreen() {
-  const params = useLocalSearchParams<{ jobId?: string; assunto?: string }>()
+  const params = useLocalSearchParams<{ jobId?: string; assunto?: string; descricao?: string }>()
 
   const [motivo, setMotivo] = useState(params.jobId ? 'disputa_valor' : 'atraso_mestre')
-  const [descricao, setDescricao] = useState('')
+  const [descricao, setDescricao] = useState(params.descricao || '')
   const [bypassError, setBypassError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [ticketCriado, setTicketCriado] = useState<string | null>(null)
@@ -148,6 +148,13 @@ export default function SuporteScreen() {
 
             {/* Formulário de Ticket */}
             <View style={styles.formCard}>
+              <TouchableOpacity
+                style={styles.botBtn}
+                onPress={() => router.push('/ajuda-bot')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.botBtnText}>🤖 Resolver primeiro com o assistente</Text>
+              </TouchableOpacity>
               <Text style={styles.formTitle}>Abrir Chamado / Relatório</Text>
               
               {params.jobId && (
@@ -260,6 +267,8 @@ const styles = StyleSheet.create({
     borderColor: '#12163A',
   },
   formTitle: { fontSize: 18, fontWeight: '900', color: '#12163A', marginBottom: 12 },
+  botBtn: { backgroundColor: '#EFF6FF', borderWidth: 1.5, borderColor: '#2444C8', borderRadius: 8, paddingVertical: 10, alignItems: 'center', marginBottom: 12 },
+  botBtnText: { color: '#2444C8', fontWeight: '900', fontSize: 12 },
   jobRefBox: {
     backgroundColor: '#F3F4F6',
     padding: 10,

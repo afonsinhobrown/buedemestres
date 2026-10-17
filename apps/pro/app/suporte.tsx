@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Linking } from 'react-native'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../lib/useAuthStore'
 import { validateAntiPhoneBypass } from '../lib/antiPhoneBypass'
@@ -13,10 +13,11 @@ const MOTIVOS = [
 ]
 
 export default function ProSuporteScreen() {
+  const params = useLocalSearchParams<{ assunto?: string; descricao?: string }>()
   const user = useAuthStore((s) => s.user)
   const userId = user?.id || ''
   const [slug, setSlug] = useState('pagamento')
-  const [descricao, setDescricao] = useState('')
+  const [descricao, setDescricao] = useState(params.descricao || '')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [tickets, setTickets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -100,6 +101,9 @@ export default function ProSuporteScreen() {
         </TouchableOpacity>
 
         <View style={styles.card}>
+          <TouchableOpacity style={styles.botBtn} onPress={() => router.push('/ajuda-bot')} activeOpacity={0.8}>
+            <Text style={styles.botBtnText}>🤖 Resolver primeiro com o assistente</Text>
+          </TouchableOpacity>
           <Text style={styles.cardTitle}>Abrir novo ticket</Text>
           {MOTIVOS.map((m) => (
             <TouchableOpacity
@@ -160,6 +164,8 @@ const styles = StyleSheet.create({
   callBtnText: { color: '#0F2D1A', fontWeight: '900', fontSize: 14 },
   card: { backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
   cardTitle: { color: '#F5F0E8', fontSize: 16, fontWeight: '900', marginBottom: 10 },
+  botBtn: { backgroundColor: 'rgba(242,201,76,0.12)', borderWidth: 1, borderColor: '#F2C94C', borderRadius: 8, paddingVertical: 10, alignItems: 'center', marginBottom: 12 },
+  botBtnText: { color: '#F2C94C', fontWeight: '900', fontSize: 12 },
   motivo: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: 10, marginBottom: 6 },
   motivoActive: { backgroundColor: '#F2C94C' },
   motivoText: { color: '#E2E8F0', fontSize: 12, fontWeight: '700' },

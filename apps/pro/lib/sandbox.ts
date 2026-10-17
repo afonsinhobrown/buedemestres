@@ -1,4 +1,4 @@
-﻿import { supabase } from './supabase';
+import { supabase } from './supabase';
 
 export type SandboxSettings = { active: boolean; min: number; max: number };
 
@@ -11,7 +11,8 @@ export async function loadSandboxSettings(): Promise<SandboxSettings> {
   const map = new Map((data || []).map((row: any) => [row.key, row.value]));
   const activeRaw = map.get('sandbox_mode');
   const min = Number(map.get('sandbox_min_price') ?? 1);
-  const max = Number(map.get('sandbox_max_price') ?? 10);
+  const configuredMax = Number(map.get('sandbox_max_price') ?? 10);
+  const max = activeRaw === undefined || String(activeRaw) === 'true' ? Math.min(configuredMax, 10) : configuredMax;
   return {
     active: activeRaw === undefined ? true : String(activeRaw) === 'true',
     min: Number.isFinite(min) && min > 0 ? min : 1,

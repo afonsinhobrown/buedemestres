@@ -101,7 +101,7 @@ export async function confirmJobPaymentByReference(
     await client.query(
       `update jobs
           set status = 'price_agreed',
-              agreed_amount = $2,
+              agreed_amount = coalesce(agreed_amount, $2),
               negotiation_state = 'acordado',
               turn_owner = null,
               turn_expires_at = null,

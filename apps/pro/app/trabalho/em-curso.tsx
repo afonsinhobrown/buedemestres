@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert, StyleSheet, TextInput, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
@@ -49,11 +49,11 @@ export default function EmCursoScreen() {
   const pedirAditamento = async () => {
     const amount = parseFloat(addendumValor);
     if (!Number.isFinite(amount) || amount <= 0) {
-      Alert.alert('Valor inválido', 'Indica o valor adicional a cobrar ao cliente.');
+      Alert.alert('Valor invÃ¡lido', 'Indica o valor adicional a cobrar ao cliente.');
       return;
     }
     if (addendumDescricao.trim().length < 3) {
-      Alert.alert('Descrição', 'Explica o trabalho adicional que encontraste.');
+      Alert.alert('DescriÃ§Ã£o', 'Explica o trabalho adicional que encontraste.');
       return;
     }
 
@@ -70,7 +70,7 @@ export default function EmCursoScreen() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
-        throw new Error(data?.error || 'Não foi possível pedir o aditamento.');
+        throw new Error(data?.error || 'NÃ£o foi possÃ­vel pedir o aditamento.');
       }
       setAddendumAberto(false);
       setAddendumValor('');
@@ -83,90 +83,41 @@ export default function EmCursoScreen() {
     }
   };
 
-  const finishJob = async () => {
-    try {
-      setIsFinishing(true);
-
-      if (jobId) {
-        const { data: job } = await supabase
-          .from('jobs')
-          .select('id, request_id, client_id, provider_id')
-          .or(`id.eq.${jobId},request_id.eq.${jobId}`)
-          .maybeSingle();
-
-        await supabase
-          .from('jobs')
-          .update({
-            status: 'awaiting_confirmation',
-            updated_at: new Date().toISOString()
-          })
-          .or(`id.eq.${jobId},request_id.eq.${jobId}`);
-
-        if (job?.request_id) {
-          await supabase
-            .from('service_requests')
-            .update({
-              status: 'in_progress',
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', job.request_id);
-        }
-
-        if (job?.client_id) {
-          await supabase.from('notifications').insert({
-            profile_id: job.client_id,
-            type: 'job_finished',
-            title: 'O mestre terminou o serviço',
-            body: 'Verifica o trabalho e confirma a conclusão para libertar o pagamento retido.',
-            data: { job_id: job.id }
-          });
-        }
-      }
-
-      Alert.alert(
-        'Serviço Terminado',
-        'O cliente foi notificado para verificar e confirmar a conclusão. O pagamento só é libertado depois dessa confirmação.',
-        [{ text: 'OK', onPress: () => router.replace('/') }]
-      );
-    } catch (error: any) {
-      console.warn('Erro ao concluir:', error);
-      Alert.alert('Erro', 'Não foi possível registar a conclusão do serviço. Tenta novamente.');
-    } finally {
-      setIsFinishing(false);
-    }
+  const finishJob = () => {
+    router.push({ pathname: '/qr', params: { jobId, phase: 'finish' } });
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.iconCircle}>
-          <Text style={{ fontSize: 36 }}>🛠️</Text>
+          <Text style={{ fontSize: 36 }}>ðŸ› ï¸</Text>
         </View>
-        <Text style={styles.title}>Serviço em Execução</Text>
+        <Text style={styles.title}>ServiÃ§o em ExecuÃ§Ã£o</Text>
         <Text style={styles.sub}>
-          O orçamento foi acordado e o pagamento está retido com segurança na plataforma.
+          O orÃ§amento foi acordado e o pagamento estÃ¡ retido com seguranÃ§a na plataforma.
         </Text>
       </View>
 
       <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>INSTRUÇÕES DA PLATAFORMA:</Text>
-        <Text style={styles.infoItem}>• Todo o processo é acompanhado no sistema.</Text>
-        <Text style={styles.infoItem}>• Se surgirem peças extras, propõe um aditamento no sistema.</Text>
-        <Text style={styles.infoItem}>• Conclui o serviço para o cliente validar e libertar o pagamento retido.</Text>
+        <Text style={styles.infoTitle}>INSTRUÃ‡Ã•ES DA PLATAFORMA:</Text>
+        <Text style={styles.infoItem}>â€¢ Todo o processo Ã© acompanhado no sistema.</Text>
+        <Text style={styles.infoItem}>â€¢ Se surgirem peÃ§as extras, propÃµe um aditamento no sistema.</Text>
+        <Text style={styles.infoItem}>â€¢ Conclui o serviÃ§o para o cliente validar e libertar o pagamento retido.</Text>
       </View>
 
       <View style={styles.addendumCard}>
-        <Text style={styles.addendumTitle}>ADITAMENTO DE ORÇAMENTO</Text>
+        <Text style={styles.addendumTitle}>ADITAMENTO DE ORÃ‡AMENTO</Text>
         {addendum ? (
           <Text style={styles.addendumStatus}>
             {addendum.status === 'held' || addendum.status === 'released'
-              ? `✓ Aditamento de MT ${Number(addendum.amount).toLocaleString('pt-MZ')} pago e retido.`
+              ? `âœ“ Aditamento de MT ${Number(addendum.amount).toLocaleString('pt-MZ')} pago e retido.`
               : addendum.status === 'failed'
-              ? `O aditamento de MT ${Number(addendum.amount).toLocaleString('pt-MZ')} não foi pago.`
-              : `⏳ À espera do pagamento de MT ${Number(addendum.amount).toLocaleString('pt-MZ')} pelo cliente.`}
+              ? `O aditamento de MT ${Number(addendum.amount).toLocaleString('pt-MZ')} nÃ£o foi pago.`
+              : `â³ Ã€ espera do pagamento de MT ${Number(addendum.amount).toLocaleString('pt-MZ')} pelo cliente.`}
           </Text>
         ) : (
-          <Text style={styles.addendumStatus}>O trabalho é maior do que foi descrito? Pede o valor adicional.</Text>
+          <Text style={styles.addendumStatus}>O trabalho Ã© maior do que foi descrito? Pede o valor adicional.</Text>
         )}
 
         {(!addendum || addendum.status === 'failed') && !addendumAberto && (
@@ -214,7 +165,7 @@ export default function EmCursoScreen() {
         onPress={() => router.push({ pathname: '/chat', params: { jobId } })}
         activeOpacity={0.8}
       >
-        <Text style={styles.btnChatText}>💬 Falar com o Cliente</Text>
+        <Text style={styles.btnChatText}>ðŸ’¬ Falar com o Cliente</Text>
       </TouchableOpacity>
 
       <TouchableOpacity 
@@ -224,7 +175,7 @@ export default function EmCursoScreen() {
         activeOpacity={0.8}
       >
         <Text style={styles.btnConcluirText}>
-          {isFinishing ? 'A Concluir...' : '✓ Concluir Serviço'}
+          {isFinishing ? 'A Concluir...' : 'âœ“ Concluir ServiÃ§o'}
         </Text>
       </TouchableOpacity>
     </View>

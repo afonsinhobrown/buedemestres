@@ -9,10 +9,16 @@ export default function ProEntrarScreen() {
   const [referralCode, setReferralCode] = useState('')
   const [carregando, setCarregando] = useState(false)
   const [isLogin, setIsLogin] = useState(true)
+  const [aceitouTermos, setAceitouTermos] = useState(false)
+  const [aceitouEmails, setAceitouEmails] = useState(false)
 
   const handleAuth = async () => {
     if (!email || !senha) {
       Alert.alert('Erro', 'Preenche email e senha')
+      return
+    }
+    if (!isLogin && !aceitouTermos) {
+      Alert.alert('Termos', 'Tens de ler e aceitar os Termos e a Política de Privacidade.')
       return
     }
     setCarregando(true)
@@ -22,10 +28,22 @@ export default function ProEntrarScreen() {
         if (error) throw error
         router.replace('/')
       } else {
+        const { data: terms } = await supabase
+          .from('terms_versions')
+          .select('id')
+          .eq('audience', 'provider')
+          .eq('is_current', true)
+          .maybeSingle()
         const { data, error } = await supabase.auth.signUp({
           email,
           password: senha,
-          options: { data: { referral_code: referralCode.trim().toUpperCase() || null } },
+          options: {
+            data: {
+              referral_code: referralCode.trim().toUpperCase() || null,
+              terms_version_id: terms?.id || null,
+              email_opt_in: aceitouEmails,
+            },
+          },
         })
         if (error) throw error
         if (!data.session) {
@@ -94,6 +112,26 @@ export default function ProEntrarScreen() {
             </>
           )}
 
+          {!isLogin && (
+            <View style={{ marginTop: 6 }}>
+              <TouchableOpacity style={styles.checkRow} onPress={() => setAceitouTermos(!aceitouTermos)} activeOpacity={0.8}>
+                <View style={[styles.checkbox, aceitouTermos && styles.checkboxOn]}>
+                  {aceitouTermos && <Text style={styles.checkmark}>✓</Text>}
+                </View>
+                <Text style={styles.checkText}>Li e aceito os Termos e a Política de Privacidade.</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.checkRow} onPress={() => setAceitouEmails(!aceitouEmails)} activeOpacity={0.8}>
+                <View style={[styles.checkbox, aceitouEmails && styles.checkboxOn]}>
+                  {aceitouEmails && <Text style={styles.checkmark}>✓</Text>}
+                </View>
+                <Text style={styles.checkText}>Aceito receber emails e comunicações da plataforma.</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/termos')}>
+                <Text style={styles.termsLink}>Ler os termos completos</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {carregando ? (
             <ActivityIndicator size="large" color="#F2C94C" style={{ marginVertical: 16 }} />
           ) : (
@@ -127,4 +165,10 @@ const styles = StyleSheet.create({
   btnText: { color: '#1A1A2E', fontWeight: '900', fontSize: 15, letterSpacing: 1 },
   btnLink: { alignItems: 'center', paddingVertical: 8 },
   linkText: { color: '#F2C94C', fontSize: 14, fontWeight: '700' },
+  checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 10 },
+  checkbox: { width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: '#F2C94C', alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  checkboxOn: { backgroundColor: '#F2C94C' },
+  checkmark: { color: '#1A1A2E', fontWeight: '900', fontSize: 13 },
+  checkText: { flex: 1, color: '#E2E8F0', fontSize: 12, lineHeight: 17 },
+  termsLink: { color: '#F2C94C', fontSize: 12, fontWeight: '800', textDecorationLine: 'underline', marginLeft: 32, marginTop: 6 },
 })

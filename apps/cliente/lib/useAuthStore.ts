@@ -21,6 +21,19 @@ interface AuthState {
   signOut: () => Promise<void>;
 }
 
+async function ensureTermsAcceptance(userId: string, metadata: any) {
+  const versionId = Number(metadata?.terms_version_id);
+  if (!Number.isFinite(versionId) || versionId <= 0) return;
+  await supabase.from('terms_acceptances').upsert(
+    {
+      profile_id: userId,
+      terms_version_id: versionId,
+      email_opt_in: Boolean(metadata?.email_opt_in),
+    },
+    { onConflict: 'profile_id,terms_version_id', ignoreDuplicates: true }
+  );
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   user: null,
@@ -55,7 +68,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         );
         const { data: created, error: createError } = await supabase
           .from('profiles')
-          .insert({ id: authUser.id, full_name: fullName, role: 'client' })
+          .insert({ id: authUser.id, full_name: fullName, email: authUser.email || null, role: 'client' })
           .select('*')
           .single();
         if (createError) throw createError;
@@ -67,6 +80,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           role: created.role || 'client',
         };
         set({ profile: prof });
+        await ensureTermsAcceptance(authUser.id, authUser.user_metadata);
         return prof;
       }
 
@@ -78,6 +92,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         role: data.role || 'client',
       };
       set({ profile: prof });
+      await ensureTermsAcceptance(authUser.id, authUser.user_metadata);
       return prof;
     } catch (e) {
       console.warn('Erro ao carregar perfil:', e);

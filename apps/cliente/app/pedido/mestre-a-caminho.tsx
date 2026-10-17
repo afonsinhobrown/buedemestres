@@ -24,6 +24,10 @@ export default function MestreACaminhoScreen() {
   const [addendumPagando, setAddendumPagando] = useState(false)
   const [providerPoint, setProviderPoint] = useState<GeoPoint | null>(null)
   const [clientPoint, setClientPoint] = useState<GeoPoint | null>(null)
+  const [empresaInfo, setEmpresaInfo] = useState<{ trade_name: string; legal_name: string } | null>(null)
+  const [mestreAtribuido, setMestreAtribuido] = useState<{ full_name: string; avatar_url: string | null } | null>(null)
+  const [qrStartReady, setQrStartReady] = useState(false)
+  const [qrFinishReady, setQrFinishReady] = useState(false)
 
   const [mestreInfo, setMestreInfo] = useState({
     nome: params.mestreNome || 'Provedor 1',
@@ -51,7 +55,7 @@ export default function MestreACaminhoScreen() {
       try {
         const { data: job } = await supabase
           .from('jobs')
-          .select('id, request_id, status, transport_mode, cancel_reason, arrived_at, provider_lat, provider_lng')
+          .select('id, request_id, provider_id, status, transport_mode, cancel_reason, arrived_at, provider_lat, provider_lng')
           .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
           .maybeSingle()
 
@@ -76,6 +80,28 @@ export default function MestreACaminhoScreen() {
             .order('created_at', { ascending: false })
             .limit(1)
           setAddendum(addenda?.[0] || null)
+
+          if (job.provider_id) {
+            const { data: provider } = await supabase
+              .from('provider_profiles')
+              .select('business_name, profiles:profile_id(full_name, avatar_url)')
+              .eq('profile_id', job.provider_id)
+              .maybeSingle()
+            if (provider) {
+              setMestreAtribuido({
+                full_name:
+                  (provider.profiles as any)?.full_name || provider.business_name || 'Mestre',
+                avatar_url: (provider.profiles as any)?.avatar_url || null,
+              })
+            }
+
+            const { data: companyMaster } = await supabase
+              .from('company_masters')
+              .select('company:company_id(trade_name, legal_name)')
+              .eq('provider_id', job.provider_id)
+              .maybeSingle()
+            setEmpresaInfo((companyMaster as any)?.company || null)
+          }
           const modo = job.transport_mode || job.cancel_reason
           if (modo) {
             setTransporteUtilizado(modo)
@@ -96,6 +122,17 @@ export default function MestreACaminhoScreen() {
           } else {
             setJobStatus('a_preparar')
           }
+        }
+
+        try {
+          const qrRes = await fetch(`${API_BASE}/api/jobs/qr/status?jobId=${encodeURIComponent(params.jobId)}`)
+          const qrData = await qrRes.json().catch(() => ({}))
+          if (qrData?.ok) {
+            setQrStartReady(Boolean(qrData.startReady))
+            setQrFinishReady(Boolean(qrData.finishReady))
+          }
+        } catch {
+          // QR é opcional em caso de falha de rede
         }
       } catch (err) {
         console.warn('Erro ao verificar progresso do mestre:', err)
@@ -302,6 +339,24 @@ export default function MestreACaminhoScreen() {
           </View>
         )}
 
+        {empresaInfo && (
+          <View style={styles.empresaBox}>
+            <Text style={styles.empresaLabel}>EMPRESA PRESTADORA</Text>
+            <Text style={styles.empresaNome}>{empresaInfo.trade_name || empresaInfo.legal_name}</Text>
+            <Text style={styles.empresaMestre}>
+              Mestre atribuído: {mestreAtribuido?.full_name || mestreInfo.nome}
+            </Text>
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={styles.reportarBtn}
+          onPress={() => router.push({ pathname: '/reportar-mestre', params: { jobId: params.jobId } })}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.reportarText}>⚠ Mestre diferente do atribuído? Reportar</Text>
+        </TouchableOpacity>
+
         {/* Informações Reais do Mestre */}
         <View style={styles.mestreRow}>
           <Image
@@ -335,6 +390,26 @@ export default function MestreACaminhoScreen() {
             <Text style={styles.etaLabel}>Transporte</Text>
           </View>
         </View>
+
+        {qrStartReady && (
+          <TouchableOpacity
+            style={[styles.btnAcompanharServico, { backgroundColor: '#1D4ED8', borderColor: '#60A5FA' }]}
+            onPress={() => router.push({ pathname: '/scan-qr', params: { jobId: params.jobId, phase: 'start' } })}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.btnAcompanharServicoText}>📷 Ler QR de Início</Text>
+          </TouchableOpacity>
+        )}
+
+        {qrFinishReady && (
+          <TouchableOpacity
+            style={[styles.btnAcompanharServico, { backgroundColor: '#B45309', borderColor: '#F59E0B' }]}
+            onPress={() => router.push({ pathname: '/scan-qr', params: { jobId: params.jobId, phase: 'finish' } })}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.btnAcompanharServicoText}>📷 Ler QR de Conclusão</Text>
+          </TouchableOpacity>
+        )}
 
         {jobStatus === 'arrived' && (
           <TouchableOpacity 
@@ -404,6 +479,12 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8,
   },
   mestrePlacaMapEmoji: { fontSize: 22 },
+  empresaBox: { backgroundColor: '#EFF6FF', borderWidth: 1.5, borderColor: '#3B82F6', borderRadius: 8, padding: 12, marginBottom: 10 },
+  empresaLabel: { color: '#1D4ED8', fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
+  empresaNome: { color: '#12163A', fontSize: 16, fontWeight: '900', marginTop: 2 },
+  empresaMestre: { color: '#1E40AF', fontSize: 12, marginTop: 2 },
+  reportarBtn: { paddingVertical: 8, alignItems: 'center', marginBottom: 10 },
+  reportarText: { color: '#B91C1C', fontSize: 11, fontWeight: '800' },
   painel: { backgroundColor: PAPEL, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 32, borderTopWidth: 2, borderColor: TINTA },
   dragHandle: { width: 40, height: 4, backgroundColor: '#D1D5DB', borderRadius: 2, alignSelf: 'center', marginBottom: 14 },
   prepararBox: { backgroundColor: '#EFF6FF', borderWidth: 1.5, borderColor: '#3B82F6', borderRadius: 8, padding: 12, marginBottom: 14 },

@@ -1,0 +1,62 @@
+-- 0217: bot básico de apoio por tópicos.
+create table if not exists support_bot_topics (
+  id uuid primary key default gen_random_uuid(),
+  audience text not null default 'both' check (audience in ('client','provider','both')),
+  title text not null,
+  symptoms text,
+  steps jsonb not null default '[]'::jsonb,
+  category_slug text not null default 'tecnico',
+  sort_order int not null default 0,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+alter table support_bot_topics enable row level security;
+create policy "bot_topics_select_authenticated" on support_bot_topics for select to authenticated using (is_active);
+
+insert into support_bot_topics(audience, title, symptoms, steps, category_slug, sort_order) values
+('both', 'Sem ligação / app não carrega',
+ 'A app fica em branco, dá erro de rede ou não actualiza.',
+ '["Confirma que tens dados móveis ou Wi-Fi activo.","Desliga e volta a ligar o Wi-Fi/dados.","Fecha a app por completo e abre novamente.","Actualiza a página/app para a versão mais recente.","Se continuar, abre um ticket com o erro exacto e a hora."]'::jsonb,
+ 'tecnico', 1),
+('both', 'Dados mal preenchidos',
+ 'Nome, NUIT, telefone, endereço ou orçamento com erro.',
+ '["Abre o teu perfil e corrige os dados assinalados.","Confirma o número com indicativo +258 e 9 dígitos.","No orçamento, usa apenas números e separa os itens.","Guarda e tenta novamente.","Se o erro persistir, envia captura de ecrã no ticket."]'::jsonb,
+ 'conta', 2),
+('client', 'Pagamento não confirmado',
+ 'Paguei e o estado continua pendente.',
+ '["Confirma se concluíste a janela da PaySuite.","Aguarda 2 a 5 minutos e actualiza o estado do pedido.","Verifica se o valor saiu da tua conta M-Pesa/e-Mola.","Se saiu e não confirmou, abre ticket com a referência do pagamento.","Não pagues duas vezes pelo mesmo pedido."]'::jsonb,
+ 'pagamento', 3),
+('provider', 'Pagamento não confirmado',
+ 'O cliente diz que pagou mas o serviço continua pendente.',
+ '["Pede ao cliente para confirmar a janela da PaySuite.","Aguarda 2 a 5 minutos e actualiza o ecrã.","Não inicies a deslocação sem o estado RETIDO.","Se o cliente tem comprovativo, abre ticket com a referência.","A plataforma confirma o pagamento antes de libertares o serviço."]'::jsonb,
+ 'pagamento', 4),
+('both', 'QR não lê ou expirou',
+ 'A câmara não lê o QR ou aparece expirado.',
+ '["Limpa a câmara e aumenta o brilho do ecrã.","Aproxima o telemóvel e mantém o QR dentro do quadrado.","Gera um novo QR no ecrã do mestre.","Usa o código manual de 6 dígitos como alternativa.","Se continuar, abre ticket indicando a fase (início/fim)."]'::jsonb,
+ 'tecnico', 5),
+('client', 'Mestre diferente do atribuído',
+ 'Quem chegou não é o mestre mostrado na app.',
+ '["Não inicies o serviço com outra pessoa.","Pede o nome e confirma na app o mestre atribuído.","Lê o QR: se for de outro mestre, o sistema bloqueia.","Usa o botão REPORTAR MESTRE DIFERENTE.","A plataforma pode aplicar multa, suspensão ou eliminação."]'::jsonb,
+ 'disputa', 6),
+('both', 'Serviço não concluído / cliente ausente',
+ 'O cliente não aparece ou o serviço não pode ser concluído.',
+ '["Tenta contactar o cliente pelo chat da plataforma.","Aguarda o tempo previsto na política de espera.","Regista a situação no ticket com hora e local.","Não marques o serviço como concluído sem confirmação.","A equipa de apoio vai mediar e decidir."]'::jsonb,
+ 'disputa', 7),
+('provider', 'Saldo ou carregamento',
+ 'O saldo não aparece após carregar.',
+ '["Confirma se o pagamento foi concluído na PaySuite.","Aguarda alguns minutos e abre Planos/Carregar.","Verifica o histórico de carregamentos.","Se o valor saiu e não entrou, abre ticket com a referência.","Não repitas o carregamento sem confirmar o primeiro."]'::jsonb,
+ 'pagamento', 8),
+('provider', 'Limite do plano esgotado',
+ 'Já não consigo aceitar pedidos.',
+ '["Vai a Planos e vê o limite do teu plano.","Compra um plano superior ou créditos de serviço.","Os créditos permitem continuar sem mudar de plano.","O trial só dura 15 dias e 5 serviços.","Se o limite estiver errado, abre ticket."]'::jsonb,
+ 'conta', 9),
+('both', 'Conta, senha ou login',
+ 'Não consigo entrar ou a conta está bloqueada.',
+ '["Confirma o email e a palavra-passe.","Usa a opção de recuperação de palavra-passe.","Verifica a caixa de spam do email.","Se a conta estiver suspensa, abre ticket.","Nunca partilhes a tua senha com ninguém."]'::jsonb,
+ 'conta', 10),
+('both', 'Erro ou comportamento estranho na app',
+ 'Ecrãs em branco, botões que não respondem ou erros.',
+ '["Fecha e abre a app novamente.","Verifica se há actualização disponível.","Tenta noutra rede (Wi-Fi/dados).","Anota a hora e o ecrã onde aconteceu.","Envia captura de ecrã no ticket."]'::jsonb,
+ 'tecnico', 11)
+on conflict do nothing;

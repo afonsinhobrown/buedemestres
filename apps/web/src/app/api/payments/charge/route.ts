@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { buildPaymentReference, createPaySuiteCharge, type PaySuiteMethod } from '@/lib/paysuite';
-import { clampSandboxAmount, getSandboxSettings } from '@/lib/sandbox';
+import { getSandboxSettings } from '@/lib/sandbox';
+import { getPlatformRates } from '@/lib/rates';
 
 export const dynamic = 'force-dynamic';
-
-const COMMISSION_RATE = 0.12;
 
 function mapMethod(method?: string): PaySuiteMethod | undefined {
   if (method === 'mpesa') return 'mpesa';
@@ -48,7 +47,60 @@ export async function POST(req: Request) {
     if (!job) return NextResponse.json({ ok: false, error: 'trabalho não encontrado' }, { status: 404 });
 
     const sandbox = await getSandboxSettings();
-    const chargedAmount = clampSandboxAmount(amount, sandbox);
+    const rates = await getPlatformRates();
+
+    if (sandbox.active && (amount < sandbox.min || amount > sandbox.max)) {
+      return NextResponse.json(
+        { ok: false, error: `No modo sandbox, o valor do serviço deve estar entre ${sandbox.min} e ${sandbox.max} MT.` },
+        { status: 400 }
+      );
+    }
+    const contractAmount = amount;
+
+    const [{ rows: providerRows }, { rows: providerCompleted }, { rows: clientCompleted }] = await Promise.all([
+      db.query<{ trial_ends_at: string | null }>(
+        `select trial_ends_at from provider_profiles where profile_id = $1 limit 1`,
+        [job.provider_id]
+      ),
+      db.query<{ count: string }>(
+        `select count(*)::text as count from jobs where provider_id = $1 and status = 'completed'`,
+        [job.provider_id]
+      ),
+      db.query<{ count: string }>(
+        `select count(*)::text as count from jobs where client_id = $1 and status = 'completed'`,
+        [job.client_id]
+      ),
+    ]);
+
+    const trialActive = Boolean(
+      providerRows[0]?.trial_ends_at && new Date(providerRows[0].trial_ends_at).getTime() > Date.now()
+    );
+    const providerCount = Number(providerCompleted[0]?.count || 0);
+    const clientCount = Number(clientCompleted[0]?.count || 0);
+
+    let commissionRate = trialActive ? rates.trialCommissionRate : rates.commissionRate;
+    if (!trialActive && rates.loyaltyMasterThreshold > 0 && (providerCount + 1) % rates.loyaltyMasterThreshold === 0) {
+      commissionRate = rates.trialCommissionRate;
+    }
+
+    const nextClientService = clientCount + 1;
+    const clientDiscount =
+      rates.loyaltyClientThreshold > 0 &&
+      (nextClientService === rates.loyaltyClientThreshold ||
+        (nextClientService > rates.loyaltyClientThreshold &&
+          (nextClientService - rates.loyaltyClientThreshold) % 10 === 0))
+        ? rates.loyaltyDiscountPct / 100
+        : 0;
+
+    const chargedAmount = Number((contractAmount * (1 - clientDiscount)).toFixed(2));
+    const masterPayout = Number((contractAmount * (1 - commissionRate)).toFixed(2));
+    let commission = Number((chargedAmount - masterPayout).toFixed(2));
+    let payout = masterPayout;
+    if (commission < 0) {
+      commission = 0;
+      payout = chargedAmount;
+    }
+    const storedCommissionRate = chargedAmount > 0 ? commission / chargedAmount : 0;
 
     const reference = buildPaymentReference();
     const charge = await createPaySuiteCharge({
@@ -59,8 +111,10 @@ export async function POST(req: Request) {
       webhookUrl: process.env.PAYSUITE_WEBHOOK_URL || undefined,
     });
 
-    const commission = Number((chargedAmount * COMMISSION_RATE).toFixed(2));
-    const payout = Number((chargedAmount - commission).toFixed(2));
+    await db.query(
+      `update jobs set agreed_amount = $2, price_proposed = $2, updated_at = now() where id = $1`,
+      [job.id, contractAmount]
+    );
 
     await db.query(
       `insert into job_payments
@@ -75,7 +129,7 @@ export async function POST(req: Request) {
          method = excluded.method,
          status = 'pending_payment',
          provider_ref = excluded.provider_ref`,
-      [job.id, job.client_id, job.provider_id, chargedAmount, COMMISSION_RATE, commission, payout,
+      [job.id, job.client_id, job.provider_id, chargedAmount, storedCommissionRate, commission, payout,
        paymentMethodColumn(method), charge.reference]
     );
 
@@ -86,6 +140,10 @@ export async function POST(req: Request) {
       checkoutUrl: charge.checkoutUrl ?? null,
       status: charge.status,
       amount: chargedAmount,
+      originalAmount: contractAmount,
+      discount: Number((contractAmount - chargedAmount).toFixed(2)),
+      commissionRate,
+      trial: trialActive,
       sandbox: sandbox.active,
     });
   } catch (error) {

@@ -12,7 +12,7 @@ export default async function ConfiguracoesPage() {
   const sandbox = await getSandboxSettings()
   const plansRes = await db.query(
     `select id, code, name, price, max_services, max_photos, weekend_priority,
-            recurring_visibility, rating_boost
+            recurring_visibility, rating_boost, credit_price, max_masters
        from plans order by sort_order`
   )
 

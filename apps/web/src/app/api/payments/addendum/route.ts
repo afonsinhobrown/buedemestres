@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { notify } from '@/lib/pusher';
 import { buildPaymentReference } from '@/lib/paysuite';
-import { clampSandboxAmount, getSandboxSettings } from '@/lib/sandbox';
+import { getSandboxSettings } from '@/lib/sandbox';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,9 +37,15 @@ export async function POST(req: Request) {
     const job = rows[0];
     if (!job) return NextResponse.json({ ok: false, error: 'trabalho não encontrado' }, { status: 404 });
 
-    const rate = Number(job.commission_rate ?? 0.12);
+    const rate = Number(job.commission_rate ?? 0.2);
     const sandbox = await getSandboxSettings();
-    const finalAmount = clampSandboxAmount(amount, sandbox);
+    if (sandbox.active && (amount < sandbox.min || amount > sandbox.max)) {
+      return NextResponse.json(
+        { ok: false, error: `No modo sandbox, o aditamento deve estar entre ${sandbox.min} e ${sandbox.max} MT.` },
+        { status: 400 }
+      );
+    }
+    const finalAmount = amount;
     const commission = Number((finalAmount * rate).toFixed(2));
     const payout = Number((finalAmount - commission).toFixed(2));
     const reference = buildPaymentReference();

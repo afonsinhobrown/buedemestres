@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 
 export default function SuperadminLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -26,6 +27,8 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
             <a href="/superadmin/aprovacoes" className="block p-3 hover:bg-gray-800 rounded text-sm">Aprovações Pendentes</a>
             <a href="/superadmin/auditoria" className="block p-3 hover:bg-gray-800 rounded text-sm">Audit Logs</a>
             <a href="/configuracoes" className="block p-3 hover:bg-gray-800 rounded text-sm">Configurações & Planos</a>
+            <Link href="/empresas" className="block p-3 hover:bg-gray-800 rounded text-sm">Empresas</Link>
+            <Link href="/tickets" className="block p-3 hover:bg-gray-800 rounded text-sm">Tickets</Link>
             <a href="/superadmin/ver-como" className="block p-3 hover:bg-gray-800 rounded text-sm text-yellow-500 font-medium">Ver Como Utilizador</a>
           </nav>
         </aside>
