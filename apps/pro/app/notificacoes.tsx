@@ -44,19 +44,27 @@ export default function ProNotificacoesScreen() {
     }
 
     let channel: ReturnType<typeof supabase.channel> | null = null
+    let pollTimer: ReturnType<typeof setInterval> | null = null
 
     const carregar = async () => {
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('profile_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(100)
-      setItems((data as Notification[]) || [])
-      setLoading(false)
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('profile_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(100)
+        if (error) console.warn('Erro ao carregar notificações:', error.message)
+        setItems((data as Notification[]) || [])
+      } catch (err) {
+        console.warn('Erro ao carregar notificações:', err)
+      } finally {
+        setLoading(false)
+      }
     }
 
     carregar()
+    pollTimer = setInterval(carregar, 5000)
 
     channel = supabase
       .channel(`pro_notifications_${userId}_${Date.now()}`)
@@ -68,6 +76,7 @@ export default function ProNotificacoesScreen() {
       .subscribe()
 
     return () => {
+      if (pollTimer) clearInterval(pollTimer)
       if (channel) supabase.removeChannel(channel)
     }
   }, [userId])

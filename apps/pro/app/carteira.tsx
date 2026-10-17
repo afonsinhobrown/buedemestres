@@ -5,7 +5,7 @@ import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../lib/useAuthStore'
 
-type JobPayment = { provider_payout: number | null; status: string }
+type JobPayment = { amount: number | null; commission_amount: number | null; provider_payout: number | null; status: string }
 type JobRow = {
   id: string
   request_id: string | null
@@ -54,7 +54,7 @@ export default function CarteiraScreen() {
         supabase.from('provider_payout_accounts').select('profile_id').eq('profile_id', providerId).maybeSingle(),
         supabase
           .from('jobs')
-          .select('id, request_id, agreed_amount, updated_at, service_requests:request_id(title), job_payments:job_payments(provider_payout, status)')
+          .select('id, request_id, agreed_amount, updated_at, service_requests:request_id(title), job_payments:job_payments(amount, commission_amount, provider_payout, status)')
           .eq('provider_id', providerId)
           .eq('status', 'completed')
           .order('updated_at', { ascending: false }),
@@ -137,6 +137,22 @@ export default function CarteiraScreen() {
     )
   }
 
+  const resumo = jobs.reduce(
+    (acc, job) => {
+      const rawPayment = job.job_payments
+      const payment = Array.isArray(rawPayment) ? rawPayment[0] : rawPayment
+      const payout = payouts.find((p) => p.job_id === job.id)
+      const bruto = Number(payment?.amount || job.agreed_amount || 0)
+      const liquido = Number(payment?.provider_payout || 0)
+      acc.faturacao += bruto
+      acc.comissao += Number(payment?.commission_amount || 0)
+      if (payout?.status === 'completed') acc.pago += liquido
+      else acc.devido += liquido
+      return acc
+    },
+    { faturacao: 0, comissao: 0, pago: 0, devido: 0 }
+  )
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -164,6 +180,27 @@ export default function CarteiraScreen() {
         </TouchableOpacity>
       </View>
 
+      <View style={styles.summaryRow}>
+        <View style={styles.summaryBox}>
+          <Text style={styles.summaryLabel}>DEVIDO</Text>
+          <Text style={[styles.summaryValue, { color: '#F2C94C' }]}>MT {resumo.devido.toLocaleString('pt-MZ')}</Text>
+        </View>
+        <View style={styles.summaryBox}>
+          <Text style={styles.summaryLabel}>PAGO</Text>
+          <Text style={[styles.summaryValue, { color: '#4ADE80' }]}>MT {resumo.pago.toLocaleString('pt-MZ')}</Text>
+        </View>
+      </View>
+      <View style={[styles.summaryRow, { marginBottom: 22 }]}>
+        <View style={styles.summaryBox}>
+          <Text style={styles.summaryLabel}>FATURAÇÃO</Text>
+          <Text style={styles.summaryValue}>MT {resumo.faturacao.toLocaleString('pt-MZ')}</Text>
+        </View>
+        <View style={styles.summaryBox}>
+          <Text style={styles.summaryLabel}>COMISSÕES</Text>
+          <Text style={styles.summaryValue}>MT {resumo.comissao.toLocaleString('pt-MZ')}</Text>
+        </View>
+      </View>
+
       <Text style={styles.sectionTitle}>SERVIÇOS CONCLUÍDOS</Text>
 
       {jobs.length === 0 ? (
@@ -176,13 +213,18 @@ export default function CarteiraScreen() {
           const rawRequest = job.service_requests
           const request = Array.isArray(rawRequest) ? rawRequest[0] : rawRequest
           const amount = Number(payment?.provider_payout || job.agreed_amount || 0)
+          const bruto = Number(payment?.amount || job.agreed_amount || 0)
+          const comissao = Number(payment?.commission_amount || 0)
           const released = payment?.status === 'released'
           return (
             <View key={job.id} style={styles.jobCard}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.jobTitle}>{request?.title || 'Serviço concluído'}</Text>
                 <Text style={styles.jobDate}>
-                  {new Date(job.updated_at).toLocaleDateString('pt-MZ')}
+                  Fatura #{job.id.slice(0, 8).toUpperCase()} · {new Date(job.updated_at).toLocaleDateString('pt-MZ')}
+                </Text>
+                <Text style={styles.jobBreakdown}>
+                  Bruto MT {bruto.toLocaleString('pt-MZ')} · Comissão MT {comissao.toLocaleString('pt-MZ')}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
@@ -229,11 +271,16 @@ const styles = StyleSheet.create({
   balanceValue: { color: '#F5F0E8', fontSize: 32, fontWeight: '900', marginVertical: 4 },
   accountBtn: { marginTop: 10, backgroundColor: '#F2C94C', borderRadius: 8, paddingVertical: 12, alignItems: 'center' },
   accountBtnText: { color: '#1A1A2E', fontWeight: '900', fontSize: 13 },
+  summaryRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  summaryBox: { flex: 1, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: 14 },
+  summaryLabel: { color: '#9CA3AF', fontSize: 9, fontWeight: '900', letterSpacing: 1, marginBottom: 4 },
+  summaryValue: { color: '#F5F0E8', fontSize: 18, fontWeight: '900' },
   sectionTitle: { color: '#9CA3AF', fontSize: 10, fontWeight: '900', letterSpacing: 1, marginBottom: 10 },
   empty: { color: 'rgba(255,255,255,0.5)', fontSize: 13, textAlign: 'center', marginTop: 20 },
   jobCard: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: 14, marginBottom: 10 },
   jobTitle: { color: '#F5F0E8', fontWeight: '800', fontSize: 14 },
   jobDate: { color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 2 },
+  jobBreakdown: { color: 'rgba(255,255,255,0.55)', fontSize: 11, marginTop: 3 },
   jobAmount: { color: '#F5F0E8', fontWeight: '900', fontSize: 16 },
   jobStatus: { fontSize: 11, fontWeight: '800', marginTop: 3 },
   btnPay: { width: '100%', backgroundColor: '#4ADE80', borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginTop: 6 },
