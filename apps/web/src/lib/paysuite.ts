@@ -186,3 +186,63 @@ export function verifyPaySuiteWebhookSignature(rawBody: string, signature: strin
     return false;
   }
 }
+
+export type PaySuitePayoutMethod = 'mpesa' | 'emola' | 'mkesh' | 'bank' | 'bank_transfer';
+
+export type PaySuitePayoutResult = {
+  id: string;
+  reference: string;
+  amount: number;
+  status: string | null;
+};
+
+export async function createPaySuitePayout(params: {
+  amountMZN: number;
+  reference: string;
+  description?: string;
+  method: PaySuitePayoutMethod;
+  beneficiary: { phone?: string; nib?: string; holder: string };
+  webhookUrl?: string;
+}): Promise<PaySuitePayoutResult> {
+  const payload: Record<string, unknown> = {
+    amount: Number(params.amountMZN.toFixed(2)),
+    currency: 'MZN',
+    reference: params.reference.slice(0, 30),
+    description: String(params.description || `Pagamento ${params.reference}`).slice(0, 255),
+    method: params.method,
+    beneficiary: params.beneficiary,
+  };
+  if (params.webhookUrl) payload.webhook_url = params.webhookUrl;
+
+  const payout = await paysuiteRequest<Record<string, unknown>>('/payouts', { method: 'POST', body: payload });
+
+  return {
+    id: String(payout.id ?? ''),
+    reference: String(payout.reference || params.reference),
+    amount: toNumber(payout.amount, params.amountMZN),
+    status: payout.status ? String(payout.status).toLowerCase() : null,
+  };
+}
+
+export async function getPaySuitePayoutByReference(reference: string): Promise<{
+  status: string | null;
+  paid: boolean;
+  failed: boolean;
+}> {
+  try {
+    const list = await paysuiteRequest<unknown[]>('/payouts?limit=100', { method: 'GET' });
+    const arr = Array.isArray(list) ? list : [];
+    const found = arr.find(
+      (p) => p && typeof p === 'object' && (p as Record<string, unknown>).reference === reference
+    ) as Record<string, unknown> | undefined;
+    if (!found) return { status: null, paid: false, failed: false };
+    const s = String(found.status ?? '').toLowerCase();
+    return {
+      status: s || null,
+      paid: ['completed', 'paid', 'success', 'succeeded'].includes(s),
+      failed: ['failed', 'cancelled', 'canceled', 'rejected', 'expired'].includes(s),
+    };
+  } catch {
+    return { status: null, paid: false, failed: false };
+  }
+}
