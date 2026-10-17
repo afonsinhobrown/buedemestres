@@ -33,6 +33,7 @@ export default function ProHomeScreen() {
   const [providerProfile, setProviderProfile] = useState<any>(null)
   const [availableProviders, setAvailableProviders] = useState<any[]>([])
   const [walletBalance, setWalletBalance] = useState<number>(0)
+  const [financeSummary, setFinanceSummary] = useState({ devido: 0, pago: 0, faturacao: 0 })
   const [unreadCount, setUnreadCount] = useState<number>(0)
   const [sandbox, setSandbox] = useState<{ active: boolean; min: number; max: number } | null>(null)
   const user = useAuthStore(s => s.user)
@@ -109,12 +110,34 @@ export default function ProHomeScreen() {
 
     let active = true
     const carregarSaldo = async () => {
-      const { data } = await supabase
-        .from('wallets')
-        .select('balance')
-        .eq('profile_id', proId)
-        .maybeSingle()
-      if (active) setWalletBalance(Number(data?.balance || 0))
+      const [{ data }, { data: jobRows }, { data: payoutRows }] = await Promise.all([
+        supabase.from('wallets').select('balance').eq('profile_id', proId).maybeSingle(),
+        supabase
+          .from('jobs')
+          .select('id, agreed_amount, job_payments:job_payments(amount, provider_payout, status)')
+          .eq('provider_id', proId)
+          .eq('status', 'completed'),
+        supabase.from('payouts').select('job_id, status').eq('provider_id', proId),
+      ])
+      if (!active) return
+      setWalletBalance(Number(data?.balance || 0))
+
+      const payouts = (payoutRows as any[]) || []
+      const summary = ((jobRows as any[]) || []).reduce(
+        (acc, job) => {
+          const raw = job.job_payments
+          const payment = Array.isArray(raw) ? raw[0] : raw
+          const bruto = Number(payment?.amount || job.agreed_amount || 0)
+          const liquido = Number(payment?.provider_payout || 0)
+          const payout = payouts.find((p) => p.job_id === job.id)
+          acc.faturacao += bruto
+          if (payout?.status === 'completed') acc.pago += liquido
+          else acc.devido += liquido
+          return acc
+        },
+        { devido: 0, pago: 0, faturacao: 0 }
+      )
+      setFinanceSummary(summary)
     }
 
     carregarSaldo()
@@ -691,6 +714,26 @@ export default function ProHomeScreen() {
           <Text style={styles.statLabel}>Nota</Text>
         </View>
       </View>
+
+      <TouchableOpacity
+        style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}
+        onPress={() => router.push('/carteira')}
+        activeOpacity={0.85}
+      >
+        <View style={styles.financeBox}>
+          <Text style={styles.financeLabel}>DEVIDO</Text>
+          <Text style={[styles.financeValue, { color: '#F2C94C' }]}>MT {financeSummary.devido.toLocaleString('pt-MZ')}</Text>
+        </View>
+        <View style={styles.financeBox}>
+          <Text style={styles.financeLabel}>PAGO</Text>
+          <Text style={[styles.financeValue, { color: '#4ADE80' }]}>MT {financeSummary.pago.toLocaleString('pt-MZ')}</Text>
+        </View>
+        <View style={styles.financeBox}>
+          <Text style={styles.financeLabel}>FATURAÇÃO</Text>
+          <Text style={styles.financeValue}>MT {financeSummary.faturacao.toLocaleString('pt-MZ')}</Text>
+        </View>
+      </TouchableOpacity>
+
       <View style={{ marginTop: 24, flex: 1 }}>
         <Text style={{ color: '#9CA3AF', fontSize: 14, fontWeight: '700', textTransform: 'uppercase', marginBottom: 12 }}>
           Pedidos Pendentes ({pendingJobs.length})
@@ -913,6 +956,17 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  financeBox: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  financeLabel: { color: '#9CA3AF', fontSize: 8, fontWeight: '900', letterSpacing: 0.8, marginBottom: 3 },
+  financeValue: { color: '#F5F0E8', fontSize: 13, fontWeight: '900' },
   btnVerificacao: {
     backgroundColor: '#F2C94C',
     borderRadius: 6,
