@@ -37,6 +37,7 @@ export default function ProporPrecoScreen() {
 
   const [jobData, setJobData] = useState<any>(null);
   const [actualJobId, setActualJobId] = useState<string>('');
+  const [actualRequestId, setActualRequestId] = useState<string>(targetId);
   const [clientFeedback, setClientFeedback] = useState<string | null>(null);
   const [contraValorCliente, setContraValorCliente] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,13 +78,14 @@ export default function ProporPrecoScreen() {
       }
       try {
         // Carregar pedido e cliente
-        const { data: req } = await supabase
+        let { data: req } = await supabase
           .from('service_requests')
           .select('*, profiles:client_id(full_name, avatar_url)')
           .eq('id', targetId)
           .maybeSingle();
 
         if (req) {
+          setActualRequestId(req.id);
           setJobData(req);
         }
 
@@ -96,6 +98,23 @@ export default function ProporPrecoScreen() {
 
         if (job) {
           setActualJobId(job.id);
+          // O parâmetro pode ser o id do job (ex.: vindo de "aguardar-pagamento").
+          // Nesse caso o pedido tem de ser resolvido pelo job.request_id.
+          if (job.request_id) {
+            setActualRequestId(job.request_id);
+            if (!req) {
+              const { data: reqDoJob } = await supabase
+                .from('service_requests')
+                .select('*, profiles:client_id(full_name, avatar_url)')
+                .eq('id', job.request_id)
+                .maybeSingle();
+              if (reqDoJob) {
+                req = reqDoJob;
+                setJobData(reqDoJob);
+              }
+            }
+          }
+
           const { data: prop } = await supabase
             .from('job_price_proposals')
             .select('*')
@@ -212,65 +231,67 @@ export default function ProporPrecoScreen() {
             .map(l => ({ ...l, price: (parseFloat(l.price) * fator).toFixed(2) }));
 
       let jId = actualJobId;
-      const providerId = jobData?.target_provider_id || user?.id;
+      let requestId = actualRequestId || targetId;
+
+      // O ecrã pode ser aberto com o id do job (ex.: a partir de
+      // "aguardar-pagamento"). Nesse caso temos de resolver o pedido real
+      // através de jobs.request_id, senão o cliente não é encontrado.
+      const { data: job } = await supabase
+        .from('jobs')
+        .select('id, request_id, client_id, provider_id, status')
+        .or(`id.eq.${targetId},request_id.eq.${targetId}`)
+        .maybeSingle();
+
+      if (job) {
+        jId = job.id;
+        if (job.request_id) requestId = job.request_id;
+      }
+
+      const providerId = job?.provider_id || jobData?.target_provider_id || user?.id;
       if (!providerId) {
         mostrarAlerta('Sessão', 'Precisas de entrar na tua conta de mestre.');
         return;
-      }
-      if (!jId) {
-        const { data: req } = await supabase
-          .from('service_requests')
-          .select('id, client_id')
-          .eq('id', targetId)
-          .maybeSingle();
-
-        const { data: existingJob } = await supabase
-          .from('jobs')
-          .select('id')
-          .or(`id.eq.${targetId},request_id.eq.${targetId}`)
-          .maybeSingle();
-
-        if (existingJob) {
-          jId = existingJob.id;
-        } else {
-          const { data: createdJob, error: createdJobError } = await supabase
-            .from('jobs')
-            .upsert({
-              request_id: targetId,
-              client_id: req?.client_id,
-              provider_id: providerId,
-              status: 'price_proposed',
-              price_proposed: totalProposta
-            }, { onConflict: 'request_id' })
-            .select()
-            .single();
-
-          if (createdJobError || !createdJob) {
-            throw new Error(createdJobError?.message || 'Não foi possível criar o trabalho.')
-          }
-
-          jId = createdJob.id;
-        }
       }
 
       // 1. Obter dados do pedido e cliente
       const { data: req } = await supabase
         .from('service_requests')
         .select('id, client_id, title')
-        .or(`id.eq.${targetId},id.eq.${jId}`)
+        .eq('id', requestId)
         .maybeSingle();
 
-      const clientUserId = req?.client_id;
+      const clientUserId = req?.client_id || job?.client_id;
       if (!clientUserId) {
         mostrarAlerta('Erro', 'Cliente não encontrado para este pedido.');
         return;
       }
+
+      if (!jId) {
+        const { data: createdJob, error: createdJobError } = await supabase
+          .from('jobs')
+          .upsert({
+            request_id: requestId,
+            client_id: clientUserId,
+            provider_id: providerId,
+            status: 'price_proposed',
+            price_proposed: totalProposta
+          }, { onConflict: 'request_id' })
+          .select()
+          .single();
+
+        if (createdJobError || !createdJob) {
+          throw new Error(createdJobError?.message || 'Não foi possível criar o trabalho.')
+        }
+
+        jId = createdJob.id;
+      }
+
       const mensagem = mensagemDetalhes.trim();
       const payloadDesc = JSON.stringify({ lines: validLines, message: mensagem || null });
 
       // 2. Registar a proposta de orçamento em job_price_proposals
       const { error: proposalError } = await supabase.from('job_price_proposals').insert({
-        job_id: jId || targetId,
+        job_id: jId || requestId,
         proposed_by: providerId,
         amount: totalProposta,
         description: payloadDesc,
@@ -290,7 +311,7 @@ export default function ProporPrecoScreen() {
         .from('jobs')
         .upsert({
           id: jId || undefined,
-          request_id: targetId,
+          request_id: requestId,
           client_id: clientUserId,
           provider_id: providerId,
           status: 'price_proposed',
@@ -311,7 +332,7 @@ export default function ProporPrecoScreen() {
           budget_max: totalProposta,
           updated_at: new Date().toISOString()
         })
-        .or(`id.eq.${targetId},id.eq.${jId}`);
+        .eq('id', requestId);
 
       if (requestUpdateError) {
         throw new Error(requestUpdateError.message || 'Não foi possível atualizar o pedido.')
@@ -327,8 +348,8 @@ export default function ProporPrecoScreen() {
             ? `O mestre propôs MT ${totalProposta} e pediu mais detalhes: "${mensagem}"`
             : `O mestre propôs o valor de MT ${totalProposta} para o seu pedido.`,
           data: {
-            jobId: jId || targetId,
-            requestId: targetId,
+            jobId: jId || requestId,
+            requestId: requestId,
             amount: totalProposta,
             message: mensagem || null,
             title: req?.title || 'Serviço'
@@ -341,12 +362,12 @@ export default function ProporPrecoScreen() {
       // O mestre aguarda a aprovação e pagamento do cliente antes de sair!
       // Passa o turno ao cliente com prazo (reinicia o relógio da negociação).
       await supabase.rpc('set_negotiation_turn', {
-        p_job: jId || targetId,
+        p_job: jId || requestId,
         p_owner: 'client',
         p_is_counter: false
       })
 
-      router.push(`/trabalho/aguardar-pagamento?jobId=${jId || targetId}&valor=${totalProposta}`);
+      router.push(`/trabalho/aguardar-pagamento?jobId=${jId || requestId}&valor=${totalProposta}`);
     } catch (error: any) {
       console.error('Erro ao enviar proposta:', error);
       mostrarAlerta('Erro', error.message || 'Ocorreu um erro ao propor o preço.');
