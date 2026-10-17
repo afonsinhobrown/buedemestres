@@ -55,13 +55,14 @@ export default async function proxy(req: NextRequest) {
     }
 
     const mfaVerified = session?.mfaVerified as boolean
+    const mfaRequired = session?.mfaRequired as boolean
     const mustChangePassword = session?.mustChangePassword as boolean
 
     if (mustChangePassword && !pathname.startsWith('/superadmin/definir-senha')) {
       return NextResponse.redirect(new URL('/superadmin/definir-senha', req.url))
     }
 
-    if (!mustChangePassword && !mfaVerified && !pathname.startsWith('/superadmin/mfa')) {
+    if (mfaRequired === true && !mfaVerified && !pathname.startsWith('/superadmin/mfa')) {
       return NextResponse.redirect(new URL('/superadmin/mfa', req.url))
     }
 

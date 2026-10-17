@@ -124,10 +124,19 @@ export async function loginAction(
 
   const { email, password } = parsed.data
 
-  const { rows } = await db.query<{ id: string; role: Profile['role']; password_hash: string; is_active: boolean }>(
-    `select p.id, p.role, p.is_active, up.password_hash
+  const { rows } = await db.query<{
+    id: string
+    role: Profile['role']
+    password_hash: string
+    is_active: boolean
+    must_change_password: boolean | null
+    mfa_required: boolean | null
+  }>(
+    `select p.id, p.role, p.is_active, up.password_hash,
+            sp.must_change_password, sp.mfa_required
      from profiles p
      join user_passwords up on up.profile_id = p.id
+     left join staff_profiles sp on sp.profile_id = p.id
      where p.email = $1`,
     [email]
   )
@@ -149,7 +158,16 @@ export async function loginAction(
 
   const redirectTo = (formData.get('redirectTo') as string) || ''
   await db.query('update staff_profiles set last_login_at = now() where profile_id = $1', [user.id])
-  await createSession(user.id, user.role)
+
+  const isStaff = ['support', 'moderator', 'finance', 'admin', 'superadmin'].includes(user.role)
+  await createSession(user.id, user.role, {
+    // A verificação MFA ainda não está implementada no painel. Só exigimos o
+    // ecrã de MFA às contas que tenham mfa_required=true na base de dados;
+    // caso contrário o superadmin ficava preso num ecrã sem verificação.
+    mfaRequired: Boolean(isStaff && user.mfa_required),
+    mfaVerified: !isStaff || !user.mfa_required,
+    mustChangePassword: Boolean(isStaff && user.must_change_password),
+  })
   if (redirectTo && redirectTo.startsWith('/')) redirect(redirectTo)
   if (user.role === 'superadmin') redirect('/superadmin')
   if (user.role === 'admin') redirect('/tickets')

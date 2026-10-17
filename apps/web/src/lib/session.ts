@@ -38,10 +38,18 @@ export async function decrypt(
 
 export async function createSession(
   userId: string,
-  role: SessionPayload['role']
+  role: SessionPayload['role'],
+  flags?: { mfaVerified?: boolean; mfaRequired?: boolean; mustChangePassword?: boolean }
 ): Promise<void> {
   const expiresAt = new Date(Date.now() + SESSION_DURATION_MS)
-  const token = await encrypt({ userId, role, expiresAt })
+  const token = await encrypt({
+    userId,
+    role,
+    expiresAt,
+    mfaVerified: flags?.mfaVerified ?? false,
+    mfaRequired: flags?.mfaRequired ?? false,
+    mustChangePassword: flags?.mustChangePassword ?? false,
+  })
   const store = await cookies()
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,

@@ -98,5 +98,6 @@ export interface SessionPayload {
   role: UserRole
   expiresAt: Date
   mfaVerified?: boolean
+  mfaRequired?: boolean
   mustChangePassword?: boolean
 }

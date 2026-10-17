@@ -67,7 +67,7 @@ export async function criarMembroEquipa(formData: FormData) {
 
       await client.query(
         `insert into staff_profiles(profile_id, staff_role, must_change_password, mfa_required, is_active, created_by)
-         values ($1, $2, true, false, true, $3)
+         values ($1, $2, false, false, true, $3)
          on conflict (profile_id) do update
            set staff_role = excluded.staff_role, is_active = true, created_by = excluded.created_by`,
         [profileId, role, session.userId]
