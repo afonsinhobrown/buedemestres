@@ -50,6 +50,29 @@ export default async function SuperadminDashboard() {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <Link href="/superadmin/financeiro" className="bg-white border border-gray-200 p-5 rounded-xl shadow-sm hover:border-blue-400 transition">
+          <p className="text-2xl mb-2">💰</p>
+          <p className="font-bold text-gray-900">Financeiro</p>
+          <p className="text-xs text-gray-500">Entradas, saques, taxas e relatórios</p>
+        </Link>
+        <Link href="/superadmin/promocoes" className="bg-white border border-gray-200 p-5 rounded-xl shadow-sm hover:border-orange-400 transition">
+          <p className="text-2xl mb-2">🎁</p>
+          <p className="font-bold text-gray-900">Promoções</p>
+          <p className="text-xs text-gray-500">Descontos para clientes e mestres</p>
+        </Link>
+        <Link href="/superadmin/equipa" className="bg-white border border-gray-200 p-5 rounded-xl shadow-sm hover:border-purple-400 transition">
+          <p className="text-2xl mb-2">👥</p>
+          <p className="font-bold text-gray-900">Equipa</p>
+          <p className="text-xs text-gray-500">Criar contas de gestão e apoio</p>
+        </Link>
+        <Link href="/tickets" className="bg-white border border-gray-200 p-5 rounded-xl shadow-sm hover:border-green-400 transition">
+          <p className="text-2xl mb-2">🎧</p>
+          <p className="font-bold text-gray-900">Apoio</p>
+          <p className="text-xs text-gray-500">Tickets e pedidos de suporte</p>
+        </Link>
+      </div>
+
       <div className="bg-white border border-gray-200 p-8 rounded-xl shadow-sm">
         <h2 className="text-xl font-bold mb-4">Ações Rápidas de Emergência</h2>
         <div className="flex gap-4">

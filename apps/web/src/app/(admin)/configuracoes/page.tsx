@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { Toaster } from 'sonner'
 import { getSandboxSettings } from '@/lib/sandbox'
 import { ConfiguracoesForm, type Plan } from './ConfiguracoesForm'
+import { VoltarDashboard } from '@/components/layout/VoltarDashboard'
 
 export default async function ConfiguracoesPage() {
   const session = await verifySession()
@@ -19,6 +20,7 @@ export default async function ConfiguracoesPage() {
   return (
     <div className="p-8 max-w-6xl mx-auto bg-gray-50 min-h-screen">
       <Toaster position="top-right" richColors />
+      <div className="mb-4"><VoltarDashboard href={session.role === 'superadmin' ? '/superadmin' : '/tickets'} /></div>
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Configurações</h1>
         <p className="text-gray-500">Modo sandbox, planos e benefícios dos mestres.</p>

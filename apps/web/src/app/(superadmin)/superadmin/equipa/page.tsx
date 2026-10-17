@@ -1,6 +1,9 @@
 import { db } from '@/lib/db'
 import { verifySession } from '@/lib/session'
 import { redirect } from 'next/navigation'
+import { Toaster } from 'sonner'
+import { VoltarDashboard } from '@/components/layout/VoltarDashboard'
+import { MembroAcoes, NovoMembroForm } from './EquipaClient'
 
 export default async function EquipaPage() {
   const session = await verifySession()
@@ -17,14 +20,15 @@ export default async function EquipaPage() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
-      <div className="mb-8 flex justify-between items-center">
+      <Toaster position="top-right" richColors />
+      <div className="mb-4"><VoltarDashboard /></div>
+
+      <div className="mb-8 flex justify-between items-start gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Gestão de Equipa</h1>
-          <p className="text-gray-500">Convide administradores, moderadores e equipa de suporte.</p>
+          <p className="text-gray-500">Cria e gere contas de apoio, moderação, financeiro e administração.</p>
         </div>
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-bold shadow-sm transition">
-          + Convidar Membro
-        </button>
+        <NovoMembroForm />
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
@@ -36,7 +40,7 @@ export default async function EquipaPage() {
               <th className="p-4 font-semibold text-gray-700">MFA</th>
               <th className="p-4 font-semibold text-gray-700">Estado</th>
               <th className="p-4 font-semibold text-gray-700">Último Login</th>
-              <th className="p-4 font-semibold text-gray-700 text-right">Acções</th>
+              <th className="p-4 font-semibold text-gray-700 text-right">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -69,10 +73,17 @@ export default async function EquipaPage() {
                   {member.last_login_at ? new Date(member.last_login_at).toLocaleString('pt-MZ') : 'Nunca'}
                 </td>
                 <td className="p-4 text-right">
-                  <button className="text-blue-600 font-bold hover:underline">Editar</button>
+                  <MembroAcoes profileId={member.profile_id} isActive={member.is_active} />
                 </td>
               </tr>
             ))}
+            {teamRes.rows.length === 0 && (
+              <tr>
+                <td colSpan={6} className="p-8 text-center text-gray-500">
+                  Ainda não há membros de equipa. Cria o primeiro com o botão acima.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

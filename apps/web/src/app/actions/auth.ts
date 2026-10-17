@@ -148,6 +148,7 @@ export async function loginAction(
   }
 
   const redirectTo = (formData.get('redirectTo') as string) || ''
+  await db.query('update staff_profiles set last_login_at = now() where profile_id = $1', [user.id])
   await createSession(user.id, user.role)
   if (redirectTo && redirectTo.startsWith('/')) redirect(redirectTo)
   if (user.role === 'superadmin') redirect('/superadmin')
