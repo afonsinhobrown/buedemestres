@@ -5,6 +5,7 @@ const NAV = [
   { href: '/superadmin', label: 'Dashboard' },
   { href: '/superadmin/financeiro', label: 'Financeiro' },
   { href: '/superadmin/pagamentos-aprovacao', label: 'Pagamentos por Aprovação' },
+  { href: '/superadmin/socios', label: 'Sócios' },
   { href: '/superadmin/promocoes', label: 'Promoções' },
   { href: '/superadmin/equipa', label: 'Equipa' },
   { href: '/superadmin/aprovacoes', label: 'Aprovações' },

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { dispatchPayout, reconcileProcessingPayouts } from '@/lib/payouts';
+import { reconcileProcessingPartnerPayouts } from '@/lib/platform-withdrawals';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -38,6 +39,7 @@ export async function POST(req: Request) {
   }
 
   const reconciled = await reconcileProcessingPayouts();
+  const partnerReconciled = await reconcileProcessingPartnerPayouts();
 
   return NextResponse.json({
     ok: true,
@@ -46,5 +48,6 @@ export async function POST(req: Request) {
     sent,
     failed,
     reconciled,
+    partnerReconciled,
   });
 }

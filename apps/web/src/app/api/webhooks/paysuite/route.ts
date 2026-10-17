@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyPaySuiteWebhookSignature, REF_PREFIX } from '@/lib/paysuite';
 import { confirmJobPaymentByReference, failJobPaymentByReference, confirmAddendumByReference, failAddendumByReference } from '@/lib/job-payment';
 import { confirmPayoutByReference, failPayoutByReference } from '@/lib/payouts';
+import { confirmPartnerPayoutByReference, failPartnerPayoutByReference } from '@/lib/platform-withdrawals';
 import { confirmTopupByReference, failTopupByReference } from '@/lib/wallet-topup';
 
 export const dynamic = 'force-dynamic';
@@ -47,12 +48,29 @@ export async function POST(req: Request) {
 
   if (
     !reference ||
-    (!reference.startsWith(REF_PREFIX) && !reference.startsWith('BMTOP') && !reference.startsWith('BMPAY'))
+    (!reference.startsWith(REF_PREFIX) &&
+      !reference.startsWith('BMTOP') &&
+      !reference.startsWith('BMPAY') &&
+      !reference.startsWith('BMPRT'))
   ) {
     return NextResponse.json({ received: true, ignored: true });
   }
 
   try {
+    if (reference.startsWith('BMPRT')) {
+      const paid = isPaid(event, status) || event === 'payout.success' || event === 'payout.completed';
+      const failed = isFailed(event, status) || event === 'payout.failed';
+      if (paid) {
+        const result = await confirmPartnerPayoutByReference(reference);
+        return NextResponse.json({ received: true, result });
+      }
+      if (failed) {
+        const result = await failPartnerPayoutByReference(reference, 'PaySuite reportou falha no payout do sócio');
+        return NextResponse.json({ received: true, result });
+      }
+      return NextResponse.json({ received: true, ignored: event || status });
+    }
+
     if (reference.startsWith('BMPAY')) {
       const payoutPaid = isPaid(event, status) || event === 'payout.success' || event === 'payout.completed';
       const payoutFailed = isFailed(event, status) || event === 'payout.failed';
