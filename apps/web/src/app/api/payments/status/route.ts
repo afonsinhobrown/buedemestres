@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getPaySuiteChargeByReference } from '@/lib/paysuite';
-import { confirmJobPaymentByReference } from '@/lib/job-payment';
+import { confirmJobPaymentByReference, failJobPaymentByReference } from '@/lib/job-payment';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +29,9 @@ export async function GET(req: Request) {
     if (pay.status === 'held' || pay.status === 'released') {
       return NextResponse.json({ ok: true, status: 'held', paid: true, failed: false });
     }
+    if (pay.status === 'failed') {
+      return NextResponse.json({ ok: true, status: 'failed', paid: false, failed: true });
+    }
     if (!pay.provider_ref) {
       return NextResponse.json({ ok: true, status: 'pending_payment', paid: false, failed: false });
     }
@@ -39,6 +42,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: true, status: 'held', paid: true, failed: false });
     }
     if (charge.failed) {
+      await failJobPaymentByReference(pay.provider_ref);
       return NextResponse.json({ ok: true, status: charge.status, paid: false, failed: true });
     }
     return NextResponse.json({ ok: true, status: charge.status || 'pending_payment', paid: false, failed: false });

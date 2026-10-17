@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyPaySuiteWebhookSignature, REF_PREFIX } from '@/lib/paysuite';
-import { confirmJobPaymentByReference } from '@/lib/job-payment';
+import { confirmJobPaymentByReference, failJobPaymentByReference } from '@/lib/job-payment';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -11,6 +11,16 @@ function isPaid(event: string, status: string): boolean {
     event === 'payment.succeeded' ||
     event === 'payment.paid' ||
     ['paid', 'succeeded', 'completed', 'confirmed'].includes(status)
+  );
+}
+
+function isFailed(event: string, status: string): boolean {
+  return (
+    event === 'payment.failed' ||
+    event === 'payment.cancelled' ||
+    event === 'payment.canceled' ||
+    event === 'payment.expired' ||
+    ['failed', 'falhou', 'cancelled', 'canceled', 'expired', 'declined', 'rejected'].includes(status)
   );
 }
 
@@ -40,6 +50,10 @@ export async function POST(req: Request) {
   try {
     if (isPaid(event, status)) {
       const result = await confirmJobPaymentByReference(reference);
+      return NextResponse.json({ received: true, result });
+    }
+    if (isFailed(event, status)) {
+      const result = await failJobPaymentByReference(reference);
       return NextResponse.json({ received: true, result });
     }
     return NextResponse.json({ received: true, ignored: event || status });

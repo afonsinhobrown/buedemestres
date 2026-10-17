@@ -229,6 +229,20 @@ export default function PropostaPrecoScreen() {
     }
   }
 
+  const handleCancelarPagamentoPendente = async () => {
+    const target = actualJobId || params.jobId
+    try {
+      await fetch(`${API_BASE}/api/payments/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: target })
+      })
+    } catch {
+      // O estado local é limpo na mesma; o mestre volta a "a processar" na próxima tentativa
+    }
+    setPagamentoPendente(null)
+  }
+
   // 2. OPÇÃO: "ESTÁ PUXADO" (Negociação / Contra-proposta)
   const handleEnviarPuxado = async () => {
     if (!contraValor || parseFloat(contraValor) <= 0) {
@@ -549,7 +563,7 @@ export default function PropostaPrecoScreen() {
             )}
             <TouchableOpacity
               style={{ marginTop: 12, alignItems: 'center' }}
-              onPress={() => setPagamentoPendente(null)}
+              onPress={handleCancelarPagamentoPendente}
             >
               <Text style={{ color: '#B45309', fontWeight: '800' }}>Cancelar / Escolher outro método</Text>
             </TouchableOpacity>

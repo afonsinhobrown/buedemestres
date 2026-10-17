@@ -8,7 +8,7 @@ export default function AguardarPagamentoScreen() {
   const params = useLocalSearchParams<{ jobId?: string; offerId?: string; valor?: string }>();
   const jobId = params.jobId || params.offerId || '';
 
-  const [status, setStatus] = useState<'pending' | 'held' | 'puxado' | 'rejected' | 'expirado'>('pending');
+  const [status, setStatus] = useState<'pending' | 'held' | 'puxado' | 'rejected' | 'expirado' | 'payment_failed'>('pending');
   const [feedback, setFeedback] = useState<string>('');
   const [propostaValor, setPropostaValor] = useState<number>(params.valor ? parseFloat(params.valor) : 0);
   const [contraPropostaValor, setContraPropostaValor] = useState<number>(0);
@@ -102,7 +102,22 @@ export default function AguardarPagamentoScreen() {
           if (job.status === 'price_agreed' || job.status === 'in_service' || job.status === 'en_route') {
             setStatus('held');
             if (job.agreed_amount) setPropostaValor(job.agreed_amount);
+            return;
           }
+        }
+
+        // A tentativa de pagamento foi cancelada/recusada: parar o spinner.
+        const { data: payment } = await supabase
+          .from('job_payments')
+          .select('status')
+          .eq('job_id', actualJobId)
+          .maybeSingle();
+
+        if (payment?.status === 'failed') {
+          setStatus('payment_failed');
+        } else if (payment?.status === 'pending_payment' && status === 'payment_failed') {
+          // O cliente iniciou uma nova tentativa de pagamento.
+          setStatus('pending');
         }
       } catch (err) {
         console.warn('Erro ao verificar estado:', err);
@@ -117,6 +132,7 @@ export default function AguardarPagamentoScreen() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'job_price_proposals' }, () => verificarEstado())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => verificarEstado())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'service_requests' }, () => verificarEstado())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'job_payments' }, () => verificarEstado())
       .subscribe();
 
     return () => {
@@ -209,6 +225,25 @@ export default function AguardarPagamentoScreen() {
             activeOpacity={0.8}
           >
             <Text style={styles.btnAjustarText}>Voltar ao Início</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {status === 'payment_failed' && (
+        <View style={[styles.card, { borderColor: '#EF4444', borderWidth: 2 }]}>
+          <Text style={{ fontSize: 48, marginBottom: 12 }}>⚠️</Text>
+          <Text style={[styles.title, { color: '#F87171' }]}>Pagamento Não Concluído</Text>
+          <Text style={styles.sub}>
+            O cliente cancelou ou não concluiu o pagamento de MT{' '}
+            {propostaValor ? propostaValor.toLocaleString('pt-MZ') : '...'}. O valor ainda não está retido — não
+            inicies a deslocação. Se o cliente tentar novamente, este ecrã actualiza sozinho.
+          </Text>
+          <TouchableOpacity
+            style={styles.btnAjustar}
+            onPress={() => router.replace('/trabalhos')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.btnAjustarText}>Voltar aos Meus Trabalhos</Text>
           </TouchableOpacity>
         </View>
       )}
