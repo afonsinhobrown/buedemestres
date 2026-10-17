@@ -1,6 +1,7 @@
 import { Archivo, Atkinson_Hyperlegible_Next } from 'next/font/google';
 import './globals.css';
 import { AdColumn } from '@/components/ads/AdColumn';
+import { PushRegister } from '@/components/PushRegister';
 import { ads } from '@/lib/ads';
 
 const adsLeft = ads.slice(0, 4);
@@ -20,8 +21,13 @@ const atkinson = Atkinson_Hyperlegible_Next({
 });
 
 export const metadata = {
-  title: 'Bué de Mestres',
-  description: 'Precisas de um mestre? Bué deles, no teu bairro.',
+  title: 'BuAc de Mestres',
+  description: 'Precisas de um mestre? BuAc deles, no teu bairro.',
+  manifest: '/manifest.webmanifest',
+};
+
+export const viewport = {
+  themeColor: '#12163A',
 };
 
 export default function RootLayout({
@@ -37,6 +43,7 @@ export default function RootLayout({
         <div className="relative z-20">{children}</div>
 
         <AdColumn items={adsRight} side="right" />
+        <PushRegister />
       </body>
     </html>
   );

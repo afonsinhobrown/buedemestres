@@ -1,0 +1,25 @@
+{
+  "name": "Bué de Mestres — Gestão",
+  "short_name": "BdM Gestão",
+  "description": "Painel de gestão, apoio e financeiro da plataforma Bué de Mestres.",
+  "start_url": "/superadmin",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f9fafb",
+  "theme_color": "#12163A",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

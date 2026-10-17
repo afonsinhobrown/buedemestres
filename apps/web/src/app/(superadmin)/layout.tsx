@@ -1,44 +1,55 @@
 import React from 'react';
 import Link from 'next/link';
 
+const NAV = [
+  { href: '/superadmin', label: 'Dashboard' },
+  { href: '/superadmin/financeiro', label: 'Financeiro' },
+  { href: '/superadmin/promocoes', label: 'Promoções' },
+  { href: '/superadmin/equipa', label: 'Equipa' },
+  { href: '/superadmin/aprovacoes', label: 'Aprovações' },
+  { href: '/superadmin/auditoria', label: 'Auditoria' },
+  { href: '/configuracoes', label: 'Configurações' },
+  { href: '/empresas', label: 'Empresas' },
+  { href: '/tickets', label: 'Tickets / Apoio' },
+];
+
 export default function SuperadminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Barra em Vermelho Óxido indicando zona de risco elevado */}
-      <div className="bg-[#8B0000] text-white px-6 py-2 flex justify-between items-center text-sm font-bold shadow-md relative z-10">
-        <div className="flex items-center gap-2">
-          <span>⚠️</span>
-          <span>MODO SUPERADMIN — Acesso Nível 5</span>
-        </div>
-        <div>
-          Sessão Expira em: 03:59:00
-        </div>
+      <div className="bg-[#8B0000] text-white px-4 py-2 flex justify-between items-center text-xs sm:text-sm font-bold shadow-md relative z-10">
+        <span>⚠️ MODO SUPERADMIN — Acesso Nível 5</span>
+        <span className="hidden sm:inline">Bué de Mestres · Gestão</span>
       </div>
-      
+
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <aside className="w-64 bg-gray-900 text-gray-300 flex flex-col">
+        <aside className="hidden md:flex w-64 bg-gray-900 text-gray-300 flex-col shrink-0">
           <div className="p-6 font-bold text-white text-xl border-b border-gray-800">
             Bué de Mestres
           </div>
-          <nav className="flex-1 p-4 space-y-2">
-            <a href="/superadmin" className="block p-3 hover:bg-gray-800 rounded text-sm">Dashboard</a>
-            <a href="/superadmin/financeiro" className="block p-3 hover:bg-gray-800 rounded text-sm">Financeiro</a>
-            <a href="/superadmin/promocoes" className="block p-3 hover:bg-gray-800 rounded text-sm">Promoções & Descontos</a>
-            <a href="/superadmin/equipa" className="block p-3 hover:bg-gray-800 rounded text-sm">Gerir Equipa</a>
-            <a href="/superadmin/aprovacoes" className="block p-3 hover:bg-gray-800 rounded text-sm">Aprovações Pendentes</a>
-            <a href="/superadmin/auditoria" className="block p-3 hover:bg-gray-800 rounded text-sm">Audit Logs</a>
-            <a href="/configuracoes" className="block p-3 hover:bg-gray-800 rounded text-sm">Configurações & Planos</a>
-            <Link href="/empresas" className="block p-3 hover:bg-gray-800 rounded text-sm">Empresas</Link>
-            <Link href="/tickets" className="block p-3 hover:bg-gray-800 rounded text-sm">Tickets / Apoio</Link>
-            <a href="/superadmin/ver-como" className="block p-3 hover:bg-gray-800 rounded text-sm text-yellow-500 font-medium">Ver Como Utilizador</a>
+          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+            {NAV.map((item) => (
+              <a key={item.href} href={item.href} className="block p-3 hover:bg-gray-800 rounded text-sm">
+                {item.label}
+              </a>
+            ))}
+            <Link href="/pro/perfil" className="block p-3 hover:bg-gray-800 rounded text-sm text-yellow-500 font-medium">
+              Ver Como Utilizador
+            </Link>
           </nav>
         </aside>
 
-        {/* Conteúdo Principal */}
-        <main className="flex-1 overflow-y-auto">
-          {children}
-        </main>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <nav className="md:hidden flex gap-2 overflow-x-auto bg-gray-900 text-gray-200 px-3 py-2">
+            {NAV.map((item) => (
+              <a key={item.href} href={item.href} className="whitespace-nowrap px-3 py-1.5 rounded-full bg-gray-800 text-xs font-semibold">
+                {item.label}
+              </a>
+            ))}
+          </nav>
+          <main className="flex-1 overflow-y-auto">
+            {children}
+          </main>
+        </div>
       </div>
     </div>
   );

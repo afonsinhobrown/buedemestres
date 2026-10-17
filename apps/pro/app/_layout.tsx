@@ -3,6 +3,7 @@ import { Slot, router, usePathname } from 'expo-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native'
 import { useAuthStore } from '../lib/useAuthStore'
+import { registerPushToken } from '../lib/push'
 
 const queryClient = new QueryClient()
 
@@ -38,6 +39,12 @@ export default function RootLayout() {
     if (!session && pathname !== '/entrar') router.replace('/entrar')
     if (session && pathname === '/entrar') router.replace('/')
   }, [initialized, session, pathname])
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      registerPushToken().catch(() => {})
+    }
+  }, [session?.user?.id])
 
   return (
     <QueryClientProvider client={queryClient}>
