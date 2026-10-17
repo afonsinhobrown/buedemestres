@@ -682,10 +682,10 @@ export default function ProHomeScreen() {
           <Text style={styles.statNumber}>{trabalhosHoje}</Text>
           <Text style={styles.statLabel}>Hoje</Text>
         </View>
-        <View style={styles.statBox}>
+        <TouchableOpacity style={styles.statBox} onPress={() => router.push('/carteira')} activeOpacity={0.8}>
           <Text style={styles.statNumber}>MT {walletBalance.toLocaleString('pt-MZ')}</Text>
-          <Text style={styles.statLabel}>Ganhos</Text>
-        </View>
+          <Text style={styles.statLabel}>Ganhos ›</Text>
+        </TouchableOpacity>
         <View style={styles.statBox}>
           <Text style={styles.statNumber}>—</Text>
           <Text style={styles.statLabel}>Nota</Text>
