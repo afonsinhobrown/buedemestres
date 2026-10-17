@@ -15,6 +15,14 @@ async function requireSuperadmin() {
   return session
 }
 
+async function requireApprover() {
+  const session = await verifySession()
+  if (!['superadmin', 'finance'].includes(session.role || '')) {
+    throw new Error('Acesso restrito aos sócios.')
+  }
+  return session
+}
+
 export async function updatePartnerAccountAction(formData: FormData) {
   await requireSuperadmin()
   const id = String(formData.get('partnerId') || '')
@@ -73,7 +81,7 @@ export async function createPlatformWithdrawalAction() {
 }
 
 export async function approvePlatformWithdrawalAction(formData: FormData) {
-  const session = await requireSuperadmin()
+  const session = await requireApprover()
   const withdrawalId = String(formData.get('withdrawalId') || '')
   if (!withdrawalId) return
   await approvePlatformWithdrawal(withdrawalId, session.userId)

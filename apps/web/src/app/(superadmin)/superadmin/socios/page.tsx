@@ -31,7 +31,8 @@ function statusLabel(status: string) {
 
 export default async function SociosPage() {
   const session = await verifySession()
-  if (session.role !== 'superadmin') redirect('/entrar')
+  if (!['superadmin', 'finance'].includes(session.role || '')) redirect('/entrar')
+  const canManage = session.role === 'superadmin'
 
   const [partners, settings, summary, profilesRes, withdrawalsRes] = await Promise.all([
     listPartners(),
@@ -89,57 +90,59 @@ export default async function SociosPage() {
         </div>
       </div>
 
-      <section className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm mb-8">
-        <h2 className="text-lg font-bold text-gray-900 mb-1">Regra de distribuição da plataforma</h2>
-        <p className="text-xs text-gray-500 mb-4">
-          Define quanto da receita disponível é distribuída aos sócios e quanto fica retido no sistema. Tem de somar 100%.
-        </p>
-        <form action={updatePlatformSettingsAction} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          <div>
-            <label className="block text-xs font-bold text-gray-600 mb-1">% SAQUE</label>
-            <input
-              type="number"
-              name="withdrawPct"
-              min="0"
-              max="100"
-              step="0.01"
-              defaultValue={Number((settings.withdrawPct * 100).toFixed(2))}
-              className="w-full border border-gray-300 rounded-lg p-3"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-600 mb-1">% RETIDA</label>
-            <input
-              type="number"
-              name="retainPct"
-              min="0"
-              max="100"
-              step="0.01"
-              defaultValue={Number((settings.retainPct * 100).toFixed(2))}
-              className="w-full border border-gray-300 rounded-lg p-3"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-600 mb-1">MODO DE APROVAÇÃO</label>
-            <select
-              name="approvalRequired"
-              defaultValue={settings.approvalRequired ? 'true' : 'false'}
-              className="w-full border border-gray-300 rounded-lg p-3"
-            >
-              <option value="true">ON — aprovação de ambos os sócios</option>
-              <option value="false">OFF — automático</option>
-            </select>
-          </div>
-          <button type="submit" className="bg-gray-900 text-white rounded-lg px-4 py-3 font-bold hover:bg-black">
-            Guardar regra
-          </button>
-        </form>
-        <p className="text-xs text-gray-500 mt-3">
-          {settings.approvalRequired
-            ? 'Os saques da plataforma só saem depois de Afonso e RFL aprovarem (contas ligadas abaixo).'
-            : 'Os saques da plataforma são processados automaticamente após o pedido.'}
-        </p>
-      </section>
+      {canManage && (
+        <section className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm mb-8">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Regra de distribuição da plataforma</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Define quanto da receita disponível é distribuída aos sócios e quanto fica retido no sistema. Tem de somar 100%.
+          </p>
+          <form action={updatePlatformSettingsAction} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div>
+              <label className="block text-xs font-bold text-gray-600 mb-1">% SAQUE</label>
+              <input
+                type="number"
+                name="withdrawPct"
+                min="0"
+                max="100"
+                step="0.01"
+                defaultValue={Number((settings.withdrawPct * 100).toFixed(2))}
+                className="w-full border border-gray-300 rounded-lg p-3"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-600 mb-1">% RETIDA</label>
+              <input
+                type="number"
+                name="retainPct"
+                min="0"
+                max="100"
+                step="0.01"
+                defaultValue={Number((settings.retainPct * 100).toFixed(2))}
+                className="w-full border border-gray-300 rounded-lg p-3"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-600 mb-1">MODO DE APROVAÇÃO</label>
+              <select
+                name="approvalRequired"
+                defaultValue={settings.approvalRequired ? 'true' : 'false'}
+                className="w-full border border-gray-300 rounded-lg p-3"
+              >
+                <option value="true">ON — aprovação de ambos os sócios</option>
+                <option value="false">OFF — automático</option>
+              </select>
+            </div>
+            <button type="submit" className="bg-gray-900 text-white rounded-lg px-4 py-3 font-bold hover:bg-black">
+              Guardar regra
+            </button>
+          </form>
+          <p className="text-xs text-gray-500 mt-3">
+            {settings.approvalRequired
+              ? 'Os saques da plataforma só saem depois de Afonso e RFL aprovarem (contas ligadas abaixo).'
+              : 'Os saques da plataforma são processados automaticamente após o pedido.'}
+          </p>
+        </section>
+      )}
 
       <section className="mb-8">
         <h2 className="text-lg font-bold text-gray-900 mb-3">Sócios</h2>
