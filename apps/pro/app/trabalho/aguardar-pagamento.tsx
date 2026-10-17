@@ -147,7 +147,7 @@ export default function AguardarPagamentoScreen() {
 
       const { data: job } = await supabase
         .from('jobs')
-        .select('id, request_id')
+        .select('id, request_id, provider_id, client_id')
         .or(`id.eq.${jobId},request_id.eq.${jobId}`)
         .maybeSingle();
 
@@ -158,7 +158,7 @@ export default function AguardarPagamentoScreen() {
         .from('job_price_proposals')
         .insert({
           job_id: jId,
-          proposed_by: '22222222-2222-2222-2222-222222222222',
+          proposed_by: job?.provider_id || '22222222-2222-2222-2222-222222222222',
           amount: valorFinal,
           description: `Acordo fechado: Mestre aceitou a contra-proposta de MT ${valorFinal}`,
           status: 'pending'

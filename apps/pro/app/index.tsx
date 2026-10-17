@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, Platform, Modal, TextInput, ActivityIndicator, Image } from 'react-native'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../lib/useAuthStore'
@@ -30,7 +30,9 @@ export default function ProHomeScreen() {
   const [pendingJobs, setPendingJobs] = useState<any[]>([])
   const [providerProfile, setProviderProfile] = useState<any>(null)
   const [availableProviders, setAvailableProviders] = useState<any[]>([])
+  const [walletBalance, setWalletBalance] = useState<number>(0)
   const user = useAuthStore(s => s.user)
+  const recusadosRef = useRef<Set<string>>(new Set())
 
   // Carregar dados do Mestre e sua Especialidade/Categoria Real com Join da tabela categories
   useEffect(() => {
@@ -90,6 +92,28 @@ export default function ProHomeScreen() {
     carregarPerfilMestre()
   }, [user])
 
+  useEffect(() => {
+    const proId = providerProfile?.profile_id
+    if (!proId) return
+
+    let active = true
+    const carregarSaldo = async () => {
+      const { data } = await supabase
+        .from('wallets')
+        .select('balance')
+        .eq('profile_id', proId)
+        .maybeSingle()
+      if (active) setWalletBalance(Number(data?.balance || 0))
+    }
+
+    carregarSaldo()
+    const timer = setInterval(carregarSaldo, 15000)
+    return () => {
+      active = false
+      clearInterval(timer)
+    }
+  }, [providerProfile?.profile_id])
+
   // Manter heartbeat de presença enquanto online (PostGIS requer updated_at recente)
   useEffect(() => {
     if (!isOnline || !providerProfile) return
@@ -141,13 +165,15 @@ export default function ProHomeScreen() {
 
         const { data: requests, error } = await reqQuery
 
-        if (!error && requests && requests.length > 0) {
-          const todos = [...(jobs || []), ...requests]
+        const visiveis = (requests || []).filter(r => !recusadosRef.current.has(r.id))
+
+        if (!error && visiveis.length > 0) {
+          const todos = [...(jobs || []), ...visiveis]
           setPendingJobs(todos)
           // Se ainda não estiver a exibir um pedido no modal, abre imediatamente o mais recente!
-          setNewRequest(current => {
+          setNewRequest((current: any) => {
             if (current) return current
-            return requests[0]
+            return visiveis[0]
           })
         } else {
           setPendingJobs(jobs || [])
@@ -170,6 +196,7 @@ export default function ProHomeScreen() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'service_requests' },
         (payload) => {
+          if (recusadosRef.current.has(payload.new.id)) return
           if (activeCatId && payload.new.category_id && Number(payload.new.category_id) !== Number(activeCatId)) {
             return
           }
@@ -217,17 +244,42 @@ export default function ProHomeScreen() {
       }
     }
 
-    // 1. Atualizar o pedido para status 'accepted' com target_provider_id
-    const { error: reqErr } = await supabase
+    if (!activeProId) {
+      Alert.alert('Erro', 'Não foi possível identificar o teu perfil de mestre.')
+      return
+    }
+
+    const { data: acceptedRequest, error: reqErr } = await supabase
       .from('service_requests')
       .update({
         status: 'accepted',
         target_provider_id: activeProId
       })
       .eq('id', requestId)
+      .eq('status', 'open')
+      .select('id')
 
-    if (reqErr) {
-      console.error('Erro ao aceitar pedido:', reqErr)
+    if (reqErr || !acceptedRequest || acceptedRequest.length === 0) {
+      recusadosRef.current.add(requestId)
+      setNewRequest(null)
+      setPendingJobs(prev => prev.filter(job => job.id !== requestId))
+      Alert.alert(
+        'Pedido já atribuído',
+        'Outro mestre respondeu primeiro. Este pedido já não está disponível.'
+      )
+      return
+    }
+
+    try {
+      await supabase.from('request_offers').upsert({
+        request_id: requestId,
+        provider_id: activeProId,
+        status: 'accepted',
+        responded_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+      }, { onConflict: 'request_id,provider_id' })
+    } catch (e) {
+      console.warn('Registo de oferta aceite:', e)
     }
 
     // 2. Registar em jobs se existir
@@ -267,15 +319,30 @@ export default function ProHomeScreen() {
   }
 
   const recusarTrabalho = async (requestId: string) => {
-    await supabase.from('service_requests').update({ status: 'cancelled' }).eq('id', requestId);
-    
+    recusadosRef.current.add(requestId);
+
+    const activeProId = providerProfile?.profile_id || user?.id
+    if (activeProId) {
+      try {
+        await supabase.from('request_offers').upsert({
+          request_id: requestId,
+          provider_id: activeProId,
+          status: 'declined',
+          responded_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+        }, { onConflict: 'request_id,provider_id' })
+      } catch (e) {
+        console.warn('Registo de recusa:', e)
+      }
+    }
+
     setNewRequest(null);
     setPendingJobs(prev => prev.filter(job => job.id !== requestId));
-    
+
     if (Platform.OS !== 'web') {
-      Alert.alert('Pedido recusado', 'O pedido foi recusado.');
+      Alert.alert('Pedido removido', 'Este pedido deixou de aparecer para ti. Continua disponível para outros mestres.');
     } else {
-      console.log('Pedido recusado.');
+      console.log('Pedido removido da lista.');
     }
   }
 
@@ -443,7 +510,7 @@ export default function ProHomeScreen() {
           <Text style={styles.statLabel}>Hoje</Text>
         </View>
         <View style={styles.statBox}>
-          <Text style={styles.statNumber}>MT 0</Text>
+          <Text style={styles.statNumber}>MT {walletBalance.toLocaleString('pt-MZ')}</Text>
           <Text style={styles.statLabel}>Ganhos</Text>
         </View>
         <View style={styles.statBox}>

@@ -96,7 +96,7 @@ export default function ProACaminhoScreen() {
           .from('jobs')
           .update({
             status: 'en_route',
-            cancel_reason: transporte // guarda o meio de transporte
+            transport_mode: transporte
           })
           .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
 
@@ -129,11 +129,38 @@ export default function ProACaminhoScreen() {
   }
 
   // 3. Iniciar trabalho
-  const handleIniciarTrabalho = () => {
+  const handleIniciarTrabalho = async () => {
+    if (params.jobId) {
+      try {
+        await supabase
+          .from('jobs')
+          .update({
+            status: 'in_service',
+            started_at: new Date().toISOString()
+          })
+          .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
+
+        const { data: job } = await supabase
+          .from('jobs')
+          .select('id, request_id')
+          .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
+          .maybeSingle()
+
+        if (job?.request_id) {
+          await supabase
+            .from('service_requests')
+            .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+            .eq('id', job.request_id)
+        }
+      } catch (e) {
+        console.warn('Erro ao iniciar trabalho:', e)
+      }
+    }
+
     router.push({
       pathname: '/trabalho/em-curso',
       params: { jobId: params.jobId }
-    })
+    });
   }
 
   const transporteActual = MEIOS_TRANSPORTE.find(t => t.id === transporte) || MEIOS_TRANSPORTE[0]

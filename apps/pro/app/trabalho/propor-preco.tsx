@@ -60,7 +60,7 @@ export default function ProporPrecoScreen() {
         // Carregar job se existir (pode ser criado pelo cliente após o "Está puxado")
         const { data: job } = await supabase
           .from('jobs')
-          .select('id, request_id, status, price_proposed, price_estimate_min')
+          .select('id, request_id, status, price_proposed, price_estimate_min, client_id, provider_id')
           .or(`id.eq.${targetId},request_id.eq.${targetId}`)
           .maybeSingle();
 
@@ -75,7 +75,7 @@ export default function ProporPrecoScreen() {
             .maybeSingle();
 
           const propEhDoCliente = !!prop && (
-            prop.proposed_by === CLIENT_ACCOUNT_ID ||
+            prop.proposed_by === (job.client_id || CLIENT_ACCOUNT_ID) ||
             (prop.description && prop.description.includes('[ESTÁ PUXADO'))
           );
 
@@ -165,6 +165,7 @@ export default function ProporPrecoScreen() {
         : lines.filter(l => l.description.trim() !== '' && parseFloat(l.price) > 0);
 
       let jId = actualJobId;
+      const providerId = jobData?.target_provider_id || PRO_ACCOUNT_ID;
       if (!jId) {
         const { data: req } = await supabase
           .from('service_requests')
@@ -186,7 +187,7 @@ export default function ProporPrecoScreen() {
             .upsert({
               request_id: targetId,
               client_id: req?.client_id || '11111111-1111-1111-1111-111111111111',
-              provider_id: '22222222-2222-2222-2222-222222222222',
+              provider_id: providerId,
               status: 'price_proposed',
               price_proposed: totalCalculado
             }, { onConflict: 'request_id' })
@@ -205,12 +206,13 @@ export default function ProporPrecoScreen() {
         .maybeSingle();
 
       const clientUserId = req?.client_id || '11111111-1111-1111-1111-111111111111';
-      const payloadDesc = JSON.stringify(validLines);
+      const mensagem = mensagemDetalhes.trim();
+      const payloadDesc = JSON.stringify({ lines: validLines, message: mensagem || null });
 
       // 2. Registar a proposta de orçamento em job_price_proposals
       await supabase.from('job_price_proposals').insert({
         job_id: jId || targetId,
-        proposed_by: PRO_ACCOUNT_ID,
+        proposed_by: providerId,
         amount: totalCalculado,
         description: payloadDesc,
         status: 'pending'
@@ -223,7 +225,7 @@ export default function ProporPrecoScreen() {
           id: jId || undefined,
           request_id: targetId,
           client_id: clientUserId,
-          provider_id: PRO_ACCOUNT_ID,
+          provider_id: providerId,
           status: 'price_proposed',
           price_proposed: totalCalculado,
           price_estimate_min: null,
@@ -246,11 +248,14 @@ export default function ProporPrecoScreen() {
           profile_id: clientUserId,
           type: 'price_proposed',
           title: 'Orçamento Recebido!',
-          body: `O mestre propôs o valor de MT ${totalCalculado} para o seu pedido.`,
+          body: mensagem
+            ? `O mestre propôs MT ${totalCalculado} e pediu mais detalhes: "${mensagem}"`
+            : `O mestre propôs o valor de MT ${totalCalculado} para o seu pedido.`,
           data: {
             jobId: jId || targetId,
             requestId: targetId,
             amount: totalCalculado,
+            message: mensagem || null,
             title: req?.title || 'Serviço'
           }
         });

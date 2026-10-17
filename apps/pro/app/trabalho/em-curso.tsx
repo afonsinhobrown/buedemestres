@@ -14,32 +14,49 @@ export default function EmCursoScreen() {
       setIsFinishing(true);
 
       if (jobId) {
-        // Atualizar estado para awaiting_confirmation ou completed
+        const { data: job } = await supabase
+          .from('jobs')
+          .select('id, request_id, client_id, provider_id')
+          .or(`id.eq.${jobId},request_id.eq.${jobId}`)
+          .maybeSingle();
+
         await supabase
           .from('jobs')
           .update({
-            status: 'completed',
-            completed_at: new Date().toISOString()
+            status: 'awaiting_confirmation',
+            updated_at: new Date().toISOString()
           })
           .or(`id.eq.${jobId},request_id.eq.${jobId}`);
 
-        await supabase
-          .from('service_requests')
-          .update({
-            status: 'completed',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', jobId);
+        if (job?.request_id) {
+          await supabase
+            .from('service_requests')
+            .update({
+              status: 'in_progress',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', job.request_id);
+        }
+
+        if (job?.client_id) {
+          await supabase.from('notifications').insert({
+            profile_id: job.client_id,
+            type: 'job_finished',
+            title: 'O mestre terminou o serviço',
+            body: 'Verifica o trabalho e confirma a conclusão para libertar o pagamento retido.',
+            data: { job_id: job.id }
+          });
+        }
       }
 
-      Alert.alert('Serviço Concluído', 'O trabalho foi finalizado! O cliente confirmará a libertação do valor retido.', [
-        { text: 'OK', onPress: () => router.replace('/') }
-      ]);
+      Alert.alert(
+        'Serviço Terminado',
+        'O cliente foi notificado para verificar e confirmar a conclusão. O pagamento só é libertado depois dessa confirmação.',
+        [{ text: 'OK', onPress: () => router.replace('/') }]
+      );
     } catch (error: any) {
       console.warn('Erro ao concluir:', error);
-      Alert.alert('Sucesso', 'Serviço concluído com sucesso!', [
-        { text: 'OK', onPress: () => router.replace('/') }
-      ]);
+      Alert.alert('Erro', 'Não foi possível registar a conclusão do serviço. Tenta novamente.');
     } finally {
       setIsFinishing(false);
     }

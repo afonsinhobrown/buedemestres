@@ -79,11 +79,12 @@ export async function confirmJobPaymentByReference(
 ): Promise<'confirmed' | 'already' | 'not_found'> {
   const { rows } = await db.query<{
     job_id: string;
+    client_id: string;
     provider_id: string;
     amount: string;
     status: string;
   }>(
-    `select job_id, provider_id, amount, status
+    `select job_id, client_id, provider_id, amount, status
        from job_payments where provider_ref = $1 limit 1`,
     [reference]
   );
@@ -115,10 +116,14 @@ export async function confirmJobPaymentByReference(
     );
     await client.query(
       `insert into notifications(profile_id, type, title, body, data)
-       values ($1, 'payment_held', 'Pagamento retido!', $2, $3::jsonb)`,
+       values
+         ($1, 'payment_held', 'Pagamento retido!', $3, $5::jsonb),
+         ($2, 'payment_confirmed', 'Pagamento confirmado e retido', $4, $5::jsonb)`,
       [
         pay.provider_id,
+        pay.client_id,
         `O cliente pagou MT ${pay.amount}. O valor está retido em segurança — já podes iniciar a deslocação.`,
+        `O teu pagamento de MT ${pay.amount} foi confirmado e está retido em segurança (Escrow). O mestre já foi notificado.`,
         JSON.stringify({ job_id: pay.job_id, reference }),
       ]
     );

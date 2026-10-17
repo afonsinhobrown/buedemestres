@@ -311,8 +311,8 @@ export default function AProcurarMestreScreen() {
         <Text style={styles.esgotadoDesc}>
           Não encontrámos nenhum {params.categoriaNome} disponível na tua zona neste momento.
         </Text>
-        <TouchableOpacity style={styles.btnPrimary} onPress={() => router.push('/pedido/orcamento')}>
-          <Text style={styles.btnText}>Pedir orçamentos (Modo Agendado)</Text>
+        <TouchableOpacity style={styles.btnPrimary} onPress={() => router.replace('/')}>
+          <Text style={styles.btnText}>Voltar ao Início</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.btnOutline} onPress={() => router.back()}>
           <Text style={styles.btnOutlineText}>Tentar novamente</Text>
@@ -395,7 +395,14 @@ export default function AProcurarMestreScreen() {
 
       <TouchableOpacity
         style={styles.btnCancel}
-        onPress={() => {
+        onPress={async () => {
+          if (requestId) {
+            await supabase
+              .from('service_requests')
+              .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+              .eq('id', requestId)
+              .eq('status', 'open')
+          }
           router.back()
         }}
       >

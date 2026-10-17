@@ -42,6 +42,7 @@ export default function PropostaPrecoScreen() {
   const [turnoExpiraEm, setTurnoExpiraEm] = useState<number | null>(null)
   const [segundosTurno, setSegundosTurno] = useState<number | null>(null)
   const [negociacaoExpirada, setNegociacaoExpirada] = useState(false)
+  const [mensagemMestre, setMensagemMestre] = useState<string | null>(null)
 
   // Pagamento (PaySuite): escolha de método + estado pendente
   const [modalPagamentoVisivel, setModalPagamentoVisivel] = useState(false)
@@ -69,7 +70,7 @@ export default function PropostaPrecoScreen() {
       try {
         const { data: jobMap } = await supabase
           .from('jobs')
-          .select('id, request_id, status, agreed_amount, cancel_reason, turn_owner, turn_expires_at, negotiation_rounds')
+          .select('id, request_id, status, agreed_amount, cancel_reason, turn_owner, turn_expires_at, negotiation_rounds, client_id, provider_id')
           .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
           .maybeSingle()
 
@@ -82,10 +83,12 @@ export default function PropostaPrecoScreen() {
           .order('created_at', { ascending: false })
 
         const lista: any[] = props || []
-        const propostaMaster = lista.find((p) => p.proposed_by === PRO_ACCOUNT_ID)
+        const providerId = jobMap?.provider_id || PRO_ACCOUNT_ID
+        const clientId = jobMap?.client_id || CLIENT_ACCOUNT_ID
+        const propostaMaster = lista.find((p) => p.proposed_by === providerId)
         const ultima = lista[0]
         const ultimaEhDoCliente = !!ultima && (
-          ultima.proposed_by === CLIENT_ACCOUNT_ID ||
+          ultima.proposed_by === clientId ||
           (ultima.description && ultima.description.includes('[ESTÁ PUXADO'))
         )
 
@@ -95,15 +98,18 @@ export default function PropostaPrecoScreen() {
           setTotal(Number(propostaMaster.amount))
           setActualJobId(propostaMaster.job_id)
           try {
-            const parsedLines = JSON.parse(propostaMaster.description)
+            const parsed = JSON.parse(propostaMaster.description)
+            const parsedLines = Array.isArray(parsed) ? parsed : parsed?.lines
             if (Array.isArray(parsedLines) && parsedLines.length > 0) {
               setLines(parsedLines.map((l: any) => ({
-                descricao: l.description || 'Serviço',
-                valor: parseFloat(l.price) || 0
+                descricao: l.description || l.descricao || 'Serviço',
+                valor: parseFloat(l.price ?? l.valor) || 0
               })))
             }
+            setMensagemMestre(!Array.isArray(parsed) && parsed?.message ? String(parsed.message) : null)
           } catch {
             setLines([{ descricao: propostaMaster.description || 'Orçamento do Mestre', valor: Number(propostaMaster.amount) }])
+            setMensagemMestre(null)
           }
         } else if (!ultimaEhDoCliente) {
           const { data: req } = await supabase
@@ -259,7 +265,7 @@ export default function PropostaPrecoScreen() {
       // 1. Obter o job real (ou criá-lo) para mapear ambos os IDs
       let { data: job } = await supabase
         .from('jobs')
-        .select('id, request_id, provider_id')
+        .select('id, request_id, provider_id, client_id')
         .or(`id.eq.${target},request_id.eq.${target}`)
         .maybeSingle()
 
@@ -279,7 +285,7 @@ export default function PropostaPrecoScreen() {
             status: 'puxado',
             price_estimate_min: counterMt
           }, { onConflict: 'request_id' })
-          .select('id, request_id, provider_id')
+          .select('id, request_id, provider_id, client_id')
           .single()
 
         if (createdJob) job = createdJob
@@ -287,6 +293,7 @@ export default function PropostaPrecoScreen() {
 
       const jId = job?.id || target
       const rId = job?.request_id || target
+      const clientAuthor = job?.client_id || CLIENT_ACCOUNT_ID
 
       // 1b. Validar rondas e passar o turno ao mestre (reinicia o relógio)
       const { error: turnErr } = await supabase.rpc('set_negotiation_turn', {
@@ -311,7 +318,7 @@ export default function PropostaPrecoScreen() {
       //     senão perde-se a autoria e ninguém sabe quem deve responder)
       await supabase.from('job_price_proposals').insert({
         job_id: jId,
-        proposed_by: CLIENT_ACCOUNT_ID,
+        proposed_by: clientAuthor,
         amount: counterMt,
         description: notaFinal,
         status: 'pending'
@@ -516,6 +523,13 @@ export default function PropostaPrecoScreen() {
             Sem dinheiro em mão antecipado. Ao concordar, o valor fica retido na plataforma e só é pago ao mestre no fim.
           </Text>
         </View>
+
+        {mensagemMestre && (
+          <View style={styles.mensagemMestreBox}>
+            <Text style={styles.mensagemMestreLabel}>💬 MENSAGEM DO MESTRE</Text>
+            <Text style={styles.mensagemMestreTexto}>"{mensagemMestre}"</Text>
+          </View>
+        )}
 
         {negociacaoExpirada ? (
           /* A janela de negociação fechou sem acordo */
@@ -789,6 +803,9 @@ const styles = StyleSheet.create({
   escrowInfo: { flexDirection: 'row', gap: 10, marginHorizontal: 20, backgroundColor: '#EFF6FF', borderRadius: 8, padding: 14, borderWidth: 1, borderColor: '#BFDBFE', marginBottom: 20, alignItems: 'center' },
   escrowIcon: { fontSize: 20 },
   escrowText: { flex: 1, fontSize: 12, color: '#1E40AF', lineHeight: 17 },
+  mensagemMestreBox: { marginHorizontal: 20, marginBottom: 20, backgroundColor: '#FFFBEB', borderRadius: 8, padding: 14, borderWidth: 1, borderColor: '#FCD34D' },
+  mensagemMestreLabel: { fontSize: 10, fontWeight: '900', color: '#92400E', letterSpacing: 1, marginBottom: 4 },
+  mensagemMestreTexto: { fontSize: 13, color: '#78350F', lineHeight: 19, fontStyle: 'italic' },
   botoesContainer: { marginHorizontal: 20, gap: 10, paddingBottom: 30 },
   btnConcordo: { backgroundColor: '#166534', borderRadius: 8, paddingVertical: 18, alignItems: 'center', borderWidth: 2, borderColor: '#4ADE80' },
   btnConcordoText: { color: '#fff', fontWeight: '900', fontSize: 15, textTransform: 'uppercase', letterSpacing: 0.5 },

@@ -14,7 +14,7 @@ export default function MestreACaminhoScreen() {
     categoriaEmoji?: string
   }>()
 
-  const [jobStatus, setJobStatus] = useState<'a_preparar' | 'en_route' | 'arrived' | 'in_service'>('a_preparar')
+  const [jobStatus, setJobStatus] = useState<'a_preparar' | 'en_route' | 'arrived' | 'in_service' | 'awaiting_confirmation' | 'completed' | 'disputed'>('a_preparar')
   const [transporteUtilizado, setTransporteUtilizado] = useState<string>('carro_proprio')
 
   const [mestreInfo, setMestreInfo] = useState({
@@ -43,21 +43,28 @@ export default function MestreACaminhoScreen() {
       try {
         const { data: job } = await supabase
           .from('jobs')
-          .select('status, cancel_reason, arrived_at')
+          .select('status, transport_mode, cancel_reason, arrived_at')
           .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
           .maybeSingle()
 
         if (job) {
-          if (job.cancel_reason) {
-            setTransporteUtilizado(job.cancel_reason)
+          const modo = job.transport_mode || job.cancel_reason
+          if (modo) {
+            setTransporteUtilizado(modo)
           }
 
           if (job.status === 'en_route') {
             setJobStatus('en_route')
           } else if (job.status === 'arrived') {
             setJobStatus('arrived')
-          } else if (job.status === 'in_service' || job.status === 'completed') {
+          } else if (job.status === 'in_service') {
             setJobStatus('in_service')
+          } else if (job.status === 'awaiting_confirmation') {
+            setJobStatus('awaiting_confirmation')
+          } else if (job.status === 'completed') {
+            setJobStatus('completed')
+          } else if (job.status === 'disputed') {
+            setJobStatus('disputed')
           } else {
             setJobStatus('a_preparar')
           }
@@ -93,7 +100,11 @@ export default function MestreACaminhoScreen() {
         <Text style={styles.mapPlaceholderSub}>
           {jobStatus === 'a_preparar' ? 'Pagamento Retido · Mestre a preparar saída' :
            jobStatus === 'en_route' ? `Mestre a caminho (${transporteDesc})` :
-           'Mestre chegou ao ponto de encontro!'}
+           jobStatus === 'arrived' ? 'Mestre chegou ao ponto de encontro!' :
+           jobStatus === 'in_service' ? 'Serviço em execução' :
+           jobStatus === 'awaiting_confirmation' ? 'Mestre terminou — confirma o serviço' :
+           jobStatus === 'disputed' ? 'Disputa em análise pela equipa de apoio' :
+           'Serviço concluído'}
         </Text>
         <Text style={styles.mapPlaceholderHint}>A aproximação do mestre é acompanhada em tempo real</Text>
 
@@ -130,6 +141,42 @@ export default function MestreACaminhoScreen() {
             <Text style={styles.chegouBoxTitulo}>📍 O MESTRE CHEGOU AO LOCAL!</Text>
             <Text style={styles.chegouBoxTexto}>
               O profissional está no ponto de encontro consigo para iniciar a execução do serviço acordado.
+            </Text>
+          </View>
+        )}
+
+        {jobStatus === 'in_service' && (
+          <View style={styles.prepararBox}>
+            <Text style={styles.prepararBoxTitulo}>🛠️ SERVIÇO EM EXECUÇÃO</Text>
+            <Text style={styles.prepararBoxTexto}>
+              O mestre está a realizar o trabalho. O pagamento continua retido até confirmares a conclusão.
+            </Text>
+          </View>
+        )}
+
+        {jobStatus === 'awaiting_confirmation' && (
+          <View style={styles.chegouBox}>
+            <Text style={styles.chegouBoxTitulo}>✅ O MESTRE TERMINOU O SERVIÇO</Text>
+            <Text style={styles.chegouBoxTexto}>
+              Verifica o trabalho realizado. Se estiver tudo bem, confirma para libertar o pagamento ao mestre.
+            </Text>
+          </View>
+        )}
+
+        {jobStatus === 'completed' && (
+          <View style={styles.chegouBox}>
+            <Text style={styles.chegouBoxTitulo}>🏆 SERVIÇO CONCLUÍDO</Text>
+            <Text style={styles.chegouBoxTexto}>
+              Confirmaste a conclusão e o pagamento foi libertado ao mestre. Podes avaliar o trabalho.
+            </Text>
+          </View>
+        )}
+
+        {jobStatus === 'disputed' && (
+          <View style={styles.prepararBox}>
+            <Text style={styles.prepararBoxTitulo}>🛡️ DISPUTA EM ANÁLISE</Text>
+            <Text style={styles.prepararBoxTexto}>
+              O pagamento continua retido até a equipa de apoio resolver a situação. Acompanha pelo suporte.
             </Text>
           </View>
         )}
@@ -175,6 +222,26 @@ export default function MestreACaminhoScreen() {
             activeOpacity={0.8}
           >
             <Text style={styles.btnAcompanharServicoText}>🔧 Acompanhar Execução do Serviço →</Text>
+          </TouchableOpacity>
+        )}
+
+        {jobStatus === 'awaiting_confirmation' && (
+          <TouchableOpacity 
+            style={styles.btnAcompanharServico} 
+            onPress={() => router.push({ pathname: '/pedido/confirmar', params: { jobId: params.jobId } })}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.btnAcompanharServicoText}>✓ Verificar e Confirmar Conclusão →</Text>
+          </TouchableOpacity>
+        )}
+
+        {jobStatus === 'completed' && (
+          <TouchableOpacity 
+            style={styles.btnAcompanharServico} 
+            onPress={() => router.push({ pathname: '/avaliar', params: { jobId: params.jobId } })}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.btnAcompanharServicoText}>⭐ Avaliar o Mestre →</Text>
           </TouchableOpacity>
         )}
 

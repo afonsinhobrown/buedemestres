@@ -35,36 +35,49 @@ export default function AvaliarMestreScreen() {
 
     setSubmitting(true)
     try {
-      // 1. Obter provider_id do serviço se necessário
-      const { data: jobData } = await supabase
-        .from('service_jobs')
-        .select('provider_id, client_id')
-        .eq('id', params.jobId)
+      const { data: jobData, error: jobError } = await supabase
+        .from('jobs')
+        .select('id, provider_id, client_id, status')
+        .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
         .maybeSingle()
+
+      if (jobError || !jobData) {
+        Alert.alert('Erro', 'Trabalho não encontrado para avaliação.')
+        return
+      }
+      if (jobData.status !== 'completed') {
+        Alert.alert('Ainda não é possível avaliar', 'A avaliação só fica disponível depois da confirmação da conclusão.')
+        return
+      }
 
       const fullComment = selectedTags.length > 0 
         ? `${selectedTags.join(', ')}. ${comentario}`.trim()
         : comentario.trim()
 
-      const clientId = user?.id || jobData?.client_id || '11111111-1111-1111-1111-111111111111'
-      const providerId = jobData?.provider_id || null
+      const clientId = user?.id || jobData.client_id
+      const providerId = jobData.provider_id
 
       const { error } = await supabase.from('reviews').insert({
-        job_id: params.jobId,
+        job_id: jobData.id,
         client_id: clientId,
         provider_id: providerId,
         rating: rating,
         comment: fullComment || null
       })
 
-      if (error && !error.message?.includes('duplicate')) {
-        console.warn('Aviso ao submeter avaliação:', error.message)
+      if (error) {
+        if (error.message?.includes('duplicate') || error.code === '23505') {
+          Alert.alert('Já avaliaste', 'Já existe uma avaliação para este trabalho.')
+          setConcluido(true)
+          return
+        }
+        throw new Error(error.message)
       }
 
       setConcluido(true)
     } catch (err: any) {
       console.error('Erro na avaliação:', err)
-      setConcluido(true) // Segue em frente mesmo com fallback local
+      Alert.alert('Erro', err.message || 'Não foi possível guardar a avaliação.')
     } finally {
       setSubmitting(false)
     }
