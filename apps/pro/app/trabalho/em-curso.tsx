@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, ActivityIndicator, ScrollView } from 'react-native';
 import { Alert } from '../../lib/alertCompat'
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
@@ -135,7 +135,7 @@ export default function EmCursoScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
         <View style={styles.iconCircle}>
           <Text style={{ fontSize: 36 }}>ðŸ› ï¸</Text>
@@ -222,15 +222,16 @@ export default function EmCursoScreen() {
         activeOpacity={0.8}
       >
         <Text style={styles.btnConcluirText}>
-          {isFinishing ? 'A Concluir...' : 'âœ“ Concluir ServiÃ§o'}
+          {isFinishing ? 'A concluir...' : '✅ Confirmar que terminei o serviço'}
         </Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0F2D1A', padding: 24, justifyContent: 'space-between', paddingTop: 64 },
+  container: { flex: 1, backgroundColor: '#0F2D1A' },
+  scrollContent: { flexGrow: 1, justifyContent: 'space-between', padding: 24, paddingTop: 64, paddingBottom: 40 },
   header: { alignItems: 'center' },
   iconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(74,222,128,0.15)', borderWidth: 2, borderColor: '#4ADE80', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
   title: { fontSize: 26, fontWeight: '900', color: '#F5F0E8', marginBottom: 8, textAlign: 'center' },
