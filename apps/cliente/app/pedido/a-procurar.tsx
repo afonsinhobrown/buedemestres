@@ -1,8 +1,9 @@
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, Image } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Image, ScrollView } from 'react-native'
 import { useLocalSearchParams, router } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/lib/useAuthStore'
+import { mostrarAlerta } from '@/lib/alerts'
 
 const RONDAS = [
   { ronda: 1, raioKm: 5, label: 'A procurar a 5 km...' },
@@ -21,6 +22,7 @@ export default function AProcurarMestreScreen() {
   }>()
 
   const user = useAuthStore((s) => s.user)
+  const initialized = useAuthStore((s) => s.initialized)
   const profile = useAuthStore((s) => s.profile)
   const loadProfile = useAuthStore((s) => s.loadProfile)
 
@@ -30,6 +32,7 @@ export default function AProcurarMestreScreen() {
   const [rondaAtual, setRondaAtual] = useState(0)
   const [esgotado, setEsgotado] = useState(false)
   const [aceite, setAceite] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
   const [requestId, setRequestId] = useState<string | null>(null)
   const [onlineCount, setOnlineCount] = useState<number | null>(null)
   const [mestreDados, setMestreDados] = useState<{ nome: string; telefone: string; nota: string }>({
@@ -68,8 +71,12 @@ export default function AProcurarMestreScreen() {
     checkOnline()
   }, [params.categoriaId])
 
-  // Criar o pedido no Supabase
+  // Criar o pedido no Supabase (só depois da sessão estar restaurada)
   useEffect(() => {
+    if (!initialized) return;
+
+    let cancelado = false;
+
     async function criarPedido() {
       // Usar utilizador real autenticado da sessão
       const realUserId = user?.id || '';
@@ -78,9 +85,11 @@ export default function AProcurarMestreScreen() {
       const lat = params.lat || '-25.9680';
 
       if (!realUserId) {
-        Alert.alert('Sessão', 'Precisas de entrar na tua conta para criar um pedido.', [
-          { text: 'Entrar', onPress: () => router.replace('/entrar') }
-        ]);
+        mostrarAlerta(
+          'Sessão necessária',
+          'Precisas de entrar na tua conta para criar um pedido.',
+          () => router.replace('/entrar')
+        );
         return;
       }
 
@@ -95,13 +104,13 @@ export default function AProcurarMestreScreen() {
       const { data: podeAbrir } = await supabase.rpc('client_can_open_request', { p_client: realUserId });
       if (podeAbrir === false) {
         const { data: cooldown } = await supabase.rpc('profile_on_cooldown', { p_profile: realUserId });
-        Alert.alert(
-          'Limite de pedidos atingido',
-          cooldown
-            ? 'Estiveste inactivo em demasiadas negociações. Aguarda alguns minutos antes de abrir um novo pedido.'
-            : 'Já tens pedidos à procura de mestre. Conclui ou cancela um deles antes de abrir outro.',
-          [{ text: 'OK', onPress: () => router.back() }]
-        );
+        if (!cancelado) {
+          setErro(
+            cooldown
+              ? 'Estiveste inactivo em demasiadas negociações. Aguarda alguns minutos antes de abrir um novo pedido.'
+              : 'Já tens pedidos à procura de mestre. Conclui ou cancela um deles antes de abrir outro.'
+          );
+        }
         return;
       }
 
@@ -134,24 +143,28 @@ export default function AProcurarMestreScreen() {
         })
         .select()
         .single();
-        
+
+      if (cancelado) return;
+
       if (error) {
         console.error('Insert Error:', error);
-        Alert.alert(
-          'Erro',
+        setErro(
           String(error.message).includes('client_rate_limited')
             ? 'Já tens pedidos à procura de mestre. Conclui ou cancela um deles antes de abrir outro.'
-            : 'Não foi possível criar o pedido.'
+            : error.message || 'Não foi possível criar o pedido.'
         );
-        router.back();
         return;
       }
-      
+
       setRequestId(data.id);
     }
-    
+
     criarPedido();
-  }, []);
+
+    return () => {
+      cancelado = true;
+    };
+  }, [initialized, user?.id]);
 
   // Escutar ofertas aceites e progressão de rondas (Polling activo + Realtime)
   useEffect(() => {
@@ -307,6 +320,22 @@ export default function AProcurarMestreScreen() {
           <Text style={[styles.btnText, { color: '#1A1A2E' }]}>VER ORÇAMENTO & NEGOCIAR →</Text>
         </TouchableOpacity>
       </View>
+    )
+  }
+
+  if (erro) {
+    return (
+      <ScrollView contentContainerStyle={[styles.container, { flexGrow: 1 }]}>
+        <Text style={styles.esgotadoIcon}>⚠️</Text>
+        <Text style={styles.esgotadoTitle}>Não foi possível criar o pedido</Text>
+        <Text style={styles.esgotadoDesc}>{erro}</Text>
+        <TouchableOpacity style={styles.btnPrimary} onPress={() => router.replace('/')}>
+          <Text style={styles.btnText}>Voltar ao Início</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.btnOutline} onPress={() => router.back()}>
+          <Text style={styles.btnOutlineText}>Tentar novamente</Text>
+        </TouchableOpacity>
+      </ScrollView>
     )
   }
 
