@@ -4,7 +4,7 @@ import { useLocalSearchParams, router } from 'expo-router'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import MapaTracking from '../../components/MapaTracking'
-import { parseGeoPoint, type GeoPoint } from '../../lib/geo'
+import { parseGeoPoint, distanceMeters, type GeoPoint } from '../../lib/geo'
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || ''
 
@@ -37,8 +37,28 @@ export default function MestreACaminhoScreen() {
     categoria: 'Mecânico',
   })
 
-  const etaMinutos = params.etaMinutos ?? '8'
-  const distanciaM = params.distanciaM ?? '2100'
+  // Distância real entre a posição partilhada pelo mestre e o local do
+  // cliente. Antes usava valores fixos (2.1 km / 8 min) que apareciam mesmo
+  // quando ambos estavam no mesmo sítio.
+  const distanciaMetros =
+    providerPoint && clientPoint
+      ? distanceMeters(providerPoint, clientPoint)
+      : params.distanciaM
+        ? Number(params.distanciaM)
+        : null
+
+  const distanciaLabel =
+    distanciaMetros == null
+      ? '—'
+      : distanciaMetros < 1000
+        ? `${Math.round(distanciaMetros)} m`
+        : `${(distanciaMetros / 1000).toFixed(1)} km`
+
+  const etaMinutos =
+    distanciaMetros == null
+      ? params.etaMinutos ?? null
+      : Math.max(1, Math.round((distanciaMetros / 1000 / 20) * 60))
+
   const categoriaEmoji = params.categoriaEmoji ?? '🔧'
 
   const transporteDesc = transporteUtilizado === 'chapa' ? '🚐 Chapa' :
@@ -374,14 +394,14 @@ export default function MestreACaminhoScreen() {
         <View style={styles.etaCard}>
           <View style={styles.etaItem}>
             <Text style={styles.etaValor}>
-              {jobStatus === 'arrived' ? '0 min' : etaMinutos + ' min'}
+              {jobStatus === 'arrived' ? '0 min' : etaMinutos != null ? `${etaMinutos} min` : '—'}
             </Text>
             <Text style={styles.etaLabel}>Previsão</Text>
           </View>
           <View style={styles.etaDivider} />
           <View style={styles.etaItem}>
             <Text style={styles.etaValor}>
-              {jobStatus === 'arrived' ? 'No local' : (parseInt(distanciaM) / 1000).toFixed(1) + ' km'}
+              {jobStatus === 'arrived' ? 'No local' : distanciaLabel}
             </Text>
             <Text style={styles.etaLabel}>Distância</Text>
           </View>
