@@ -188,6 +188,43 @@ export async function failPayoutByReference(
   return result;
 }
 
+/** Rejeita um pedido pendente pela equipa e devolve o valor √† carteira. */
+export async function rejectPayout(
+  payoutId: string,
+  reason = 'Rejeitado pela equipa'
+): Promise<'rejected' | 'already' | 'not_found'> {
+  const result = await db.transaction(async (client) => {
+    const { rows } = await client.query<PayoutRow>(
+      `select id, provider_id, amount, status from payouts where id = $1 for update`,
+      [payoutId]
+    );
+    const payout = rows[0];
+    if (!payout) return 'not_found' as const;
+    if (payout.status !== 'pending') return 'already' as const;
+
+    await client.query(
+      `update payouts set status = 'failed', failure_reason = $2 where id = $1`,
+      [payout.id, reason]
+    );
+    await client.query(
+      `select wallet_apply($1, 'refund', $2, 'Saque rejeitado ‚Äî valor devolvido', null, $3::jsonb)`,
+      [payout.provider_id, payout.amount, JSON.stringify({ payout_id: payout.id })]
+    );
+    await client.query(
+      `insert into notifications(profile_id, type, title, body, data)
+       values ($1, 'payout_failed', 'Pagamento n√£o aprovado', $2, $3::jsonb)`,
+      [
+        payout.provider_id,
+        `O saque de MT ${payout.amount} n√£o foi aprovado. O valor foi devolvido √† tua carteira.`,
+        JSON.stringify({ payout_id: payout.id }),
+      ]
+    );
+    return 'rejected' as const;
+  });
+
+  return result;
+}
+
 /** Reconcilia payouts em processamento consultando a PaySuite. */
 export async function reconcileProcessingPayouts(): Promise<number> {
   const { rows } = await db.query<{ id: string; provider_ref: string }>(
@@ -207,41 +244,4 @@ export async function reconcileProcessingPayouts(): Promise<number> {
     }
   }
   return changed;
-}
-
-/** Rejeita um pedido pendente pela equipa e devolve o valor ‡ carteira. */
-export async function rejectPayout(
-  payoutId: string,
-  reason = 'Rejeitado pela equipa'
-): Promise<'rejected' | 'already' | 'not_found'> {
-  const result = await db.transaction(async (client) => {
-    const { rows } = await client.query<PayoutRow>(
-      `select id, provider_id, amount, status from payouts where id = $1 for update`,
-      [payoutId]
-    );
-    const payout = rows[0];
-    if (!payout) return 'not_found' as const;
-    if (payout.status !== 'pending') return 'already' as const;
-
-    await client.query(
-      `update payouts set status = 'failed', failure_reason = $2 where id = $1`,
-      [payout.id, reason]
-    );
-    await client.query(
-      `select wallet_apply($1, 'refund', $2, 'Saque rejeitado ó valor devolvido', null, $3::jsonb)`,
-      [payout.provider_id, payout.amount, JSON.stringify({ payout_id: payout.id })]
-    );
-    await client.query(
-      `insert into notifications(profile_id, type, title, body, data)
-       values ($1, 'payout_failed', 'Pagamento n„o aprovado', $2, $3::jsonb)`,
-      [
-        payout.provider_id,
-        `O saque de MT ${payout.amount} n„o foi aprovado. O valor foi devolvido ‡ tua carteira.`,
-        JSON.stringify({ payout_id: payout.id }),
-      ]
-    );
-    return 'rejected' as const;
-  });
-
-  return result;
 }

@@ -155,38 +155,6 @@ export async function getPaySuiteChargeByReference(reference: string): Promise<{
   }
 }
 
-function safeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
-}
-
-function tryHmac(key: string, message: string, provided: string): boolean {
-  const hex = crypto.createHmac('sha256', key).update(message, 'utf8').digest('hex');
-  const b64 = crypto.createHmac('sha256', key).update(message, 'utf8').digest('base64');
-  return safeEqual(provided.toLowerCase(), hex.toLowerCase()) || safeEqual(provided.trim(), b64);
-}
-
-export function verifyPaySuiteWebhookSignature(rawBody: string, signature: string | null): boolean {
-  const secret = process.env.PAYSUITE_WEBHOOK_SECRET;
-  if (!secret || !signature) return false;
-  const provided = signature
-    .replace(/^t=\d+(\.\d+)?\s*[;,]\s*v1=/i, '')
-    .replace(/^v1=/i, '')
-    .replace(/^sha256=/i, '')
-    .replace(/^hmac\s+sha256=/i, '')
-    .replace(/^["']|["']$/g, '')
-    .trim();
-  if (!provided) return false;
-  try {
-    if (tryHmac(secret, rawBody, provided)) return true;
-    const ts = signature.match(/t=(\d+)/);
-    if (ts && tryHmac(secret, `${ts[1]}.${rawBody}`, provided)) return true;
-    return false;
-  } catch {
-    return false;
-  }
-}
-
 export type PaySuitePayoutMethod = 'mpesa' | 'emola' | 'mkesh' | 'bank' | 'bank_transfer';
 
 export type PaySuitePayoutResult = {
@@ -244,5 +212,37 @@ export async function getPaySuitePayoutByReference(reference: string): Promise<{
     };
   } catch {
     return { status: null, paid: false, failed: false };
+  }
+}
+
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
+}
+
+function tryHmac(key: string, message: string, provided: string): boolean {
+  const hex = crypto.createHmac('sha256', key).update(message, 'utf8').digest('hex');
+  const b64 = crypto.createHmac('sha256', key).update(message, 'utf8').digest('base64');
+  return safeEqual(provided.toLowerCase(), hex.toLowerCase()) || safeEqual(provided.trim(), b64);
+}
+
+export function verifyPaySuiteWebhookSignature(rawBody: string, signature: string | null): boolean {
+  const secret = process.env.PAYSUITE_WEBHOOK_SECRET;
+  if (!secret || !signature) return false;
+  const provided = signature
+    .replace(/^t=\d+(\.\d+)?\s*[;,]\s*v1=/i, '')
+    .replace(/^v1=/i, '')
+    .replace(/^sha256=/i, '')
+    .replace(/^hmac\s+sha256=/i, '')
+    .replace(/^["']|["']$/g, '')
+    .trim();
+  if (!provided) return false;
+  try {
+    if (tryHmac(secret, rawBody, provided)) return true;
+    const ts = signature.match(/t=(\d+)/);
+    if (ts && tryHmac(secret, `${ts[1]}.${rawBody}`, provided)) return true;
+    return false;
+  } catch {
+    return false;
   }
 }
