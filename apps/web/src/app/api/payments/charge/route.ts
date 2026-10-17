@@ -103,12 +103,28 @@ export async function POST(req: Request) {
     const storedCommissionRate = chargedAmount > 0 ? commission / chargedAmount : 0;
 
     const reference = buildPaymentReference();
+    // O webhook tem de apontar para a instância que criou o pagamento.
+    // O valor fixo em PAYSUITE_WEBHOOK_URL pode estar desactualizado (ex.:
+    // aponta para um antigo deploy) e as confirmações perdem-se.
+    const origin = new URL(req.url).origin;
+    const isLocalOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+    const publicOrigin = isLocalOrigin
+      ? String(process.env.NEXT_PUBLIC_SITE_URL || process.env.PAYSUITE_WEBHOOK_URL || origin)
+          .replace(/\/api\/webhooks\/paysuite$/, '')
+          .replace(/\/$/, '')
+      : origin;
+    const webhookUrl = isLocalOrigin
+      ? process.env.PAYSUITE_WEBHOOK_URL || undefined
+      : `${origin}/api/webhooks/paysuite`;
+    const returnUrl = `${publicOrigin}/apps/cliente`;
+
     const charge = await createPaySuiteCharge({
       amountMZN: chargedAmount,
       reference,
       method: mapMethod(method),
       description: `Bué de Mestres — ${reference}`,
-      webhookUrl: process.env.PAYSUITE_WEBHOOK_URL || undefined,
+      webhookUrl,
+      returnUrl,
     });
 
     await db.query(

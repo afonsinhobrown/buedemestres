@@ -1,13 +1,16 @@
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, ActivityIndicator, ScrollView, Linking } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, ActivityIndicator, ScrollView, Linking, Platform } from 'react-native'
 import { Alert } from '../../lib/alertCompat'
 import { useLocalSearchParams, router } from 'expo-router'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../lib/useAuthStore'
 import { loadSandboxSettings } from '../../lib/sandbox'
 
-// Base do servidor que fala com a PaySuite (Web). Em branco = mesma origem no web.
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || ''
+// Base do servidor que fala com a PaySuite (Web). No browser usamos a mesma
+// origem; nas apps nativas apontamos para a API pública.
+const API_BASE =
+  process.env.EXPO_PUBLIC_API_URL ||
+  (Platform.OS === 'web' ? '' : 'https://buedemestres.vercel.app')
 
 export default function PropostaPrecoScreen() {
   const params = useLocalSearchParams<{
@@ -54,6 +57,8 @@ export default function PropostaPrecoScreen() {
   // Pagamento (PaySuite): escolha de método + estado pendente
   const [modalPagamentoVisivel, setModalPagamentoVisivel] = useState(false)
   const [pagamentoPendente, setPagamentoPendente] = useState<{ url: string | null; reference: string } | null>(null)
+  const [verificandoPagamento, setVerificandoPagamento] = useState(false)
+  const checkTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -201,6 +206,8 @@ export default function PropostaPrecoScreen() {
   // 1. OPÇÃO: "CONCORDO" — processa o pagamento via PaySuite
   //    Só marca como retido depois de a PaySuite confirmar (polling).
   const verificarPagamento = (target: string) => {
+    if (checkTimerRef.current) clearInterval(checkTimerRef.current)
+    setVerificandoPagamento(true)
     let tries = 0
     const timer = setInterval(async () => {
       tries += 1
@@ -209,6 +216,8 @@ export default function PropostaPrecoScreen() {
         const d = await r.json().catch(() => ({}))
         if (d?.paid) {
           clearInterval(timer)
+          checkTimerRef.current = null
+          setVerificandoPagamento(false)
           if (proposalData?.id) {
             await supabase.from('job_price_proposals').update({ status: 'accepted' }).eq('id', proposalData.id)
           }
@@ -218,15 +227,44 @@ export default function PropostaPrecoScreen() {
           setPagamentoPendente(null)
         } else if (d?.failed) {
           clearInterval(timer)
+          checkTimerRef.current = null
+          setVerificandoPagamento(false)
           setPagamentoPendente(null)
           Alert.alert('Pagamento não concluído', 'O pagamento foi recusado ou cancelado. Tenta novamente.')
         }
       } catch {
         // rede instável — continua a tentar
       }
-      if (tries > 120) clearInterval(timer) // ~6 min
+      if (tries > 120) {
+        clearInterval(timer)
+        checkTimerRef.current = null
+        setVerificandoPagamento(false)
+      }
     }, 3000)
+    checkTimerRef.current = timer
   }
+
+  useEffect(() => {
+    return () => {
+      if (checkTimerRef.current) clearInterval(checkTimerRef.current)
+    }
+  }, [])
+
+  // Ao voltar da página de pagamento (nova aba/janela), verificar já o estado.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return
+    const aoVoltar = () => {
+      if (document.visibilityState === 'visible' && pagamentoPendente) {
+        verificarPagamento(actualJobId || params.jobId)
+      }
+    }
+    document.addEventListener('visibilitychange', aoVoltar)
+    window.addEventListener('focus', aoVoltar)
+    return () => {
+      document.removeEventListener('visibilitychange', aoVoltar)
+      window.removeEventListener('focus', aoVoltar)
+    }
+  }, [pagamentoPendente, actualJobId, params.jobId])
 
   const handleConcordo = async (method: 'mpesa' | 'emola' | 'card') => {
     try {
@@ -620,6 +658,18 @@ export default function PropostaPrecoScreen() {
                 <Text style={styles.btnText}>Abrir Pagamento PaySuite</Text>
               </TouchableOpacity>
             )}
+            <TouchableOpacity
+              style={[styles.btnPrimary, { marginTop: 12, backgroundColor: '#166534' }]}
+              onPress={() => verificarPagamento(actualJobId || params.jobId)}
+              disabled={verificandoPagamento}
+            >
+              <Text style={styles.btnText}>
+                {verificandoPagamento ? 'A verificar pagamento...' : 'Já paguei — Verificar agora'}
+              </Text>
+            </TouchableOpacity>
+            <Text style={{ color: '#78350F', fontSize: 12, marginTop: 10, textAlign: 'center' }}>
+              Se já pagaste e a confirmação não apareceu, toca em verificar. A confirmação chega automaticamente assim que a PaySuite responder.
+            </Text>
             <TouchableOpacity
               style={{ marginTop: 12, alignItems: 'center' }}
               onPress={handleCancelarPagamentoPendente}

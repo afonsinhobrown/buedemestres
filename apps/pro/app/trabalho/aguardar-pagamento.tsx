@@ -1,8 +1,14 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Alert } from '../../lib/alertCompat'
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+
+// Base do servidor que fala com a PaySuite. No browser usamos a mesma origem;
+// nas apps nativas apontamos para a API pública.
+const API_BASE =
+  process.env.EXPO_PUBLIC_API_URL ||
+  (Platform.OS === 'web' ? '' : 'https://buedemestres.vercel.app');
 
 export default function AguardarPagamentoScreen() {
   const router = useRouter();
@@ -141,6 +147,26 @@ export default function AguardarPagamentoScreen() {
       supabase.removeChannel(channel);
     };
   }, [jobId, status]);
+
+  // Reconciliação activa: se o cliente fechou a aba depois de pagar, o mestre
+  // também pede à PaySuite para verificar e o endpoint confirma na base de dados.
+  useEffect(() => {
+    if (!jobId) return;
+
+    const reconciliar = async () => {
+      try {
+        await fetch(`${API_BASE}/api/payments/status?jobId=${encodeURIComponent(jobId)}`);
+      } catch {
+        // rede instável — o polling à base de dados continua a tentar
+      }
+    };
+
+    reconciliar();
+    const t = setInterval(reconciliar, 15000);
+    return () => {
+      clearInterval(t);
+    };
+  }, [jobId]);
 
   const handleAceitarContraProposta = async () => {
     try {
