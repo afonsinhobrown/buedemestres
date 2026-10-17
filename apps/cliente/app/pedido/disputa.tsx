@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, ScrollView } from 'react-native'
+import { Alert } from '../../lib/alertCompat'
 import { useLocalSearchParams, router } from 'expo-router'
 import { useState } from 'react'
 

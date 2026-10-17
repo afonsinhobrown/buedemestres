@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native'
+import { Alert } from '../lib/alertCompat'
 import { useLocalSearchParams, router } from 'expo-router'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import { useAuthStore } from '@/lib/useAuthStore'

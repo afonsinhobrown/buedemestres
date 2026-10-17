@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert, Image } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Image } from 'react-native'
+import { Alert } from '../../lib/alertCompat'
 import { useState, useEffect } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import * as Location from 'expo-location'

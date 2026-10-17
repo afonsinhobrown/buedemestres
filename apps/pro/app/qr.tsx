@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native'
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native'
+import { Alert } from '../lib/alertCompat'
 import { useLocalSearchParams, router } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../lib/useAuthStore'

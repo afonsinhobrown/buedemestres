@@ -6,9 +6,9 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native'
+import { Alert } from '../lib/alertCompat'
 import { router } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { supabase } from '../lib/supabase'

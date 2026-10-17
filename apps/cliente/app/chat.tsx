@@ -9,8 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
-} from 'react-native'
+  } from 'react-native'
+import { Alert } from '../lib/alertCompat'
 import { useLocalSearchParams, router } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/lib/useAuthStore'

@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image, Linking, Alert, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Image, Linking, ActivityIndicator } from 'react-native'
+import { Alert } from '../../lib/alertCompat'
 import { useLocalSearchParams, router } from 'expo-router'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'

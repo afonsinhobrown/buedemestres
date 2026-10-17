@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, Platform, Modal, TextInput, ActivityIndicator, Image } from 'react-native'
+import { View, Text, StyleSheet, Switch, TouchableOpacity, Platform, Modal, TextInput, ActivityIndicator, Image } from 'react-native'
+import { Alert } from '../lib/alertCompat'
 import { useState, useEffect, useRef } from 'react'
 import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'

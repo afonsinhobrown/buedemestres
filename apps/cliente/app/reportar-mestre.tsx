@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native'
+import { Alert } from '../lib/alertCompat'
 import { useLocalSearchParams, router } from 'expo-router'
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || ''

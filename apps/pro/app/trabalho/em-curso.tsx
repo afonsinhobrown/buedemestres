@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, StyleSheet, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, ActivityIndicator } from 'react-native';
+import { Alert } from '../../lib/alertCompat'
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 

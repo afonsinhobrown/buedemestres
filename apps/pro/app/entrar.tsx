@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, SafeAreaView, StatusBar } from 'react-native'
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, SafeAreaView, StatusBar } from 'react-native'
+import { Alert } from '../lib/alertCompat'
 import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
 
