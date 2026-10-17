@@ -44,6 +44,7 @@ export default function ChatScreen() {
     }
 
     let channel: ReturnType<typeof supabase.channel> | null = null
+    let pollTimer: ReturnType<typeof setInterval> | null = null
 
     const carregar = async () => {
       const { data: job } = await supabase
@@ -80,13 +81,16 @@ export default function ChatScreen() {
 
       setConversationId(conversation.id)
 
-      const { data: msgs } = await supabase
-        .from('messages')
-        .select('id, sender_id, body, created_at')
-        .eq('conversation_id', conversation.id)
-        .order('created_at', { ascending: true })
+      const recarregar = async () => {
+        const { data: msgs } = await supabase
+          .from('messages')
+          .select('id, sender_id, body, created_at')
+          .eq('conversation_id', conversation.id)
+          .order('created_at', { ascending: true })
+        setMessages((msgs as Message[]) || [])
+      }
 
-      setMessages((msgs as Message[]) || [])
+      await recarregar()
       setLoading(false)
 
       await supabase
@@ -112,11 +116,15 @@ export default function ChatScreen() {
           }
         )
         .subscribe()
+
+      // Fallback: o Realtime pode não estar activo para a tabela messages.
+      pollTimer = setInterval(recarregar, 3000)
     }
 
     carregar()
 
     return () => {
+      if (pollTimer) clearInterval(pollTimer)
       if (channel) supabase.removeChannel(channel)
     }
   }, [jobId, userId])
