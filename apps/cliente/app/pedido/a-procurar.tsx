@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Image, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Image, ScrollView, ActivityIndicator } from 'react-native'
 import { useLocalSearchParams, router } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -32,6 +32,7 @@ export default function AProcurarMestreScreen() {
   const [rondaAtual, setRondaAtual] = useState(0)
   const [esgotado, setEsgotado] = useState(false)
   const [aceite, setAceite] = useState(false)
+  const [temProposta, setTemProposta] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [requestId, setRequestId] = useState<string | null>(null)
   const [onlineCount, setOnlineCount] = useState<number | null>(null)
@@ -173,7 +174,7 @@ export default function AProcurarMestreScreen() {
     let timer: NodeJS.Timeout;
     let pollTimer: NodeJS.Timeout;
 
-    const tratarAceitacao = async (targetProviderId: string | null) => {
+    const tratarAceitacao = async (targetProviderId: string | null, status: string) => {
       clearInterval(timer);
       clearInterval(pollTimer);
 
@@ -196,6 +197,7 @@ export default function AProcurarMestreScreen() {
       }
 
       setMestreDados({ nome: mNome, telefone: mTel, nota: mNota });
+      setTemProposta(status === 'price_proposed');
       setAceite(true);
     };
 
@@ -210,7 +212,7 @@ export default function AProcurarMestreScreen() {
 
         if (req && (req.status === 'accepted' || req.status === 'price_proposed')) {
           console.log('✅ Pedido aceite ou orçamento recebido detectado via polling:', req);
-          await tratarAceitacao(req.target_provider_id);
+          await tratarAceitacao(req.target_provider_id, req.status);
           if (req.status === 'price_proposed') {
             router.replace({
               pathname: '/pedido/proposta-preco',
@@ -245,7 +247,7 @@ export default function AProcurarMestreScreen() {
         async (payload) => {
           if (payload.new.status === 'accepted' || payload.new.status === 'price_proposed') {
             console.log('✅ Pedido aceite ou orçamento recebido detectado via Realtime:', payload.new);
-            await tratarAceitacao(payload.new.target_provider_id);
+            await tratarAceitacao(payload.new.target_provider_id, payload.new.status);
             if (payload.new.status === 'price_proposed') {
               router.replace({
                 pathname: '/pedido/proposta-preco',
@@ -306,19 +308,28 @@ export default function AProcurarMestreScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity 
-          style={[styles.btnPrimary, { backgroundColor: '#F2C94C', borderColor: '#F2C94C', width: '100%' }]} 
-          onPress={() => router.replace({
-            pathname: '/pedido/proposta-preco',
-            params: {
-              jobId: requestId || '',
-              mestreNome: mestreDados.nome,
-              categoriaEmoji: '🔧'
-            }
-          })}
-        >
-          <Text style={[styles.btnText, { color: '#1A1A2E' }]}>VER ORÇAMENTO & NEGOCIAR →</Text>
-        </TouchableOpacity>
+        {temProposta ? (
+          <TouchableOpacity 
+            style={[styles.btnPrimary, { backgroundColor: '#F2C94C', borderColor: '#F2C94C', width: '100%' }]} 
+            onPress={() => router.replace({
+              pathname: '/pedido/proposta-preco',
+              params: {
+                jobId: requestId || '',
+                mestreNome: mestreDados.nome,
+                categoriaEmoji: '🔧'
+              }
+            })}
+          >
+            <Text style={[styles.btnText, { color: '#1A1A2E' }]}>VER ORÇAMENTO & NEGOCIAR →</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: '100%', alignItems: 'center' }}>
+            <ActivityIndicator color="#F2C94C" />
+            <Text style={{ color: '#E2E8F0', fontSize: 13, fontWeight: '700', marginTop: 10, textAlign: 'center' }}>
+              Mestre aceitou! A aguardar o orçamento...
+            </Text>
+          </View>
+        )}
       </View>
     )
   }

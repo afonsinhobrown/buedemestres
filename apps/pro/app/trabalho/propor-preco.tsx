@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { validateAntiPhoneBypass } from '../../lib/antiPhoneBypass';
 import { useAuthStore } from '../../lib/useAuthStore';
 import { loadSandboxSettings } from '../../lib/sandbox';
+import { mostrarAlerta } from '../../lib/alerts';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || '';
 
@@ -51,7 +52,13 @@ export default function ProporPrecoScreen() {
     const carregarSandbox = async () => {
       try {
         const settings = await loadSandboxSettings()
-        if (mounted) setSandbox(settings)
+        if (mounted) {
+          setSandbox(settings)
+          if (settings.active) {
+            setValorSimples(String(settings.max))
+            setLines([{ id: '1', description: 'Taxa dentro do limite sandbox', price: String(settings.max) }])
+          }
+        }
       } catch {
         // mantém o default
       }
@@ -171,14 +178,18 @@ export default function ProporPrecoScreen() {
 
   const totalProposta = totalCalculado;
 
+  const sandboxError = sandbox.active && (totalProposta < sandbox.min || totalProposta > sandbox.max)
+    ? `No modo sandbox o valor tem de estar entre MT ${sandbox.min} e MT ${sandbox.max}.`
+    : null;
+
   const submitProposal = async () => {
     if (msgBypassError) {
-      Alert.alert('Aviso de Segurança', msgBypassError);
+      mostrarAlerta('Aviso de Segurança', msgBypassError);
       return;
     }
 
     if (sandbox.active && (totalProposta < sandbox.min || totalProposta > sandbox.max)) {
-      Alert.alert(
+      mostrarAlerta(
         'Modo sandbox',
         `O valor do serviço tem de estar entre ${sandbox.min} e ${sandbox.max} MT. Valores acima de ${sandbox.max} MT são rejeitados.`
       );
@@ -186,7 +197,7 @@ export default function ProporPrecoScreen() {
     }
 
     if (totalProposta <= 0) {
-      Alert.alert('Preço Inválido', 'Indica um valor válido para o serviço.');
+      mostrarAlerta('Preço Inválido', 'Indica um valor válido para o serviço.');
       return;
     }
 
@@ -203,7 +214,7 @@ export default function ProporPrecoScreen() {
       let jId = actualJobId;
       const providerId = jobData?.target_provider_id || user?.id;
       if (!providerId) {
-        Alert.alert('Sessão', 'Precisas de entrar na tua conta de mestre.');
+        mostrarAlerta('Sessão', 'Precisas de entrar na tua conta de mestre.');
         return;
       }
       if (!jId) {
@@ -222,7 +233,7 @@ export default function ProporPrecoScreen() {
         if (existingJob) {
           jId = existingJob.id;
         } else {
-          const { data: createdJob } = await supabase
+          const { data: createdJob, error: createdJobError } = await supabase
             .from('jobs')
             .upsert({
               request_id: targetId,
@@ -234,7 +245,11 @@ export default function ProporPrecoScreen() {
             .select()
             .single();
 
-          if (createdJob) jId = createdJob.id;
+          if (createdJobError || !createdJob) {
+            throw new Error(createdJobError?.message || 'Não foi possível criar o trabalho.')
+          }
+
+          jId = createdJob.id;
         }
       }
 
@@ -247,14 +262,14 @@ export default function ProporPrecoScreen() {
 
       const clientUserId = req?.client_id;
       if (!clientUserId) {
-        Alert.alert('Erro', 'Cliente não encontrado para este pedido.');
+        mostrarAlerta('Erro', 'Cliente não encontrado para este pedido.');
         return;
       }
       const mensagem = mensagemDetalhes.trim();
       const payloadDesc = JSON.stringify({ lines: validLines, message: mensagem || null });
 
       // 2. Registar a proposta de orçamento em job_price_proposals
-      await supabase.from('job_price_proposals').insert({
+      const { error: proposalError } = await supabase.from('job_price_proposals').insert({
         job_id: jId || targetId,
         proposed_by: providerId,
         amount: totalProposta,
@@ -262,8 +277,16 @@ export default function ProporPrecoScreen() {
         status: 'pending'
       });
 
+      if (proposalError) {
+        throw new Error(
+          String(proposalError.message).includes('sandbox')
+            ? `No modo sandbox o valor tem de estar entre MT ${sandbox.min} e MT ${sandbox.max}.`
+            : proposalError.message || 'Não foi possível registar a proposta.'
+        )
+      }
+
       // 3. Actualizar jobs com status price_proposed
-      await supabase
+      const { error: jobUpdateError } = await supabase
         .from('jobs')
         .upsert({
           id: jId || undefined,
@@ -276,8 +299,12 @@ export default function ProporPrecoScreen() {
           updated_at: new Date().toISOString()
         }, { onConflict: 'request_id' });
 
+      if (jobUpdateError) {
+        throw new Error(jobUpdateError.message || 'Não foi possível atualizar o trabalho.')
+      }
+
       // 4. Actualizar service_requests com status price_proposed e budget_max
-      await supabase
+      const { error: requestUpdateError } = await supabase
         .from('service_requests')
         .update({
           status: 'price_proposed',
@@ -285,6 +312,10 @@ export default function ProporPrecoScreen() {
           updated_at: new Date().toISOString()
         })
         .or(`id.eq.${targetId},id.eq.${jId}`);
+
+      if (requestUpdateError) {
+        throw new Error(requestUpdateError.message || 'Não foi possível atualizar o pedido.')
+      }
 
       // 5. Inserir notificação directa para o cliente na tabela notifications
       try {
@@ -318,7 +349,7 @@ export default function ProporPrecoScreen() {
       router.push(`/trabalho/aguardar-pagamento?jobId=${jId || targetId}&valor=${totalProposta}`);
     } catch (error: any) {
       console.error('Erro ao enviar proposta:', error);
-      Alert.alert('Erro', error.message || 'Ocorreu um erro ao propor o preço.');
+      mostrarAlerta('Erro', error.message || 'Ocorreu um erro ao propor o preço.');
     } finally {
       setIsSubmitting(false);
     }
@@ -511,6 +542,12 @@ export default function ProporPrecoScreen() {
           <Text style={styles.totalValor}>MT {totalProposta.toLocaleString('pt-MZ')}</Text>
         </View>
 
+        {sandboxError && (
+          <View style={styles.sandboxErrorBox}>
+            <Text style={styles.sandboxErrorText}>⚠️ {sandboxError}</Text>
+          </View>
+        )}
+
         <View style={styles.infoBox}>
           <Text style={styles.infoIcon}>🔒</Text>
           <Text style={styles.infoText}>
@@ -521,12 +558,12 @@ export default function ProporPrecoScreen() {
 
       <TouchableOpacity 
         onPress={submitProposal}
-        disabled={isSubmitting || !!msgBypassError}
-        style={[styles.btnSubmit, (isSubmitting || !!msgBypassError) && { opacity: 0.6 }]}
+        disabled={isSubmitting || !!msgBypassError || !!sandboxError}
+        style={[styles.btnSubmit, (isSubmitting || !!msgBypassError || !!sandboxError) && { opacity: 0.6 }]}
         activeOpacity={0.8}
       >
         <Text style={styles.btnSubmitText}>
-          {isSubmitting ? 'A Enviar...' : `Enviar Proposta ao Cliente (MT ${totalProposta.toLocaleString('pt-MZ')}) →`}
+          {isSubmitting ? 'A Enviar...' : sandboxError ? 'Valor fora do limite sandbox' : `Enviar Proposta ao Cliente (MT ${totalProposta.toLocaleString('pt-MZ')}) →`}
         </Text>
       </TouchableOpacity>
     </View>
@@ -590,6 +627,8 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 11, fontWeight: '900', color: '#F2C94C', textTransform: 'uppercase', letterSpacing: 1 },
   totalNota: { fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
   totalValor: { fontSize: 22, fontWeight: '900', color: '#F5F0E8' },
+  sandboxErrorBox: { backgroundColor: 'rgba(239,68,68,0.18)', borderWidth: 1.5, borderColor: '#EF4444', borderRadius: 8, padding: 10, marginBottom: 14 },
+  sandboxErrorText: { color: '#FCA5A5', fontWeight: '900', fontSize: 12, textAlign: 'center' },
   infoBox: { flexDirection: 'row', gap: 10, padding: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, marginBottom: 16 },
   infoIcon: { fontSize: 18 },
   infoText: { flex: 1, color: 'rgba(255,255,255,0.7)', fontSize: 11, lineHeight: 16 },

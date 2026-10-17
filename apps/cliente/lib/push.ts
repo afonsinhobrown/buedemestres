@@ -1,29 +1,22 @@
+import * as Notifications from 'expo-notifications'
+import * as Device from 'expo-device'
+import Constants from 'expo-constants'
 import { Platform } from 'react-native'
 import { supabase } from './supabase'
 
-let handlerConfigured = false
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+})
 
 export async function registerPushToken(): Promise<string | null> {
   if (Platform.OS === 'web') return null
+  if (!Device.isDevice) return null
 
   try {
-    const Notifications = await import('expo-notifications')
-    const Device = await import('expo-device')
-    const Constants = (await import('expo-constants')).default
-
-    if (!handlerConfigured) {
-      Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: true,
-        }),
-      })
-      handlerConfigured = true
-    }
-
-    if (!Device.isDevice) return null
-
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'default',
