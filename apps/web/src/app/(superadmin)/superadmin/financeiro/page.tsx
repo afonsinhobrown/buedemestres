@@ -7,11 +7,12 @@ function money(value: unknown) {
   return Number(value || 0).toLocaleString('pt-MZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-export default async function FinanceiroPage({ searchParams }: { searchParams: { period?: string } }) {
+export default async function FinanceiroPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
   const session = await verifySession()
   if (!['superadmin', 'finance', 'admin'].includes(session.role || '')) redirect('/entrar')
 
-  const period = searchParams.period || 'month'
+  const sp = await searchParams
+  const period = sp.period || 'month'
   const interval = period === 'year' ? '1 year' : period === 'all' ? null : '30 days'
   const jobFilter = interval ? `AND j.created_at >= NOW() - INTERVAL '${interval}'` : ''
   const payFilter = interval ? `AND created_at >= NOW() - INTERVAL '${interval}'` : ''
@@ -109,17 +110,22 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: {
           <h1 className="text-3xl font-bold text-gray-900">Financeiro</h1>
           <p className="text-gray-500">Entradas, saques, taxas e comportamento de clientes e mestres.</p>
         </div>
-        <form method="GET">
+        <form method="GET" className="flex items-center gap-2">
           <select
             name="period"
             defaultValue={period}
-            onChange={(e) => e.target.form?.submit()}
             className="border-gray-200 border p-3 rounded-xl bg-white shadow-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="month">Últimos 30 dias</option>
             <option value="year">Este ano</option>
             <option value="all">Desde o início</option>
           </select>
+          <button
+            type="submit"
+            className="bg-gray-900 text-white px-4 py-3 rounded-xl font-bold hover:bg-black transition-colors"
+          >
+            Filtrar
+          </button>
         </form>
       </div>
 

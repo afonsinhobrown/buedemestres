@@ -2,14 +2,16 @@ import { db } from '@/lib/db'
 import { verifySession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 
-export default async function RelatoriosAdminPage({ searchParams }: { searchParams: { period?: string } }) {
+export default async function RelatoriosAdminPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
   const session = await verifySession()
   if (session.role !== 'admin') redirect('/entrar')
 
+  const sp = await searchParams
+
   // Filtro de tempo (simplificado para este exemplo)
   let dateFilter = `AND created_at >= NOW() - INTERVAL '30 days'`
-  if (searchParams.period === 'all') dateFilter = ''
-  else if (searchParams.period === 'year') dateFilter = `AND created_at >= NOW() - INTERVAL '1 year'`
+  if (sp.period === 'all') dateFilter = ''
+  else if (sp.period === 'year') dateFilter = `AND created_at >= NOW() - INTERVAL '1 year'`
 
   // 1. Volume Bruto (GMV) - soma do agreed_amount dos trabalhos concluídos
   const gmvRes = await db.query(`
@@ -56,17 +58,22 @@ export default async function RelatoriosAdminPage({ searchParams }: { searchPara
           <p className="text-gray-500">Métricas em tempo real da plataforma.</p>
         </div>
         
-        <form method="GET">
+        <form method="GET" className="flex items-center gap-2">
           <select 
             name="period" 
-            onChange={(e) => e.target.form?.submit()} 
-            defaultValue={searchParams.period || 'month'}
+            defaultValue={sp.period || 'month'}
             className="border-gray-200 border p-3 rounded-xl bg-white shadow-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="month">Últimos 30 Dias</option>
             <option value="year">Este Ano</option>
             <option value="all">Desde o Início</option>
           </select>
+          <button
+            type="submit"
+            className="bg-gray-900 text-white px-4 py-3 rounded-xl font-bold hover:bg-black transition-colors"
+          >
+            Filtrar
+          </button>
         </form>
       </div>
       
