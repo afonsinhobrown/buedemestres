@@ -52,7 +52,8 @@ export default async function HomePage() {
           <Link href="#como-funciona">Como funciona</Link>
           <Link href="#para-mestres">Para mestres</Link>
           <Link href="/ajuda">Ajuda</Link>
-          <Link href="/entrar">Entrar</Link>
+          <Link href="/apps/cliente/entrar">Entrar (cliente)</Link>
+          <Link href="/entrar">Equipa</Link>
           <Link href="/registo" className="btn b1 s">Criar a minha placa</Link>
         </div>
       </nav>

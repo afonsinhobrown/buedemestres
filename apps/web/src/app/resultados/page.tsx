@@ -58,7 +58,8 @@ export default async function ResultadosPage({ searchParams }: { searchParams: P
             </div>
           </form>
           <span className="sp"></span>
-          <Link href="/entrar">Entrar</Link>
+          <Link href="/apps/cliente/entrar">Entrar (cliente)</Link>
+          <Link href="/entrar">Equipa</Link>
         </nav>
 
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>

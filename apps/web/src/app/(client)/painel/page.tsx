@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { verifySession } from '@/lib/session'
 import { db } from '@/lib/db'
 import { logoutAction } from '@/app/actions/auth'
@@ -17,6 +18,12 @@ import {
 
 export default async function PainelPage() {
   const session = await verifySession()
+
+  // Os clientes usam a app web oficial (/apps/cliente), a mesma que o
+  // telemóvel. O painel Next fica reservado a mestres e equipa.
+  if (session.role === 'client') {
+    redirect('/apps/cliente/entrar')
+  }
 
   const { rows: profileRows } = await db.query<Profile>(
     `select id, full_name, email, phone, role, referral_code, avatar_url
