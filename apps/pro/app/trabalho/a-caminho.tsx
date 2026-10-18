@@ -5,7 +5,20 @@ import { useState, useEffect } from 'react'
 import * as Location from 'expo-location'
 import { supabase } from '../../lib/supabase'
 import MapaTracking from '../../components/MapaTracking'
-import { parseGeoPoint, type GeoPoint } from '../../lib/geo'
+import { parseGeoPoint, distanceMeters, type GeoPoint } from '../../lib/geo'
+
+const MAX_ARRIVAL_DISTANCE_M = 200
+
+function formatarDistancia(metros: number): string {
+  return metros < 1000 ? `${Math.round(metros)} m` : `${(metros / 1000).toFixed(1)} km`
+}
+
+function getCurrentPositionComTimeout(timeoutMs = 15000): Promise<Location.LocationObject | null> {
+  return Promise.race([
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+  ])
+}
 
 const MEIOS_TRANSPORTE = [
   { id: 'carro_proprio', label: '🚗 Carro Pessoal', etaText: 'Trânsito normal' },
@@ -42,6 +55,7 @@ export default function ProACaminhoScreen() {
   const [locationError, setLocationError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [isStarting, setIsStarting] = useState(false)
+  const [isConfirmingArrival, setIsConfirmingArrival] = useState(false)
 
   useEffect(() => {
     async function carregarDadosReais() {
@@ -175,21 +189,77 @@ export default function ProACaminhoScreen() {
     }
   }
 
-  // 2. Informar chegada ao local
+  // 2. Informar chegada ao local (só permitido dentro do raio de 200 m)
   const handleChegada = async () => {
-    setFase('arrived')
-    if (params.jobId) {
-      try {
-        await supabase
-          .from('jobs')
-          .update({
-            status: 'arrived',
-            arrived_at: new Date().toISOString()
-          })
-          .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
-      } catch (e) {
-        console.warn('Atualizar estado chegado:', e)
+    if (!clientCoords) {
+      Alert.alert(
+        'Localização do cliente indisponível',
+        'Não foi possível obter o ponto do cliente. Contacta o apoio antes de confirmar a chegada.'
+      )
+      return
+    }
+
+    setIsConfirmingArrival(true)
+    try {
+      const servicosAtivos = await Location.hasServicesEnabledAsync()
+      if (!servicosAtivos) {
+        Alert.alert('GPS desligado', 'Ativa os serviços de localização para confirmar a chegada ao cliente.')
+        return
       }
+
+      const { status } = await Location.getForegroundPermissionsAsync()
+      if (status !== 'granted') {
+        const pedido = await Location.requestForegroundPermissionsAsync()
+        if (pedido.status !== 'granted') {
+          Alert.alert(
+            'Permissão necessária',
+            'Sem acesso à localização não é possível confirmar que estás no local do cliente.'
+          )
+          return
+        }
+      }
+
+      const atual = await getCurrentPositionComTimeout()
+      if (!atual) {
+        Alert.alert(
+          'Sem sinal GPS',
+          'Não foi possível obter a tua posição agora. Tenta novamente ao ar livre.'
+        )
+        return
+      }
+
+      const point = { lat: atual.coords.latitude, lng: atual.coords.longitude }
+      setProviderCoords(point)
+
+      const distancia = distanceMeters(point, clientCoords)
+      if (distancia > MAX_ARRIVAL_DISTANCE_M) {
+        Alert.alert(
+          'Ainda não estás no local',
+          `Estás a ${formatarDistancia(distancia)} do cliente. Aproxima-te para poderes confirmar a chegada (máximo ${MAX_ARRIVAL_DISTANCE_M} m).`
+        )
+        return
+      }
+
+      setFase('arrived')
+      if (params.jobId) {
+        try {
+          await supabase
+            .from('jobs')
+            .update({
+              status: 'arrived',
+              arrived_at: new Date().toISOString()
+            })
+            .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
+            .in('status', ['en_route', 'arrived'])
+        } catch (e) {
+          console.warn('Atualizar estado chegado:', e)
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao confirmar chegada:', e)
+      Alert.alert('Erro', 'Não foi possível confirmar a tua localização. Tenta novamente.')
+    } finally {
+      setIsConfirmingArrival(false)
     }
   }
 
@@ -361,8 +431,15 @@ export default function ProACaminhoScreen() {
             <Text style={styles.btnMapasText}>🗺 Abrir Navegação no Google Maps</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.btnPrimary} onPress={handleChegada} activeOpacity={0.8}>
-            <Text style={styles.btnPrimaryText}>📍 Já Cheguei ao Local do Cliente</Text>
+          <TouchableOpacity
+            style={[styles.btnPrimary, isConfirmingArrival && { opacity: 0.6 }]}
+            onPress={handleChegada}
+            disabled={isConfirmingArrival}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.btnPrimaryText}>
+              {isConfirmingArrival ? 'A verificar localização...' : '📍 Já Cheguei ao Local do Cliente'}
+            </Text>
           </TouchableOpacity>
         </>
       )}
