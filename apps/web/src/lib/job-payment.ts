@@ -77,27 +77,33 @@ export async function failJobPaymentByJobId(identifier: string) {
 export async function confirmJobPaymentByReference(
   reference: string
 ): Promise<'confirmed' | 'already' | 'not_found'> {
-  const { rows } = await db.query<{
-    id: string;
-    job_id: string;
-    client_id: string;
-    provider_id: string;
-    amount: string;
-    status: string;
-  }>(
-    `select id, job_id, client_id, provider_id, amount, status
-       from job_payments where provider_ref = $1 limit 1`,
-    [reference]
-  );
-  const pay = rows[0];
-  if (!pay) return 'not_found';
-  if (pay.status === 'held' || pay.status === 'released') return 'already';
+  const outcome = await db.transaction(async (client) => {
+    const { rows } = await client.query<{
+      id: string;
+      job_id: string;
+      client_id: string;
+      provider_id: string;
+      amount: string;
+      status: string;
+    }>(
+      `select id, job_id, client_id, provider_id, amount, status
+         from job_payments where provider_ref = $1 limit 1 for update`,
+      [reference]
+    );
+    const pay = rows[0];
+    if (!pay) return { result: 'not_found' as const };
 
-  await db.transaction(async (client) => {
-    await client.query(
-      `update job_payments set status = 'held', held_at = now() where id = $1 and status = 'pending_payment'`,
+    if (!['pending_payment', 'failed'].includes(pay.status)) {
+      return { result: 'already' as const };
+    }
+
+    const updated = await client.query(
+      `update job_payments set status = 'held', held_at = now()
+        where id = $1 and status in ('pending_payment', 'failed')`,
       [pay.id]
     );
+    if (updated.rowCount === 0) return { result: 'already' as const };
+
     await client.query(
       `update jobs
           set status = 'price_agreed',
@@ -106,13 +112,15 @@ export async function confirmJobPaymentByReference(
               turn_owner = null,
               turn_expires_at = null,
               updated_at = now()
-        where id = $1`,
+        where id = $1
+          and status in ('scheduled', 'requested', 'accepted', 'price_proposed', 'puxado', 'price_agreed')`,
       [pay.job_id, pay.amount]
     );
     await client.query(
       `update service_requests
           set status = 'accepted', budget_max = $2, updated_at = now()
-        where id = (select request_id from jobs where id = $1)`,
+        where id = (select request_id from jobs where id = $1)
+          and status in ('open', 'in_negotiation', 'accepted', 'price_proposed', 'puxado')`,
       [pay.job_id, pay.amount]
     );
     await client.query(
@@ -128,15 +136,19 @@ export async function confirmJobPaymentByReference(
         JSON.stringify({ job_id: pay.job_id, reference }),
       ]
     );
+
+    return { result: 'confirmed' as const, jobId: pay.job_id };
   });
 
-  try {
-    await notify(`job-${pay.job_id}`, 'payment-held', { jobId: pay.job_id });
-  } catch {
-    // Pusher é opcional
+  if (outcome.result === 'confirmed') {
+    try {
+      await notify(`job-${outcome.jobId}`, 'payment-held', { jobId: outcome.jobId });
+    } catch {
+      // Pusher é opcional
+    }
   }
 
-  return 'confirmed';
+  return outcome.result;
 }
 
 type AddendumRow = {
