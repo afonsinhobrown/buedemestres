@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { notify } from '@/lib/pusher';
+import { canConfirmPayment, canFailPayment } from '@/lib/job-payment-state';
 
 type PaymentRow = {
   id: string;
@@ -32,7 +33,7 @@ async function markPaymentFailed(
     );
     const pay = rows[0];
     if (!pay) return { result: 'not_found' as const };
-    if (pay.status !== 'pending_payment') return { result: 'already' as const };
+    if (!canFailPayment(pay.status)) return { result: 'already' as const };
 
     await client.query(
       `update job_payments set status = 'failed' where id = $1 and status = 'pending_payment'`,
@@ -93,8 +94,16 @@ export async function confirmJobPaymentByReference(
     const pay = rows[0];
     if (!pay) return { result: 'not_found' as const };
 
-    if (!['pending_payment', 'failed'].includes(pay.status)) {
+    if (!canConfirmPayment(pay.status)) {
       return { result: 'already' as const };
+    }
+
+    // A PaySuite confirmou um pagamento que já tínhamos como falhado
+    // (corrida webhook/polling). Registar a divergência para monitorização.
+    if (pay.status === 'failed') {
+      console.warn(
+        `[payment-divergence] job_payment ${pay.id} estava 'failed' e foi confirmado pela PaySuite (ref ${reference}).`
+      );
     }
 
     const updated = await client.query(

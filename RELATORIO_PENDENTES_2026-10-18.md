@@ -29,6 +29,15 @@ Restam apenas 2 pedidos:
 
 Commits: `6b6a847`, `8b9f2d0`, `d995bde`, `3e7fcd0`, `0953db6` e o commit desta sessão.
 
+## Implementado (código, nesta sessão)
+
+- **`service_jobs` removido** — o formulário "Chamar Agora" cria agora `service_requests` (fluxo atual) com `target_provider_id`, notificação persistente e event Pusher. O tracker aceita `service_requests` e `jobs`.
+- **Estados do trabalho** — `updateJobStatus` passou a atualizar `jobs` com validação de transições; "marcar concluído" pelo mestre passa por `awaiting_confirmation`, deixando a confirmação final para o cliente.
+- **Testes** — `npm test` cobre geofence (200 m), corrida confirmação/falha do pagamento e transições de estado (11 testes).
+- **Realtime** — migração `0230_realtime_service_requests.sql` aplicada; `service_requests`, `jobs`, `job_payments` e `notifications` estão na publicação `supabase_realtime`.
+- **Web** — `/notificacoes` passou a ser rota protegida no `proxy.ts`; dados demo ("Provedor 1", António Cuamba, Maria José) removidos.
+- **Repositório** — APK de 96 MB deixou de estar versionado; scripts/actions mortos que usavam `service_jobs` foram removidos.
+
 ## O que falta fazer (por prioridade)
 
 ### 1. Rebuild do APK mestre (bloqueante)
@@ -59,26 +68,23 @@ Se a página branca de "iniciar serviço" persistir, guardar o **URL exato** e o
 - Depois: iniciar trabalho → concluir → cliente confirma → pagamento libertado (9,00 MT para a carteira).
 - Não marcar como concluído manualmente no banco.
 
-### 4. Código legado de `service_jobs`
-Ainda existem referências à tabela `service_jobs`, que não existe:
-- `apps/web/src/app/actions/jobs.ts` — `requestServiceAction` e `updateJobStatus`.
-- O ecrã `/pedidos/[id]` é um tracker antigo e limitado (só mostra estados básicos).
+### 4. Código legado de `service_jobs` — resolvido
+Migrado para `service_requests`/`jobs`. O tracker `/pedidos/[id]` agora mostra os estados `pending`, em curso, `awaiting_confirmation`, `completed` e cancelado/disputa.
 
-Decidir se este fluxo antigo é removido ou migrado para `jobs`/`service_requests`.
-
-### 5. Robustez e testes
-- Adicionar testes para a confirmação/falha de pagamento (corrida), geofence e transições de estado.
-- Verificar que `service_requests`, `jobs`, `job_payments` e `notifications` estão na publicação `supabase_realtime` (migração `0225_realtime_tables.sql`).
-- Monitorizar pagamentos `failed` que a PaySuite reporta como `completed` (alerta de divergência).
+### 5. Robustez e testes — resolvido
+- Testes adicionados em `tests/` (geofence, corrida confirmação/falha, transições de estado) e executados com `npm test`.
+- `service_requests` adicionado à publicação `supabase_realtime` pela migração `0230_realtime_service_requests.sql` (já aplicada).
+- Divergências em que a PaySuite confirma um pagamento localmente `failed` passam a ser registadas com `[payment-divergence]` nos logs.
+- Facultativo: configurar um alerta externo sobre esses logs.
 
 ### 6. APK cliente
 - Validar instalação em 2–3 telemóveis reais (o APK atual verifica assinatura e tem todas as ABIs; falha anterior era conflito com versão antiga).
 - Se necessário, subir `versionCode` e gerar build de produção assinado.
 
-### 7. Pequenas melhorias pendentes
-- Adicionar `/notificacoes` às rotas protegidas do `proxy.ts` (hoje redireciona dentro da página).
-- Rever textos/UX antigos com "Provedor 1" e dados de demonstração.
-- Limpar o ficheiro `apk/` do repositório se não for para versionar (96 MB).
+### 7. Pequenas melhorias — resolvido
+- `/notificacoes` adicionado às rotas protegidas do `proxy.ts`.
+- Textos "Provedor 1" e dados de demonstração removidos das apps e da web.
+- APK de 96 MB deixou de estar versionado (o diretório `apk/` continua no `.gitignore`).
 
 ## Notas de risco
 - A limpeza da base de dados é irreversível sem o backup JSON indicado acima.

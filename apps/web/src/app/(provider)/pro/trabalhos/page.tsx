@@ -5,12 +5,23 @@ import { formatMT } from '@/lib/utils/format-mzn'
 import { CheckCircle, WarningCircle, Handshake, MapPin } from '@phosphor-icons/react/dist/ssr'
 import { JobStatusButtons } from '@/app/(client)/trabalhos/JobStatusButtons'
 
+type ProviderJob = {
+  id: string
+  request_id: string | null
+  request_title: string | null
+  client_name: string
+  district_name: string | null
+  agreed_amount: number | string | null
+  status: string
+  created_at: string
+}
+
 export default async function ProviderJobsPage() {
   const session = await verifySession()
   
-  let jobs: any[] = []
+  let jobs: ProviderJob[] = []
   if (session?.userId) {
-    const { rows } = await db.query(
+    const { rows } = await db.query<ProviderJob>(
       `SELECT j.*, p.full_name as client_name, r.title as request_title, r.district_id,
               d.name as district_name
        FROM jobs j
@@ -22,14 +33,6 @@ export default async function ProviderJobsPage() {
       [session.userId]
     )
     jobs = rows
-  }
-
-  // Fallback demo caso não esteja autenticado para vermos a UI
-  if (!session?.userId) {
-    jobs = [
-      { id: '1', request_title: 'Motor não liga', client_name: 'António Cuamba', district_name: 'Polana', agreed_amount: 1500, status: 'scheduled', created_at: new Date().toISOString() },
-      { id: '2', request_title: 'Mudar pastilhas travão', client_name: 'Maria José', district_name: 'Matola', agreed_amount: null, status: 'completed', created_at: new Date(Date.now() - 86400000).toISOString() },
-    ]
   }
 
   return (
@@ -71,13 +74,13 @@ export default async function ProviderJobsPage() {
                 
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center pt-4 border-t border-[var(--color-zinco-200)] gap-4">
                   <div className="font-bold text-[var(--color-cobalto)] text-lg">
-                    {job.agreed_amount ? formatMT(job.agreed_amount) : 'Valor não definido (Avaliar no local)'}
+                    {job.agreed_amount ? formatMT(Number(job.agreed_amount)) : 'Valor não definido (Avaliar no local)'}
                   </div>
                   
                   <div className="flex gap-2">
                     {/* O provider também pode marcar como concluído */}
                     {job.status === 'scheduled' || job.status === 'in_progress' ? (
-                      <JobStatusButtons jobId={job.id} currentStatus={job.status} />
+                      <JobStatusButtons jobId={job.id} />
                     ) : null}
                   </div>
                 </div>

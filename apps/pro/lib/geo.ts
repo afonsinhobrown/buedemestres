@@ -1,5 +1,8 @@
 export type GeoPoint = { lat: number; lng: number }
 
+/** Distância máxima, em metros, para o mestre poder confirmar a chegada. */
+export const MAX_ARRIVAL_DISTANCE_M = 200
+
 /** Distância em metros entre dois pontos (fórmula de Haversine). */
 export function distanceMeters(a: GeoPoint, b: GeoPoint): number {
   const R = 6371000
@@ -30,6 +33,15 @@ function parseHexWkb(value: string): GeoPoint | null {
   } catch {
     return null
   }
+}
+
+/** Verdadeiro quando o mestre está dentro do raio permitido para confirmar a chegada. */
+export function canConfirmArrival(
+  provider: GeoPoint,
+  client: GeoPoint,
+  maxDistanceM: number = MAX_ARRIVAL_DISTANCE_M
+): boolean {
+  return distanceMeters(provider, client) <= maxDistanceM
 }
 
 export function parseGeoPoint(value: unknown): GeoPoint | null {

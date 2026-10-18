@@ -31,7 +31,7 @@ export default function MestreACaminhoScreen() {
   const [qrFinishReady, setQrFinishReady] = useState(false)
 
   const [mestreInfo, setMestreInfo] = useState({
-    nome: params.mestreNome || 'Provedor 1',
+    nome: params.mestreNome || 'Mestre',
     nota: params.mestreNota || '5.0',
     avatar: params.mestreFoto || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
     categoria: 'Mecânico',

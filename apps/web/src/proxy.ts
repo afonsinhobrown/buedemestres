@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { decrypt } from '@/lib/session'
-import { jwtVerify } from 'jose'
 
 // Rotas que exigem sessão
-const PROTECTED_PREFIXES = ['/painel', '/pedidos', '/mensagens', '/favoritos', '/definicoes', '/pro', '/admin', '/superadmin']
+const PROTECTED_PREFIXES = ['/painel', '/pedidos', '/mensagens', '/favoritos', '/notificacoes', '/definicoes', '/pro', '/admin', '/superadmin']
 // Rotas de auth: redirecionar para /painel se já autenticado
 const AUTH_ROUTES = ['/entrar', '/registar', '/recuperar']
 

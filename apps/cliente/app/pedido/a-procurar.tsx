@@ -39,7 +39,7 @@ export default function AProcurarMestreScreen() {
   const [requestId, setRequestId] = useState<string | null>(params.requestId || null)
   const aceiteRef = useRef(false)
   const navegouRef = useRef(false)
-  const mestreNomeRef = useRef('Provedor 1')
+  const mestreNomeRef = useRef('Mestre')
   const [onlineCount, setOnlineCount] = useState<number | null>(null)
   const [mestreDados, setMestreDados] = useState<{ nome: string; telefone: string; nota: string }>({
     nome: 'Mestre Profissional',
@@ -193,7 +193,7 @@ export default function AProcurarMestreScreen() {
     // "A aguardar o orçamento..." para sempre.
     const tratarAceitacao = async (targetProviderId: string | null, status: string) => {
       if (!aceiteRef.current) {
-        let mNome = 'Provedor 1';
+        let mNome = 'Mestre';
         let mTel = '+258 84 999 9999';
         let mNota = '5.0';
 

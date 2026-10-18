@@ -6,17 +6,17 @@ import { updateJobStatus } from '@/app/actions/jobs'
 import { toast } from 'sonner'
 import { Check } from '@phosphor-icons/react'
 
-export function JobStatusButtons({ jobId, currentStatus }: { jobId: string, currentStatus: string }) {
+export function JobStatusButtons({ jobId }: { jobId: string }) {
   const [isUpdating, setIsUpdating] = useState(false)
 
   const handleComplete = async () => {
-    if (!confirm('O trabalho foi concluído satisfatoriamente?')) return
+    if (!confirm('Confirmas que terminaste o trabalho? O cliente terá de validar a conclusão.')) return
     setIsUpdating(true)
     const res = await updateJobStatus(jobId, 'completed')
     setIsUpdating(false)
     
     if (res?.error) toast.error(res.error)
-    else toast.success('Trabalho marcado como concluído!')
+    else toast.success('Trabalho terminado. Aguarda a confirmação do cliente.')
   }
 
   return (
@@ -27,7 +27,7 @@ export function JobStatusButtons({ jobId, currentStatus }: { jobId: string, curr
         disabled={isUpdating}
         className="bg-[#1E7F4F] hover:bg-[#1E7F4F]/90 text-white"
       >
-        <Check size={16} weight="bold" className="mr-1" /> Marcar Concluído
+        <Check size={16} weight="bold" className="mr-1" /> Terminei o Trabalho
       </Button>
     </>
   )

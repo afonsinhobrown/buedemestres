@@ -5,9 +5,13 @@ import { useState, useEffect } from 'react'
 import * as Location from 'expo-location'
 import { supabase } from '../../lib/supabase'
 import MapaTracking from '../../components/MapaTracking'
-import { parseGeoPoint, distanceMeters, type GeoPoint } from '../../lib/geo'
-
-const MAX_ARRIVAL_DISTANCE_M = 200
+import {
+  parseGeoPoint,
+  distanceMeters,
+  canConfirmArrival,
+  MAX_ARRIVAL_DISTANCE_M,
+  type GeoPoint,
+} from '../../lib/geo'
 
 function formatarDistancia(metros: number): string {
   return metros < 1000 ? `${Math.round(metros)} m` : `${(metros / 1000).toFixed(1)} km`
@@ -286,8 +290,8 @@ export default function ProACaminhoScreen() {
       const point = { lat: atual.coords.latitude, lng: atual.coords.longitude }
       setProviderCoords(point)
 
-      const distancia = distanceMeters(point, clientCoords)
-      if (distancia > MAX_ARRIVAL_DISTANCE_M) {
+      if (!canConfirmArrival(point, clientCoords)) {
+        const distancia = distanceMeters(point, clientCoords)
         Alert.alert(
           'Ainda não estás no local',
           `Estás a ${formatarDistancia(distancia)} do cliente. Aproxima-te para poderes confirmar a chegada (máximo ${MAX_ARRIVAL_DISTANCE_M} m).`

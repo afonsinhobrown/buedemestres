@@ -93,7 +93,7 @@ export default function ProHomeScreen() {
           const profileCompleto = {
             ...matched,
             profiles: profData || {
-              full_name: matched.business_name || 'Provedor 1',
+              full_name: matched.business_name || 'Mestre',
               avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'
             }
           }
@@ -539,7 +539,7 @@ export default function ProHomeScreen() {
             />
             <View>
               <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900' }}>
-                {providerProfile?.business_name || (providerProfile?.profiles as any)?.full_name || 'Provedor 1'}
+                {providerProfile?.business_name || (providerProfile?.profiles as any)?.full_name || 'Mestre'}
               </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
                 <View style={{ backgroundColor: '#F2C94C', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
