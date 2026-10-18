@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Switch, TouchableOpacity, Platform, Modal, TextInput, ActivityIndicator, Image } from 'react-native'
+import { View, Text, StyleSheet, Switch, TouchableOpacity, Platform, Modal, TextInput, ActivityIndicator, Image, ScrollView } from 'react-native'
 import { Alert } from '../lib/alertCompat'
 import { useState, useEffect, useRef } from 'react'
 import { router } from 'expo-router'
@@ -30,6 +30,7 @@ export default function ProHomeScreen() {
   const [newRequest, setNewRequest] = useState<any>(null)
   const [trabalhosHoje, setTrabalhosHoje] = useState(0)
   const [pendingJobs, setPendingJobs] = useState<any[]>([])
+  const [categoryIds, setCategoryIds] = useState<number[]>([])
   const [providerProfile, setProviderProfile] = useState<any>(null)
   const [availableProviders, setAvailableProviders] = useState<any[]>([])
   const [walletBalance, setWalletBalance] = useState<number>(0)
@@ -58,7 +59,6 @@ export default function ProHomeScreen() {
             )
           `)
           .eq('is_published', true)
-          .limit(10)
         
         if (provs && provs.length > 0) {
           setAvailableProviders(provs)
@@ -77,6 +77,18 @@ export default function ProHomeScreen() {
             .eq('id', matched.profile_id)
             .maybeSingle()
 
+          const { data: catRows } = await supabase
+            .from('provider_categories')
+            .select('category_id')
+            .eq('provider_id', matched.profile_id)
+
+          const ids = Array.from(new Set([
+            Number(matched.primary_category_id) || 0,
+            ...((catRows || []).map((c: any) => Number(c.category_id)))
+          ].filter(Boolean)))
+
+          setCategoryIds(ids)
+
           const profileCompleto = {
             ...matched,
             profiles: profData || {
@@ -87,11 +99,11 @@ export default function ProHomeScreen() {
 
           setProviderProfile(profileCompleto)
           setIsOnline(true)
-          
+
           await supabase.from('provider_presence').upsert({
             provider_id: matched.profile_id,
             is_online: true,
-            categories: matched.primary_category_id ? [matched.primary_category_id] : [2],
+            categories: ids.length ? ids : [2],
             updated_at: new Date().toISOString()
           }, { onConflict: 'provider_id' })
         } else if (error) {
@@ -185,19 +197,18 @@ export default function ProHomeScreen() {
     if (!isOnline || !providerProfile) return
 
     const proId = providerProfile.profile_id
-    const catId = providerProfile.primary_category_id
 
     const heartbeat = setInterval(async () => {
       await supabase.from('provider_presence').upsert({
         provider_id: proId,
         is_online: true,
-        categories: catId ? [catId] : [2],
+        categories: categoryIds.length ? categoryIds : [2],
         updated_at: new Date().toISOString()
       }, { onConflict: 'provider_id' })
     }, 40000)
 
     return () => clearInterval(heartbeat)
-  }, [isOnline, providerProfile])
+  }, [isOnline, providerProfile, categoryIds])
 
   // Busca e actualização constante de pedidos (Polling activo a cada 2.5s + Realtime)
   useEffect(() => {
@@ -207,44 +218,42 @@ export default function ProHomeScreen() {
     }
 
     const activeProId = providerProfile.profile_id
-    const activeCatId = providerProfile.primary_category_id
 
     const pollPedidos = async () => {
       try {
-        // 1. Pedidos directos para este mestre
-        const { data: jobs } = await supabase
-          .from('service_jobs')
-          .select('*')
-          .eq('provider_id', activeProId)
-          .eq('status', 'pending')
-
-        // 2. Pedidos urgentes abertos da especialidade
         let reqQuery = supabase
           .from('service_requests')
           .select('*')
           .eq('status', 'open')
           .order('created_at', { ascending: false })
 
-        if (activeCatId) {
-          reqQuery = reqQuery.eq('category_id', activeCatId)
+        if (categoryIds.length > 0) {
+          reqQuery = reqQuery.in('category_id', categoryIds)
         }
 
-        const { data: requests, error } = await reqQuery
+        const [{ data: requests }, { data: targeted }] = await Promise.all([
+          reqQuery,
+          supabase
+            .from('service_requests')
+            .select('*')
+            .eq('status', 'open')
+            .eq('target_provider_id', activeProId),
+        ])
 
-        const visiveis = (requests || []).filter(r => !recusadosRef.current.has(r.id))
-
-        if (!error && visiveis.length > 0) {
-          const todos = [...(jobs || []), ...visiveis]
-          setPendingJobs(todos)
-          // Se ainda não estiver a exibir um pedido no modal, abre imediatamente o mais recente!
-          setNewRequest((current: any) => {
-            if (current) return current
-            return visiveis[0]
-          })
-        } else {
-          setPendingJobs(jobs || [])
-          setNewRequest(null)
+        const porId = new Map<string, any>()
+        for (const r of [...(requests || []), ...(targeted || [])]) {
+          if (r?.id) porId.set(r.id, r)
         }
+
+        const visiveis = Array.from(porId.values())
+          .filter(r => !recusadosRef.current.has(r.id))
+          .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+
+        setPendingJobs(visiveis)
+        setNewRequest((current: any) => {
+          if (current) return current
+          return visiveis[0] || null
+        })
       } catch (err) {
         console.warn('Erro ao sondar pedidos:', err)
       }
@@ -263,9 +272,9 @@ export default function ProHomeScreen() {
         { event: 'INSERT', schema: 'public', table: 'service_requests' },
         (payload) => {
           if (recusadosRef.current.has(payload.new.id)) return
-          if (activeCatId && payload.new.category_id && Number(payload.new.category_id) !== Number(activeCatId)) {
-            return
-          }
+          const direcionado = payload.new.target_provider_id === activeProId
+          const daCategoria = categoryIds.length === 0 || categoryIds.includes(Number(payload.new.category_id))
+          if (!direcionado && !daCategoria) return
           console.log('🚨 RECEBIDO NOVO PEDIDO URGENTE VIA REALTIME:', payload.new)
           setNewRequest(payload.new)
           setPendingJobs(prev => [payload.new, ...prev.filter(j => j.id !== payload.new.id)])
@@ -289,7 +298,7 @@ export default function ProHomeScreen() {
       clearInterval(pollInterval)
       supabase.removeChannel(channel)
     }
-  }, [isOnline, providerProfile])
+  }, [isOnline, providerProfile, categoryIds])
 
   const aceitarTrabalho = async (req: any) => {
     const requestId = typeof req === 'string' ? req : req.id
@@ -496,19 +505,22 @@ export default function ProHomeScreen() {
     setIsOnline(newValue)
     
     const proId = providerProfile?.profile_id || user?.id
-    const catId = providerProfile?.primary_category_id
     if (proId) {
       await supabase.from('provider_presence').upsert({
         provider_id: proId,
         is_online: newValue,
-        categories: catId ? [catId] : [2],
+        categories: categoryIds.length ? categoryIds : [2],
         updated_at: new Date().toISOString()
       }, { onConflict: 'provider_id' });
     }
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: isOnline ? '#0F2D1A' : '#1A1A2E' }]}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: isOnline ? '#0F2D1A' : '#1A1A2E' }]}
+      contentContainerStyle={styles.scrollContent}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={{ marginBottom: 24 }}>
         {/* Barra de Perfil do Mestre Sempre Visível */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -734,7 +746,7 @@ export default function ProHomeScreen() {
         </View>
       </TouchableOpacity>
 
-      <View style={{ marginTop: 24, flex: 1 }}>
+      <View style={{ marginTop: 24 }}>
         <Text style={{ color: '#9CA3AF', fontSize: 14, fontWeight: '700', textTransform: 'uppercase', marginBottom: 12 }}>
           Pedidos Pendentes ({pendingJobs.length})
         </Text>
@@ -785,15 +797,18 @@ export default function ProHomeScreen() {
           ))
         )}
       </View>
-    </View>
+    </ScrollView>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
     padding: 24,
     paddingTop: 64,
+    paddingBottom: 48,
   },
   logo: {
     fontSize: 22,
