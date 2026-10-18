@@ -50,6 +50,7 @@ export default function ProACaminhoScreen() {
   const [fase, setFase] = useState<'selecionar_transporte' | 'en_route' | 'arrived'>('selecionar_transporte')
   const [transporte, setTransporte] = useState<string>('carro_proprio')
   const [jobData, setJobData] = useState<any>(null)
+  const [jobRecord, setJobRecord] = useState<{ id: string; request_id: string | null; status: string; transport_mode: string | null } | null>(null)
   const [clientCoords, setClientCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [providerCoords, setProviderCoords] = useState<GeoPoint | null>(null)
   const [locationError, setLocationError] = useState<string | null>(null)
@@ -64,29 +65,52 @@ export default function ProACaminhoScreen() {
         return
       }
       try {
-        const { data: req } = await supabase
-          .from('service_requests')
-          .select('*, profiles:client_id(id, full_name, phone, avatar_url)')
-          .eq('id', params.jobId)
+        const { data: j } = await supabase
+          .from('jobs')
+          .select('id, request_id, status, transport_mode, service_requests(*, profiles:client_id(id, full_name, phone, avatar_url))')
+          .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
           .maybeSingle()
 
-        if (req) {
-          setJobData(req)
-          if (req.location) {
-            const coords = parseGeoPoint(req.location)
-            if (coords) setClientCoords(coords)
+        if (j) {
+          setJobRecord({
+            id: j.id,
+            request_id: j.request_id,
+            status: j.status,
+            transport_mode: j.transport_mode,
+          })
+          if (j.transport_mode) setTransporte(j.transport_mode)
+
+          if (j.status === 'en_route') {
+            setFase('en_route')
+          } else if (j.status === 'arrived') {
+            setFase('arrived')
+          } else if (j.status === 'in_service') {
+            router.replace({ pathname: '/trabalho/em-curso', params: { jobId: params.jobId } })
+          } else if (['awaiting_confirmation', 'completed', 'cancelled', 'disputed'].includes(j.status)) {
+            router.replace('/trabalhos')
+          } else {
+            setFase('selecionar_transporte')
+          }
+
+          const req = Array.isArray(j.service_requests) ? j.service_requests[0] : j.service_requests
+          if (req) {
+            setJobData(req)
+            if (req.location) {
+              const coords = parseGeoPoint(req.location)
+              if (coords) setClientCoords(coords)
+            }
           }
         } else {
-          const { data: j } = await supabase
-            .from('jobs')
-            .select('*, service_requests(*, profiles:client_id(id, full_name, phone, avatar_url))')
+          const { data: req } = await supabase
+            .from('service_requests')
+            .select('*, profiles:client_id(id, full_name, phone, avatar_url)')
             .eq('id', params.jobId)
             .maybeSingle()
 
-          if (j?.service_requests) {
-            setJobData(j.service_requests)
-            if (j.service_requests.location) {
-              const coords = parseGeoPoint(j.service_requests.location)
+          if (req) {
+            setJobData(req)
+            if (req.location) {
+              const coords = parseGeoPoint(req.location)
               if (coords) setClientCoords(coords)
             }
           }
@@ -168,24 +192,55 @@ export default function ProACaminhoScreen() {
 
   // 1. Iniciar deslocação após pagamento confirmado
   const handleIniciarDeslocacao = async () => {
-    setFase('en_route')
-    if (params.jobId) {
-      try {
-        await supabase
-          .from('jobs')
-          .update({
-            status: 'en_route',
-            transport_mode: transporte
-          })
-          .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
+    if (!params.jobId) return
+    try {
+      const agora = new Date().toISOString()
+      const { data: updated, error } = await supabase
+        .from('jobs')
+        .update({
+          status: 'en_route',
+          transport_mode: transporte,
+          updated_at: agora,
+        })
+        .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
+        .in('status', ['scheduled', 'requested', 'accepted', 'price_proposed', 'puxado', 'price_agreed', 'en_route'])
+        .select('id, request_id')
+        .maybeSingle()
 
+      if (error) throw error
+
+      if (!updated) {
+        const { data: atual } = await supabase
+          .from('jobs')
+          .select('status')
+          .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
+          .maybeSingle()
+
+        if (atual?.status === 'en_route') {
+          setFase('en_route')
+        } else if (atual?.status === 'arrived') {
+          setFase('arrived')
+        } else if (atual?.status === 'in_service') {
+          router.replace({ pathname: '/trabalho/em-curso', params: { jobId: params.jobId } })
+        } else {
+          Alert.alert('Estado inválido', 'Este serviço já não pode ser iniciado a partir daqui.')
+        }
+        return
+      }
+
+      setFase('en_route')
+
+      const requestId = updated.request_id || jobRecord?.request_id
+      if (requestId) {
         await supabase
           .from('service_requests')
-          .update({ status: 'accepted' })
-          .eq('id', params.jobId)
-      } catch (e) {
-        console.warn('Erro ao iniciar deslocação:', e)
+          .update({ status: 'accepted', updated_at: agora })
+          .eq('id', requestId)
+          .in('status', ['open', 'in_negotiation', 'accepted', 'price_proposed', 'puxado'])
       }
+    } catch (e) {
+      console.warn('Erro ao iniciar deslocação:', e)
+      Alert.alert('Erro', 'Não foi possível iniciar a deslocação. Tenta novamente.')
     }
   }
 
