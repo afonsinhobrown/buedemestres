@@ -40,7 +40,15 @@ export default function ProHomeScreen() {
   const [sandbox, setSandbox] = useState<{ active: boolean; min: number; max: number } | null>(null)
   const user = useAuthStore(s => s.user)
   const storeProvider = useAuthStore(s => s.providerProfile)
+  const signOut = useAuthStore(s => s.signOut)
   const recusadosRef = useRef<Set<string>>(new Set())
+
+  const handleSignOut = () => {
+    Alert.alert('Terminar sessão', 'Queres sair da tua conta de mestre?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Sair', style: 'destructive', onPress: () => signOut() },
+    ])
+  }
 
   // Carregar dados do Mestre e sua Especialidade/Categoria Real com Join da tabela categories
   useEffect(() => {
@@ -564,6 +572,9 @@ export default function ProHomeScreen() {
             <Text style={{ color: '#cbd5e1', fontSize: 9, marginTop: 2, fontWeight: '800' }}>
               {isOnline ? 'ACTIVO' : 'PAUSA'}
             </Text>
+            <TouchableOpacity onPress={handleSignOut} activeOpacity={0.8} style={{ marginTop: 6 }}>
+              <Text style={{ color: '#FCA5A5', fontSize: 10, fontWeight: '900' }}>SAIR</Text>
+            </TouchableOpacity>
           </View>
         </View>
 

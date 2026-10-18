@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/lib/useAuthStore'
 import { supabase } from '@/lib/supabase'
 import { loadSandboxSettings } from '@/lib/sandbox'
+import { Alert } from '@/lib/alertCompat'
 
 const { width } = Dimensions.get('window')
 
@@ -17,6 +18,14 @@ const placasPrincipais = [
 export default function HomeScreen() {
   const profile = useAuthStore(s => s.profile)
   const loadProfile = useAuthStore(s => s.loadProfile)
+  const signOut = useAuthStore(s => s.signOut)
+
+  const handleSignOut = () => {
+    Alert.alert('Terminar sessão', 'Queres sair da tua conta?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Sair', style: 'destructive', onPress: () => signOut() },
+    ])
+  }
 
   const [activeOrder, setActiveOrder] = useState<any>(null)
   const [activeCount, setActiveCount] = useState<number>(0)
@@ -206,6 +215,10 @@ export default function HomeScreen() {
               </View>
             </View>
           </View>
+
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleSignOut} activeOpacity={0.8}>
+            <Text style={styles.logoutText}>Sair da conta</Text>
+          </TouchableOpacity>
           
           <View style={styles.brandRow}>
             <Text style={styles.logo}>Bué de Mestres</Text>
@@ -473,6 +486,21 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '900',
     color: '#12163A',
+  },
+  logoutBtn: {
+    alignSelf: 'flex-start',
+    borderWidth: 1.5,
+    borderColor: '#B91C1C',
+    backgroundColor: '#FEE2E2',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 10,
+  },
+  logoutText: {
+    color: '#B91C1C',
+    fontWeight: '900',
+    fontSize: 12,
   },
   avatarButton: {
     position: 'relative',
