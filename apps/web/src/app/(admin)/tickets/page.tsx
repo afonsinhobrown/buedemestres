@@ -3,12 +3,13 @@ import { verifySession } from '@/lib/session'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
-export default async function TicketAdminInboxPage({ searchParams }: { searchParams: { view?: string } }) {
+export default async function TicketAdminInboxPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
+  const { view: viewParam } = await searchParams
   const session = await verifySession()
   const isStaff = ['support', 'moderator', 'finance', 'admin', 'superadmin'].includes(session.role || '')
   if (!isStaff) redirect('/entrar')
 
-  const view = searchParams.view || 'unassigned'
+  const view = viewParam || 'unassigned'
 
   let filterSql = `WHERE t.status IN ('open', 'in_progress', 'waiting_customer')`
   const params: unknown[] = []

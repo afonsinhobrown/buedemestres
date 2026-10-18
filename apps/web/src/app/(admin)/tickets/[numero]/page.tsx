@@ -6,7 +6,8 @@ import { Toaster } from 'sonner'
 import { DisputeResolution } from '../DisputeResolution'
 import { TicketReply } from '../TicketReply'
 
-export default async function TicketAdminDetail({ params }: { params: { numero: string } }) {
+export default async function TicketAdminDetail({ params }: { params: Promise<{ numero: string }> }) {
+  const { numero } = await params
   const session = await verifySession()
   const isStaff = ['support', 'moderator', 'finance', 'admin', 'superadmin'].includes(session.role || '')
   if (!isStaff) redirect('/entrar')
@@ -38,9 +39,9 @@ export default async function TicketAdminDetail({ params }: { params: { numero: 
        left join jobs j on j.id = t.related_job_id
        left join job_payments jp on jp.job_id = j.id
        left join provider_profiles pp on pp.profile_id = j.provider_id
-      where t.number = $1::bigint or t.id::text = $1
+      where t.number::text = $1 or t.id::text = $1
       limit 1`,
-    [params.numero]
+    [numero]
   )
   const ticket = rows[0]
   if (!ticket) notFound()

@@ -4,9 +4,10 @@ import { db } from '@/lib/db';
 import MapDynamic from '@/components/MapDynamic';
 
 export const dynamic = 'force-dynamic';
-export default async function ResultadosPage({ searchParams }: { searchParams: { q?: string, onde?: string } }) {
-  const query = searchParams.q || '';
-  const onde = searchParams.onde || '';
+export default async function ResultadosPage({ searchParams }: { searchParams: Promise<{ q?: string, onde?: string }> }) {
+  const sp = await searchParams;
+  const query = sp.q || '';
+  const onde = sp.onde || '';
 
   // Use the search_providers function from Postgres
   const res = await db.query(`
