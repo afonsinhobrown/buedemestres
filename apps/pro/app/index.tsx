@@ -34,6 +34,7 @@ export default function ProHomeScreen() {
   const [providerProfile, setProviderProfile] = useState<any>(null)
   const [availableProviders, setAvailableProviders] = useState<any[]>([])
   const [walletBalance, setWalletBalance] = useState<number>(0)
+  const [heldAmount, setHeldAmount] = useState<number>(0)
   const [financeSummary, setFinanceSummary] = useState({ devido: 0, pago: 0, faturacao: 0 })
   const [unreadCount, setUnreadCount] = useState<number>(0)
   const [sandbox, setSandbox] = useState<{ active: boolean; min: number; max: number } | null>(null)
@@ -122,7 +123,7 @@ export default function ProHomeScreen() {
 
     let active = true
     const carregarSaldo = async () => {
-      const [{ data }, { data: jobRows }, { data: payoutRows }] = await Promise.all([
+      const [{ data }, { data: jobRows }, { data: payoutRows }, { data: heldRows }] = await Promise.all([
         supabase.from('wallets').select('balance').eq('profile_id', proId).maybeSingle(),
         supabase
           .from('jobs')
@@ -130,9 +131,16 @@ export default function ProHomeScreen() {
           .eq('provider_id', proId)
           .eq('status', 'completed'),
         supabase.from('payouts').select('job_id, status').eq('provider_id', proId),
+        supabase.from('job_payments').select('amount, provider_payout').eq('provider_id', proId).eq('status', 'held'),
       ])
       if (!active) return
       setWalletBalance(Number(data?.balance || 0))
+      setHeldAmount(
+        ((heldRows as any[]) || []).reduce(
+          (total, row) => total + Number(row.provider_payout ?? row.amount ?? 0),
+          0
+        )
+      )
 
       const payouts = (payoutRows as any[]) || []
       const summary = ((jobRows as any[]) || []).reduce(
@@ -746,6 +754,18 @@ export default function ProHomeScreen() {
         </View>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={styles.escrowCard}
+        onPress={() => router.push('/carteira')}
+        activeOpacity={0.85}
+      >
+        <View style={{ flex: 1 }}>
+          <Text style={styles.escrowLabel}>🔒 RETIDO EM ESCROW</Text>
+          <Text style={styles.escrowHint}>Libertado após o cliente confirmar a conclusão.</Text>
+        </View>
+        <Text style={styles.escrowValue}>MT {heldAmount.toLocaleString('pt-MZ')}</Text>
+      </TouchableOpacity>
+
       <View style={{ marginTop: 24 }}>
         <Text style={{ color: '#9CA3AF', fontSize: 14, fontWeight: '700', textTransform: 'uppercase', marginBottom: 12 }}>
           Pedidos Pendentes ({pendingJobs.length})
@@ -982,6 +1002,20 @@ const styles = StyleSheet.create({
   },
   financeLabel: { color: '#9CA3AF', fontSize: 8, fontWeight: '900', letterSpacing: 0.8, marginBottom: 3 },
   financeValue: { color: '#F5F0E8', fontSize: 13, fontWeight: '900' },
+  escrowCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(242,201,76,0.12)',
+    borderWidth: 1.5,
+    borderColor: '#F2C94C',
+    borderRadius: 8,
+    padding: 14,
+    marginTop: 10,
+  },
+  escrowLabel: { color: '#F2C94C', fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
+  escrowHint: { color: 'rgba(255,255,255,0.6)', fontSize: 10, marginTop: 2 },
+  escrowValue: { color: '#F2C94C', fontWeight: '900', fontSize: 20 },
   btnVerificacao: {
     backgroundColor: '#F2C94C',
     borderRadius: 6,

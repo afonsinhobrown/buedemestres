@@ -13,7 +13,7 @@ interface AuthState {
   signOut: () => Promise<void>;
 }
 
-async function ensureProvider(userId: string, fullName: string, email?: string | null) {
+async function ensureProvider(userId: string, fullName: string, email?: string | null): Promise<boolean> {
   const { data: profile } = await supabase
     .from('profiles')
     .select('id, role, full_name')
@@ -28,7 +28,7 @@ async function ensureProvider(userId: string, fullName: string, email?: string |
       role: 'provider',
     });
   } else if (profile.role !== 'provider') {
-    await supabase.from('profiles').update({ role: 'provider', ...(email ? { email } : {}) }).eq('id', userId);
+    return false;
   }
 
   const { data: provider } = await supabase
@@ -39,17 +39,19 @@ async function ensureProvider(userId: string, fullName: string, email?: string |
 
   if (!provider) {
     const slug = `mestre-${userId.slice(0, 8)}`;
-    await supabase.from('provider_profiles').insert({
-      profile_id: userId,
-      slug,
-      business_name: fullName,
-      primary_category_id: 2,
-      is_published: true,
-      is_available: true,
-      trial_started_at: new Date().toISOString(),
-      trial_ends_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-    });
-  }
+      await supabase.from('provider_profiles').insert({
+        profile_id: userId,
+        slug,
+        business_name: fullName,
+        primary_category_id: 2,
+        is_published: true,
+        is_available: true,
+        trial_started_at: new Date().toISOString(),
+        trial_ends_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+    }
+
+  return true;
 }
 
 async function ensureReferral(userId: string, code: string | null | undefined) {
@@ -107,7 +109,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const fullName = String(
         authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Mestre'
       );
-      await ensureProvider(authUser.id, fullName, authUser.email);
+      const isProvider = await ensureProvider(authUser.id, fullName, authUser.email);
+      if (!isProvider) {
+        set({ providerProfile: null });
+        return;
+      }
       await ensureReferral(authUser.id, authUser.user_metadata?.referral_code);
       await ensureTermsAcceptance(authUser.id, authUser.user_metadata);
       const { data: provider } = await supabase
