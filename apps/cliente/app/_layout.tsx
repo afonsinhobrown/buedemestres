@@ -36,9 +36,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (!initialized) return
-    const isAuthRoute = pathname === '/entrar' || pathname === '/(auth)/entrar'
+    const isAuthRoute = pathname === '/entrar' || pathname === '/(auth)/entrar' || pathname === '/auth/callback'
     if (!session && !isAuthRoute) router.replace('/entrar')
-    if (session && isAuthRoute) router.replace('/')
+    if (session && isAuthRoute && pathname !== '/auth/callback') router.replace('/')
   }, [initialized, session, pathname])
 
   useEffect(() => {

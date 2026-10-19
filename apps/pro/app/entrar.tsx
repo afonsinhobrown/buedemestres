@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator,
 import { Alert } from '../lib/alertCompat'
 import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
+import { getAuthCallbackUrl } from '../lib/authRedirect'
 
 export default function ProEntrarScreen() {
   const [email, setEmail] = useState('')
@@ -39,6 +40,7 @@ export default function ProEntrarScreen() {
           email,
           password: senha,
           options: {
+            emailRedirectTo: getAuthCallbackUrl(),
             data: {
               referral_code: referralCode.trim().toUpperCase() || null,
               terms_version_id: terms?.id || null,

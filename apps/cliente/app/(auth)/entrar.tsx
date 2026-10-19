@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator,
 import { Alert } from '../../lib/alertCompat'
 import { router } from 'expo-router'
 import { supabase } from '@/lib/supabase'
+import { getAuthCallbackUrl } from '@/lib/authRedirect'
 
 export default function EntrarScreen() {
   const [email, setEmail] = useState('')
@@ -38,6 +39,7 @@ export default function EntrarScreen() {
           email,
           password: senha,
           options: {
+            emailRedirectTo: getAuthCallbackUrl(),
             data: {
               terms_version_id: terms?.id || null,
               email_opt_in: aceitouEmails,
