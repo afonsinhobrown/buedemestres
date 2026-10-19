@@ -294,7 +294,7 @@ function normalizeForUi(field: SettingField, raw: unknown): SettingValue {
 }
 
 /** Converte o valor da UI para o que fica guardado em app_settings. */
-function normalizeForStorage(field: SettingField, raw: FormDataEntryValue | null, current: unknown): unknown {
+function normalizeForStorage(field: SettingField, raw: FormDataEntryValue | null): unknown {
   if (field.type === 'boolean') return raw === 'on' || raw === 'true' || raw === '1';
   if (field.type === 'text' || field.type === 'select') return String(raw ?? '');
   const n = Number(raw);
@@ -311,11 +311,11 @@ export async function updateSettings(formData: FormData): Promise<void> {
   for (const field of SETTING_FIELDS) {
     if (field.type === 'boolean') {
       if (!formData.has(field.key)) continue;
-      updates.push({ key: field.key, value: normalizeForStorage(field, formData.get(field.key), null) });
+      updates.push({ key: field.key, value: normalizeForStorage(field, formData.get(field.key)) });
       continue;
     }
     if (!formData.has(field.key)) continue;
-    updates.push({ key: field.key, value: normalizeForStorage(field, formData.get(field.key), null) });
+    updates.push({ key: field.key, value: normalizeForStorage(field, formData.get(field.key)) });
   }
 
   // Sócios: as duas percentagens têm de somar 100%.

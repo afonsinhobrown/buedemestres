@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Bundles web das apps Expo montados para download (gerados, não código).
+    "public/apps/**",
+    "public/exports/**",
+    // Scripts utilitários executados com node (não fazem parte do bundle).
+    "scripts/**",
   ]),
 ]);
 
