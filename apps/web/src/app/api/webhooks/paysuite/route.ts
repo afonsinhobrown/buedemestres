@@ -4,6 +4,7 @@ import { confirmJobPaymentByReference, failJobPaymentByReference, confirmAddendu
 import { confirmPayoutByReference, failPayoutByReference } from '@/lib/payouts';
 import { confirmPartnerPayoutByReference, failPartnerPayoutByReference } from '@/lib/platform-withdrawals';
 import { confirmTopupByReference, failTopupByReference } from '@/lib/wallet-topup';
+import { confirmRefundByPaymentId, failRefundByPaymentId } from '@/lib/refunds';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ received: true, error: 'invalid signature' }, { status: 400 });
   }
 
-  let body: { event?: string; data?: { reference?: string; status?: string } };
+  let body: { event?: string; data?: { reference?: string; status?: string; id?: string; payment_id?: string } };
   try {
     body = JSON.parse(raw);
   } catch {
@@ -45,6 +46,23 @@ export async function POST(req: Request) {
   const event = body.event ?? '';
   const reference = body.data?.reference;
   const status = String(body.data?.status ?? '').toLowerCase();
+  const paymentId = body.data?.payment_id || body.data?.id || '';
+
+  // Estornos: enviados por nós (POST /refunds). A referência é RF..., não a
+  // nossa, por isso tratamos antes do filtro de prefixo, pelo payment_id.
+  if (event.startsWith('refund.') || (reference && reference.startsWith('RF'))) {
+    const refundPaid = isPaid(event, status);
+    const refundFailed = isFailed(event, status);
+    if (refundPaid) {
+      const result = await confirmRefundByPaymentId(paymentId);
+      return NextResponse.json({ received: true, result });
+    }
+    if (refundFailed) {
+      const result = await failRefundByPaymentId(paymentId, 'PaySuite reportou falha no estorno');
+      return NextResponse.json({ received: true, result });
+    }
+    return NextResponse.json({ received: true, ignored: event || status });
+  }
 
   if (
     !reference ||
@@ -98,7 +116,7 @@ export async function POST(req: Request) {
     }
 
     if (isPaid(event, status)) {
-      const result = await confirmJobPaymentByReference(reference);
+      const result = await confirmJobPaymentByReference(reference, paymentId || null);
       if (result === 'not_found') {
         const addendum = await confirmAddendumByReference(reference);
         return NextResponse.json({ received: true, result: addendum });

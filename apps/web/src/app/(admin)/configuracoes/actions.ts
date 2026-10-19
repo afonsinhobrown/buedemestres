@@ -3,6 +3,7 @@
 import { db } from '@/lib/db'
 import { verifySession } from '@/lib/session'
 import { revalidatePath } from 'next/cache'
+import { updateSettings } from '@/lib/platform-settings'
 
 async function requireAdmin() {
   const session = await verifySession()
@@ -10,6 +11,26 @@ async function requireAdmin() {
     throw new Error('Sem permissão')
   }
   return session
+}
+
+async function requireSuperadmin() {
+  const session = await verifySession()
+  if (session.role !== 'superadmin') {
+    throw new Error('Acesso restrito ao superadmin.')
+  }
+  return session
+}
+
+export async function updateTaxas(formData: FormData) {
+  try {
+    await requireSuperadmin()
+    await updateSettings(formData)
+    revalidatePath('/configuracoes')
+    revalidatePath('/superadmin/financeiro')
+    return { success: true }
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Erro ao guardar as taxas.' }
+  }
 }
 
 export async function updateSandbox(formData: FormData) {

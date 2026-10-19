@@ -73,6 +73,14 @@ export default async function SuperadminDashboard() {
         </Link>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <Link href="/configuracoes" className="bg-white border border-gray-200 p-5 rounded-xl shadow-sm hover:border-teal-400 transition">
+          <p className="text-2xl mb-2">⚙️</p>
+          <p className="font-bold text-gray-900">Taxas e Regras</p>
+          <p className="text-xs text-gray-500">Comissões, multas, escrow, saques e sócios</p>
+        </Link>
+      </div>
+
       <div className="bg-white border border-gray-200 p-8 rounded-xl shadow-sm">
         <h2 className="text-xl font-bold mb-4">Ações Rápidas de Emergência</h2>
         <div className="flex gap-4">

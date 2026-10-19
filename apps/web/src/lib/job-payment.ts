@@ -76,7 +76,8 @@ export async function failJobPaymentByJobId(identifier: string) {
  * Idempotente: pode ser chamado pelo polling e pelo webhook.
  */
 export async function confirmJobPaymentByReference(
-  reference: string
+  reference: string,
+  paymentId?: string | null
 ): Promise<'confirmed' | 'already' | 'not_found'> {
   const outcome = await db.transaction(async (client) => {
     const { rows } = await client.query<{
@@ -107,9 +108,10 @@ export async function confirmJobPaymentByReference(
     }
 
     const updated = await client.query(
-      `update job_payments set status = 'held', held_at = now()
+      `update job_payments set status = 'held', held_at = now(),
+              provider_payment_id = coalesce($2, provider_payment_id)
         where id = $1 and status in ('pending_payment', 'failed')`,
-      [pay.id]
+      [pay.id, paymentId ?? null]
     );
     if (updated.rowCount === 0) return { result: 'already' as const };
 

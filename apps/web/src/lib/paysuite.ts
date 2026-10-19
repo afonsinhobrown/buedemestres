@@ -215,6 +215,86 @@ export async function getPaySuitePayoutByReference(reference: string): Promise<{
   }
 }
 
+export const REFUND_PREFIX = 'RF';
+
+export type PaySuiteRefundResult = {
+  id: string;
+  reference: string;
+  paymentId: string;
+  amount: number;
+  status: string | null;
+};
+
+/**
+ * Cria um reembolso de um pagamento (POST /refunds). Exige o id do pagamento
+ * PaySuite (payment_id), o valor e o motivo.
+ */
+export async function createPaySuiteRefund(params: {
+  paymentId: string;
+  amountMZN: number;
+  reason?: string;
+  webhookUrl?: string;
+}): Promise<PaySuiteRefundResult> {
+  const payload: Record<string, unknown> = {
+    payment_id: params.paymentId,
+    amount: Number(params.amountMZN.toFixed(2)),
+    reason: String(params.reason || 'Estorno de pedido').slice(0, 500),
+  };
+  if (params.webhookUrl) payload.webhook_url = params.webhookUrl;
+
+  const refund = await paysuiteRequest<Record<string, unknown>>('/refunds', { method: 'POST', body: payload });
+
+  return {
+    id: String(refund.id ?? ''),
+    reference: String(refund.reference ?? ''),
+    paymentId: String(refund.payment_id || params.paymentId),
+    amount: toNumber(refund.amount, params.amountMZN),
+    status: refund.status ? String(refund.status).toLowerCase() : null,
+  };
+}
+
+/**
+ * Procura o pagamento PaySuite pelo nosso provider_ref. O GET /payments/:id não
+ * expõe o estado, por isso filtramos a lista. Devolve também o `id` (ULID) do
+ * pagamento, necessário para emitir o reembolso.
+ */
+export async function getPaySuitePaymentIdByReference(reference: string): Promise<string | null> {
+  try {
+    const list = await paysuiteRequest<unknown[]>('/payments?limit=100', { method: 'GET' });
+    const arr = Array.isArray(list) ? list : [];
+    const found = arr.find(
+      (p) => p && typeof p === 'object' && (p as Record<string, unknown>).reference === reference
+    ) as Record<string, unknown> | undefined;
+    const id = found?.id;
+    return typeof id === 'string' && id ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getPaySuiteRefundByPaymentId(paymentId: string): Promise<{
+  status: string | null;
+  completed: boolean;
+  failed: boolean;
+}> {
+  try {
+    const list = await paysuiteRequest<unknown[]>('/refunds?limit=100', { method: 'GET' });
+    const arr = Array.isArray(list) ? list : [];
+    const found = arr.find(
+      (r) => r && typeof r === 'object' && (r as Record<string, unknown>).payment_id === paymentId
+    ) as Record<string, unknown> | undefined;
+    if (!found) return { status: null, completed: false, failed: false };
+    const s = String(found.status ?? '').toLowerCase();
+    return {
+      status: s || null,
+      completed: ['completed', 'paid', 'success', 'succeeded'].includes(s),
+      failed: ['failed', 'cancelled', 'canceled', 'rejected', 'expired'].includes(s),
+    };
+  } catch {
+    return { status: null, completed: false, failed: false };
+  }
+}
+
 function safeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   return crypto.timingSafeEqual(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
