@@ -142,6 +142,22 @@ export const SETTING_FIELDS: SettingField[] = [
     help: 'Desativa para não bloquear mestres já existentes com saldo zero.',
   },
   { key: 'fine_master_abandon', label: 'Multa por abandono', type: 'number', group: 'multas', min: 0, unit: 'MT' },
+  {
+    key: 'master_min_balance_exempt_domains',
+    label: 'Mestres de teste isentos (emails/domínios)',
+    type: 'text',
+    group: 'multas',
+    help: 'Separados por vírgula. Ex.: @teste.com,demo@exemplo.com. Ficam isentos do saldo mínimo.',
+  },
+  {
+    key: 'test_master_balance_floor',
+    label: 'Saldo garantido aos mestres de teste',
+    type: 'number',
+    group: 'multas',
+    min: 0,
+    unit: 'MT',
+    help: 'A carteira de um mestre isento nunca fica abaixo deste valor.',
+  },
   // Escrow
   {
     key: 'escrow_idle_hours_unstarted',
@@ -236,6 +252,8 @@ const DEFAULTS: Record<string, unknown> = {
   master_min_balance: 200,
   master_min_balance_enforced: true,
   fine_master_abandon: 150,
+  master_min_balance_exempt_domains: '@teste.com',
+  test_master_balance_floor: 1000,
   escrow_idle_hours_unstarted: 2,
   escrow_idle_hours_in_service: 6,
   escrow_default_refund_destination: 'wallet',
