@@ -166,7 +166,46 @@ export default function PedidosScreen() {
     }
   }
 
-  const cancelarPedido = (p: any) => {
+  const estornarPedidoPago = async (jobId: string, destino: 'wallet' | 'paysuite') => {
+    const { data, error } = await supabase.rpc('cancel_job_by_client', {
+      p_job: jobId,
+      p_destination: destino
+    })
+    if (error || (data && data.ok === false)) {
+      Alert.alert('Erro', error?.message || data?.error || 'Não foi possível cancelar o pedido.')
+      return
+    }
+    await carregarPedidos()
+  }
+
+  const cancelarPedido = async (p: any) => {
+    // Pedido já pago (escrow retido): o cliente pode cancelar e escolher o
+    // destino do estorno. Se o mestre já se deslocou, é-lhe aplicada multa.
+    try {
+      const { data: job } = await supabase
+        .from('jobs')
+        .select('id, status, job_payments(status)')
+        .eq('request_id', p.id)
+        .in('status', ['price_agreed', 'en_route', 'arrived'])
+        .maybeSingle()
+
+      const pagamento = job?.job_payments?.[0]
+      if (job && pagamento && pagamento.status === 'held') {
+        Alert.alert(
+          'Cancelar pedido',
+          'O teu pagamento está retido. Vais cancelar e procurar outro mestre. Onde queres receber o estorno?',
+          [
+            { text: 'Voltar', style: 'cancel' },
+            { text: 'Na minha carteira', onPress: () => estornarPedidoPago(job.id, 'wallet') },
+            { text: 'M-Pesa / eMola', onPress: () => estornarPedidoPago(job.id, 'paysuite') }
+          ]
+        )
+        return
+      }
+    } catch (err) {
+      console.warn('Erro ao verificar pagamento do pedido:', err)
+    }
+
     Alert.alert(
       'Cancelar pedido',
       'Queres mesmo cancelar este pedido? Deixa de contar para o limite de pedidos activos.',
@@ -180,7 +219,7 @@ export default function PedidosScreen() {
               .from('service_requests')
               .update({ status: 'cancelled', updated_at: new Date().toISOString() })
               .eq('id', p.id)
-              .in('status', ['open', 'in_negotiation'])
+              .in('status', ['open', 'in_negotiation', 'accepted'])
             if (error) {
               Alert.alert('Erro', error.message || 'Não foi possível cancelar o pedido.')
               return
@@ -314,7 +353,7 @@ export default function PedidosScreen() {
                     </TouchableOpacity>
                   )}
 
-                  {(p.status === 'open' || p.status === 'in_negotiation') && (
+                  {(p.status === 'open' || p.status === 'in_negotiation' || p.status === 'accepted') && (
                     <TouchableOpacity
                       style={styles.btnCancelOrder}
                       onPress={() => cancelarPedido(p)}

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { checkDirectJobStatus } from './actions'
+import { checkDirectJobStatus, cancelJobByClient, type RefundDestination } from './actions'
 import Link from 'next/link'
 
 const PENDING = ['pending', 'requested', 'open', 'in_negotiation']
@@ -42,8 +42,24 @@ function messageFor(status: string) {
   }
 }
 
+const CANCELABLE = ['price_agreed', 'en_route', 'arrived']
+
 export default function JobTracker({ jobId }: { jobId: string }) {
   const [status, setStatus] = useState<string>('pending')
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
+
+  const handleCancel = async (destination: RefundDestination) => {
+    setCancelling(true)
+    setCancelError(null)
+    const res = await cancelJobByClient(jobId, destination)
+    setCancelling(false)
+    if (res.ok) {
+      setStatus('cancelled')
+    } else {
+      setCancelError(res.error ?? 'Não foi possível cancelar o pedido.')
+    }
+  }
 
   useEffect(() => {
     if (FINISHED.includes(status)) return
@@ -98,6 +114,35 @@ export default function JobTracker({ jobId }: { jobId: string }) {
           <p style={{ color: '#666', marginTop: '16px', fontSize: '18px' }}>
             {messageFor(status)}
           </p>
+
+          {CANCELABLE.includes(status) && (
+            <div style={{ marginTop: '28px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
+              <p style={{ color: '#666', marginBottom: '12px' }}>
+                Tens urgência ou precisas de outro mestre? Podes cancelar e o valor retido é estornado.
+              </p>
+              {cancelError && (
+                <p style={{ color: '#dc2626', marginBottom: '12px' }}>{cancelError}</p>
+              )}
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  disabled={cancelling}
+                  onClick={() => handleCancel('wallet')}
+                  style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', backgroundColor: '#dc2626', color: 'white', cursor: 'pointer', opacity: cancelling ? 0.6 : 1 }}
+                >
+                  {cancelling ? 'A cancelar…' : 'Cancelar → estornar à minha carteira'}
+                </button>
+                <button
+                  type="button"
+                  disabled={cancelling}
+                  onClick={() => handleCancel('paysuite')}
+                  style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #dc2626', backgroundColor: 'white', color: '#dc2626', cursor: 'pointer', opacity: cancelling ? 0.6 : 1 }}
+                >
+                  Cancelar → devolver por M-Pesa/eMola
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
