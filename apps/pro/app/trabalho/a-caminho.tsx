@@ -358,14 +358,6 @@ export default function ProACaminhoScreen() {
           .from('service_requests')
           .update({ status: 'in_progress', updated_at: agora })
           .eq('id', job.request_id)
-
-        await supabase.from('notifications').insert({
-          profile_id: job.client_id,
-          type: 'service_started',
-          title: 'Serviço iniciado',
-          body: 'O mestre confirmou o início do serviço.',
-          data: { jobId: job.id, requestId: job.request_id },
-        })
       }
 
       router.replace({ pathname: '/trabalho/em-curso', params: { jobId: params.jobId } })

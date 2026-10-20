@@ -39,15 +39,6 @@ async function markPaymentFailed(
       `update job_payments set status = 'failed' where id = $1 and status = 'pending_payment'`,
       [pay.id]
     );
-    await client.query(
-      `insert into notifications(profile_id, type, title, body, data)
-       values ($1, 'payment_failed', 'Pagamento não concluído', $2, $3::jsonb)`,
-      [
-        pay.provider_id,
-        `O cliente cancelou ou não concluiu o pagamento de MT ${pay.amount}. Ainda não há valor retido — não inicies a deslocação.`,
-        JSON.stringify({ job_id: pay.job_id, value }),
-      ]
-    );
 
     return { result: 'failed' as const, jobId: pay.job_id };
   });
@@ -134,19 +125,6 @@ export async function confirmJobPaymentByReference(
           and status in ('open', 'in_negotiation', 'accepted', 'price_proposed', 'puxado')`,
       [pay.job_id, pay.amount]
     );
-    await client.query(
-      `insert into notifications(profile_id, type, title, body, data)
-       values
-         ($1, 'payment_held', 'Pagamento retido!', $3, $5::jsonb),
-         ($2, 'payment_confirmed', 'Pagamento confirmado e retido', $4, $5::jsonb)`,
-      [
-        pay.provider_id,
-        pay.client_id,
-        `O cliente pagou MT ${pay.amount}. O valor está retido em segurança — já podes iniciar a deslocação.`,
-        `O teu pagamento de MT ${pay.amount} foi confirmado e está retido em segurança (Escrow). O mestre já foi notificado.`,
-        JSON.stringify({ job_id: pay.job_id, reference }),
-      ]
-    );
 
     return { result: 'confirmed' as const, jobId: pay.job_id };
   });
@@ -191,19 +169,6 @@ export async function confirmAddendumByReference(
       `update job_addenda set status = 'held', held_at = now() where id = $1 and status = 'pending_payment'`,
       [addendum.id]
     );
-    await client.query(
-      `insert into notifications(profile_id, type, title, body, data)
-       values
-         ($1, 'addendum_paid', 'Aditamento pago', $3, $5::jsonb),
-         ($2, 'addendum_paid', 'Aditamento confirmado', $4, $5::jsonb)`,
-      [
-        addendum.provider_id,
-        addendum.client_id,
-        `O cliente pagou o aditamento de MT ${addendum.amount}. O valor está retido em segurança.`,
-        `O teu pagamento do aditamento de MT ${addendum.amount} foi confirmado e está retido em segurança.`,
-        JSON.stringify({ job_id: addendum.job_id, addendum_id: addendum.id, reference }),
-      ]
-    );
   });
 
   try {
@@ -237,19 +202,6 @@ export async function failAddendumByReference(
     await client.query(
       `update job_addenda set status = 'failed' where id = $1 and status = 'pending_payment'`,
       [addendum.id]
-    );
-    await client.query(
-      `insert into notifications(profile_id, type, title, body, data)
-       values
-         ($1, 'addendum_failed', 'Aditamento não pago', $3, $5::jsonb),
-         ($2, 'addendum_failed', 'Pagamento do aditamento não concluído', $4, $5::jsonb)`,
-      [
-        addendum.provider_id,
-        addendum.client_id,
-        `O aditamento de MT ${addendum.amount} não foi pago. O valor não está retido.`,
-        `O pagamento do aditamento de MT ${addendum.amount} foi cancelado ou recusado.`,
-        JSON.stringify({ job_id: addendum.job_id, addendum_id: addendum.id, reference }),
-      ]
     );
   });
 

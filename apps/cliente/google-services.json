@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1076047604902",
+    "project_id": "buedemestresnotificacoes",
+    "storage_bucket": "buedemestresnotificacoes.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1076047604902:android:10021b6b4910ee79ec1867",
+        "android_client_info": {
+          "package_name": "mz.buedemestres.cliente"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCBQsOH_t-eh9lxNQVdT7b7d2rn7DbxTwc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1076047604902:android:26a4c2904e0a55aaec1867",
+        "android_client_info": {
+          "package_name": "mz.buedemestres.pro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCBQsOH_t-eh9lxNQVdT7b7d2rn7DbxTwc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

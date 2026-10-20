@@ -109,14 +109,6 @@ export default function EmCursoScreen() {
           .from('service_requests')
           .update({ status: 'in_progress', updated_at: agora })
           .eq('id', job.request_id);
-
-        await supabase.from('notifications').insert({
-          profile_id: job.client_id,
-          type: 'service_finished',
-          title: 'Serviço concluído',
-          body: 'O mestre terminou o serviço. Confirma a conclusão para libertar o pagamento.',
-          data: { jobId: job.id, requestId: job.request_id },
-        });
       }
 
       Alert.alert('Serviço concluído', 'O cliente foi notificado para confirmar a conclusão e libertar o pagamento.', [

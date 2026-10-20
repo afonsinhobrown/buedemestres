@@ -78,17 +78,6 @@ export async function requestServiceAction(formData: FormData) {
       );
 
       requestId = requestRes.rows[0].id;
-
-      // 4. Notificação persistente para o mestre.
-      await client.query(
-        `INSERT INTO notifications (profile_id, type, title, body, data)
-         VALUES ($1, 'new_request', 'Novo pedido de serviço', $2, $3::jsonb)`,
-        [
-          providerId,
-          `${clientName} pediu: ${problemDescription || 'serviço directo'}`,
-          JSON.stringify({ requestId, clientName, clientPhone }),
-        ]
-      );
     });
   } catch (error) {
     console.error('Error creating service request:', error);
@@ -153,18 +142,6 @@ export async function updateJobStatus(jobId: string, status: string) {
               SET status = $1::request_status, updated_at = now()
             WHERE id = $2`,
           [nextStatus === 'completed' ? 'completed' : 'in_progress', job.request_id]
-        );
-      }
-
-      if (nextStatus === 'awaiting_confirmation' && job.client_id) {
-        await client.query(
-          `INSERT INTO notifications (profile_id, type, title, body, data)
-           VALUES ($1, 'service_finished', 'Serviço concluído', $2, $3::jsonb)`,
-          [
-            job.client_id,
-            'O mestre terminou o serviço. Confirma a conclusão para libertar o pagamento.',
-            JSON.stringify({ jobId, requestId: job.request_id }),
-          ]
         );
       }
 
