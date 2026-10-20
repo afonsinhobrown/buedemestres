@@ -7,7 +7,7 @@ import {
   SETTING_GROUPS,
   type SettingField,
   type SettingValue,
-} from '@/lib/platform-settings'
+} from '@/lib/platform-settings-shared'
 import { updateTaxas } from './actions'
 
 export function TaxasForm({ values }: { values: Record<string, SettingValue> }) {
