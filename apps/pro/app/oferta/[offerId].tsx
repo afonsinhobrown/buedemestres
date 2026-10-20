@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native
 import { Alert } from '../../lib/alertCompat'
 import { useLocalSearchParams, router } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
+import { supabase } from '../../lib/supabase'
 
 const OFERTA_EXPIRA_SEG = 60
 
@@ -36,7 +37,28 @@ export default function OfertaPedidoScreen() {
   const handleRecusar = () => {
     Alert.alert('Recusar oferta?', 'Recusas reduzem o teu índice de fiabilidade.', [
       { text: 'Cancelar' },
-      { text: 'Recusar', style: 'destructive', onPress: () => router.back() }
+      {
+        text: 'Recusar',
+        style: 'destructive',
+        onPress: async () => {
+          setRespondido(true)
+          try {
+            const {
+              data: { user },
+            } = await supabase.auth.getUser()
+            if (user?.id && params.offerId) {
+              await supabase
+                .from('request_offers')
+                .update({ status: 'declined', responded_at: new Date().toISOString() })
+                .eq('id', params.offerId)
+                .eq('provider_id', user.id)
+            }
+          } catch (error) {
+            console.warn('Erro ao registar recusa:', error)
+          }
+          router.back()
+        },
+      },
     ])
   }
 

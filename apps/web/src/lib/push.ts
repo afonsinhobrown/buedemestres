@@ -18,6 +18,24 @@ type SubscriptionRow = {
   expo_token: string | null
 }
 
+type ExpoTicket = {
+  status?: 'ok' | 'error'
+  message?: string
+  details?: { error?: string; expoPushToken?: string }
+}
+
+type ExpoResponse = {
+  data?: ExpoTicket | ExpoTicket[]
+  errors?: { message?: string }[]
+}
+
+const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
+
+function errorText(error: unknown): string {
+  if (error instanceof Error) return error.message
+  return typeof error === 'string' ? error : 'Erro desconhecido'
+}
+
 let vapidConfigured = false
 
 function configureVapid(): boolean {
@@ -35,23 +53,68 @@ function configureVapid(): boolean {
 }
 
 async function sendExpoBatch(messages: Record<string, unknown>[]) {
+  let ok = 0
+  const invalidTokens: string[] = []
+  let lastError: string | null = null
+
   for (let i = 0; i < messages.length; i += 100) {
     const chunk = messages.slice(i, i + 100)
     try {
-      await fetch('https://exp.host/--/api/v2/push/send', {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      }
+      if (process.env.EXPO_ACCESS_TOKEN) {
+        headers.Authorization = `Bearer ${process.env.EXPO_ACCESS_TOKEN}`
+      }
+
+      const response = await fetch(EXPO_PUSH_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers,
         body: JSON.stringify(chunk),
       })
+
+      if (!response.ok) {
+        lastError = `Expo respondeu ${response.status}`
+        console.error('Erro ao enviar push Expo:', lastError)
+        continue
+      }
+
+      const payload = (await response.json()) as ExpoResponse
+      if (payload.errors?.length) {
+        lastError = payload.errors.map((e) => e.message).filter(Boolean).join('; ') || lastError
+      }
+
+      const tickets = Array.isArray(payload.data)
+        ? payload.data
+        : payload.data
+        ? [payload.data]
+        : []
+
+      for (const ticket of tickets) {
+        if (ticket.status === 'ok') {
+          ok += 1
+          continue
+        }
+        const code = ticket.details?.error || ''
+        const token = ticket.details?.expoPushToken
+        if (token && (code === 'DeviceNotRegistered' || code === 'InvalidCredentials')) {
+          invalidTokens.push(token)
+        }
+        lastError = [ticket.message, code].filter(Boolean).join(' - ') || lastError
+      }
     } catch (error) {
+      lastError = errorText(error)
       console.error('Erro ao enviar push Expo:', error)
     }
   }
+
+  return { ok, invalidTokens, error: lastError }
 }
 
 export async function enviarPushParaPerfis(profileIds: string[], payload: PushPayload) {
   const ids = [...new Set(profileIds.filter(Boolean))]
-  if (ids.length === 0) return { sent: 0 }
+  if (ids.length === 0) return { sent: 0, failed: 0, error: 'Sem destinatários' }
 
   const { rows } = await db.query<SubscriptionRow>(
     `select id, profile_id, platform, endpoint, p256dh, auth, expo_token
@@ -60,11 +123,13 @@ export async function enviarPushParaPerfis(profileIds: string[], payload: PushPa
     [ids]
   )
 
-  if (rows.length === 0) return { sent: 0 }
+  if (rows.length === 0) return { sent: 0, failed: 0, error: 'Sem subscrições' }
 
   const webOk = configureVapid()
   const expoMessages: Record<string, unknown>[] = []
   let sent = 0
+  let failed = 0
+  let lastError: string | null = null
 
   for (const sub of rows) {
     if (sub.expo_token) {
@@ -73,6 +138,8 @@ export async function enviarPushParaPerfis(profileIds: string[], payload: PushPa
         title: payload.title,
         body: payload.body,
         sound: 'default',
+        priority: 'high',
+        channelId: 'default',
         data: { ...payload.data, url: payload.url || '/notificacoes' },
       })
       continue
@@ -91,32 +158,54 @@ export async function enviarPushParaPerfis(profileIds: string[], payload: PushPa
         })
       )
       sent += 1
-    } catch (error: any) {
-      if (error?.statusCode === 404 || error?.statusCode === 410) {
+    } catch (error) {
+      failed += 1
+      const statusCode = (error as { statusCode?: number })?.statusCode
+      if (statusCode === 404 || statusCode === 410) {
         await db.query('delete from push_subscriptions where id = $1', [sub.id]).catch(() => {})
       } else {
-        console.error('Erro Web Push:', error?.message || error)
+        lastError = errorText(error)
+        console.error('Erro Web Push:', lastError)
       }
     }
   }
 
   if (expoMessages.length > 0) {
-    await sendExpoBatch(expoMessages)
-    sent += expoMessages.length
+    const result = await sendExpoBatch(expoMessages)
+    sent += result.ok
+    failed += expoMessages.length - result.ok
+    lastError = result.error
+
+    if (result.invalidTokens.length > 0) {
+      await db
+        .query('delete from push_subscriptions where expo_token = any($1::text[])', [result.invalidTokens])
+        .catch(() => {})
+    }
   }
 
-  return { sent }
+  return { sent, failed, error: lastError }
 }
+
+const MAX_PUSH_ATTEMPTS = 60
 
 export async function despacharNotificacoesPendentes(limit = 200) {
   const { rows } = await db.query(
-    `select id, profile_id, title, body, data, created_at
-       from notifications
-      where push_sent_at is null
-        and created_at >= now() - interval '1 day'
-      order by created_at asc
-      limit $1`,
-    [limit]
+    `with pendentes as (
+       select id
+         from notifications
+        where push_sent_at is null
+          and push_attempts < $2
+          and created_at >= now() - interval '1 day'
+        order by created_at asc
+        limit $1
+        for update skip locked
+     )
+     update notifications n
+        set push_attempts = n.push_attempts + 1
+       from pendentes p
+      where n.id = p.id
+      returning n.id, n.profile_id, n.title, n.body, n.data, n.created_at, n.push_attempts`,
+    [limit, MAX_PUSH_ATTEMPTS]
   )
 
   let enviados = 0
@@ -135,11 +224,33 @@ export async function despacharNotificacoesPendentes(limit = 200) {
         url,
         data,
       })
-      enviados += result.sent
+
+      if (result.sent > 0) {
+        enviados += result.sent
+        await db.query(
+          `update notifications
+              set push_sent_at = now(), push_last_error = null
+            where id = $1`,
+          [notification.id]
+        )
+      } else {
+        const desistir = notification.push_attempts >= MAX_PUSH_ATTEMPTS
+        await db.query(
+          `update notifications
+              set push_last_error = $2,
+                  push_sent_at = case when $3 then now() else push_sent_at end
+            where id = $1`,
+          [notification.id, result.error || 'Não entregue', desistir]
+        )
+      }
     } catch (error) {
       console.error('Erro ao despachar notificação', notification.id, error)
-    } finally {
-      await db.query('update notifications set push_sent_at = now() where id = $1', [notification.id]).catch(() => {})
+      await db
+        .query(
+          `update notifications set push_last_error = $2 where id = $1`,
+          [notification.id, errorText(error)]
+        )
+        .catch(() => {})
     }
   }
 

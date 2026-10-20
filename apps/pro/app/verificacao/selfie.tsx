@@ -1,11 +1,14 @@
-import { useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { Alert } from '../../lib/alertCompat';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
+import { updateKycDraft } from '../../lib/kycDraft';
 
 export default function VerificacaoSelfieScreen() {
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
+  const [saving, setSaving] = useState(false);
   const cameraRef = useRef<any>(null);
 
   if (!permission) return <View style={styles.container} />;
@@ -22,10 +25,17 @@ export default function VerificacaoSelfieScreen() {
   }
 
   const takeSelfie = async () => {
-    if (cameraRef.current) {
-      await cameraRef.current.takePictureAsync();
-      // Em produção, aqui enviamos para a API de "prova de vida"
+    if (!cameraRef.current || saving) return;
+    try {
+      setSaving(true);
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.7 });
+      if (!photo?.uri) throw new Error('Não foi possível capturar a selfie.');
+      updateKycDraft({ selfieUri: photo.uri });
       router.push('/verificacao/confirmar-dados');
+    } catch (err: any) {
+      Alert.alert('Erro', err?.message || 'Não foi possível capturar a selfie.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -56,8 +66,11 @@ export default function VerificacaoSelfieScreen() {
         <View style={styles.bottomOverlay}>
           <TouchableOpacity 
             onPress={takeSelfie}
-            style={styles.captureBtn}
-          />
+            disabled={saving}
+            style={[styles.captureBtn, { alignItems: 'center', justifyContent: 'center' }]}
+          >
+            {saving && <ActivityIndicator color="#2563EB" />}
+          </TouchableOpacity>
         </View>
       </CameraComponent>
     </View>

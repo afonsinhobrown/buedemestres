@@ -37,6 +37,10 @@ export async function registerPushToken(): Promise<string | null> {
       Constants.expoConfig?.extra?.eas?.projectId ||
       (Constants as any)?.easConfig?.projectId
 
+    if (!projectId) {
+      throw new Error('projectId EAS em falta na configuração da app.')
+    }
+
     const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data
 
     const {
@@ -44,7 +48,7 @@ export async function registerPushToken(): Promise<string | null> {
     } = await supabase.auth.getUser()
 
     if (user?.id) {
-      await supabase.from('push_subscriptions').upsert(
+      const { error: saveError } = await supabase.from('push_subscriptions').upsert(
         {
           profile_id: user.id,
           platform: Platform.OS,
@@ -52,11 +56,30 @@ export async function registerPushToken(): Promise<string | null> {
         },
         { onConflict: 'profile_id,expo_token' }
       )
+      if (saveError) throw saveError
     }
 
     return token
-  } catch (error) {
-    console.warn('Erro ao registar push:', error)
+  } catch (error: any) {
+    console.warn(
+      'Erro ao registar push:',
+      error?.message || error,
+      Platform.OS === 'android'
+        ? '(verifica as credenciais FCM do projeto no EAS)'
+        : ''
+    )
     return null
+  }
+}
+
+export async function unregisterPushToken(): Promise<void> {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user?.id) return
+    await supabase.from('push_subscriptions').delete().eq('profile_id', user.id)
+  } catch (error) {
+    console.warn('Erro ao remover push:', error)
   }
 }

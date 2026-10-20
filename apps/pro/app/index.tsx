@@ -42,6 +42,7 @@ export default function ProHomeScreen() {
   const storeProvider = useAuthStore(s => s.providerProfile)
   const signOut = useAuthStore(s => s.signOut)
   const recusadosRef = useRef<Set<string>>(new Set())
+  const isVerified = providerProfile?.verification === 'approved'
 
   const handleSignOut = () => {
     Alert.alert('Terminar sessão', 'Queres sair da tua conta de mestre?', [
@@ -61,6 +62,7 @@ export default function ProHomeScreen() {
             business_name,
             primary_category_id,
             is_available,
+            verification,
             categories:primary_category_id (
               id,
               name,
@@ -107,11 +109,13 @@ export default function ProHomeScreen() {
           }
 
           setProviderProfile(profileCompleto)
-          setIsOnline(true)
+
+          const aprovado = matched.verification === 'approved'
+          setIsOnline(aprovado)
 
           await supabase.from('provider_presence').upsert({
             provider_id: matched.profile_id,
-            is_online: true,
+            is_online: aprovado,
             categories: ids.length ? ids : [2],
             updated_at: new Date().toISOString()
           }, { onConflict: 'provider_id' })
@@ -228,8 +232,9 @@ export default function ProHomeScreen() {
 
   // Busca e actualização constante de pedidos (Polling activo a cada 2.5s + Realtime)
   useEffect(() => {
-    if (!isOnline || !providerProfile) {
+    if (!isOnline || !providerProfile || providerProfile.verification !== 'approved') {
       setNewRequest(null)
+      setPendingJobs([])
       return
     }
 
@@ -247,14 +252,23 @@ export default function ProHomeScreen() {
           reqQuery = reqQuery.in('category_id', categoryIds)
         }
 
-        const [{ data: requests }, { data: targeted }] = await Promise.all([
+        const [{ data: requests }, { data: targeted }, { data: recusas }] = await Promise.all([
           reqQuery,
           supabase
             .from('service_requests')
             .select('*')
             .eq('status', 'open')
             .eq('target_provider_id', activeProId),
+          supabase
+            .from('request_offers')
+            .select('request_id')
+            .eq('provider_id', activeProId)
+            .eq('status', 'declined'),
         ])
+
+        for (const recusa of recusas || []) {
+          if (recusa?.request_id) recusadosRef.current.add(recusa.request_id)
+        }
 
         const porId = new Map<string, any>()
         for (const r of [...(requests || []), ...(targeted || [])]) {
@@ -517,6 +531,18 @@ export default function ProHomeScreen() {
   }
 
   const toggleOnline = async () => {
+    if (!isVerified) {
+      Alert.alert(
+        'Verificação necessária',
+        'O teu cadastro ainda não foi aprovado. Conclui a verificação de identidade para começares a receber pedidos.',
+        [
+          { text: 'Mais tarde', style: 'cancel' },
+          { text: 'Verificar', onPress: () => router.push('/verificacao') },
+        ]
+      )
+      return
+    }
+
     const newValue = !isOnline;
     setIsOnline(newValue)
     
@@ -707,6 +733,26 @@ export default function ProHomeScreen() {
           </View>
         </View>
       </Modal>
+
+      {providerProfile && !isVerified && (
+        <TouchableOpacity
+          style={styles.verifyBanner}
+          onPress={() => router.push('/verificacao')}
+          activeOpacity={0.85}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={styles.verifyBannerTitle}>
+              {providerProfile.verification === 'rejected' ? 'Verificação rejeitada' : 'Cadastro em verificação'}
+            </Text>
+            <Text style={styles.verifyBannerHint}>
+              {providerProfile.verification === 'rejected'
+                ? 'Corrige os dados e submete novamente para poderes receber pedidos.'
+                : 'Só recebes pedidos depois de o teu cadastro ser aprovado. Toca para concluir ou acompanhar.'}
+            </Text>
+          </View>
+          <Text style={styles.verifyBannerArrow}>›</Text>
+        </TouchableOpacity>
+      )}
 
       <View style={styles.statusCard}>
         <View style={styles.statusRow}>
@@ -945,6 +991,20 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
   },
+  verifyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(242,201,76,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(242,201,76,0.4)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+  verifyBannerTitle: { color: '#F2C94C', fontSize: 15, fontWeight: '800' },
+  verifyBannerHint: { color: '#E5E7EB', fontSize: 12, marginTop: 4, lineHeight: 17 },
+  verifyBannerArrow: { color: '#F2C94C', fontSize: 28, fontWeight: '300' },
   statusCard: {
     backgroundColor: 'rgba(255,255,255,0.07)',
     borderRadius: 8,

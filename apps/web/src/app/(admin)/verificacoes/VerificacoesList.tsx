@@ -12,6 +12,9 @@ type Verification = {
   front_path: string
   back_path: string | null
   selfie_path: string
+  front_url: string | null
+  back_url: string | null
+  selfie_url: string | null
   status: 'pending' | 'approved' | 'rejected'
   created_at: string
 }
@@ -107,22 +110,39 @@ export function VerificacoesList({ items }: { items: Verification[] }) {
             <div className="p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h3 className="font-bold text-gray-700 mb-3 text-sm uppercase">Documento ({selected.doc_type})</h3>
-                {/* Num projeto real, usar URLs assinadas. Aqui presumimos que os paths são URLs públicos ou gerados no server */}
-                <div className="bg-gray-100 rounded-lg h-64 mb-4 flex items-center justify-center border border-gray-200 overflow-hidden">
-                  <img src={selected.front_path} alt="Documento Frente" className="max-h-full object-contain" />
-                </div>
-                {selected.back_path && (
-                  <div className="bg-gray-100 rounded-lg h-64 flex items-center justify-center border border-gray-200 overflow-hidden">
-                    <img src={selected.back_path} alt="Documento Verso" className="max-h-full object-contain" />
+                {selected.front_url ? (
+                  <div className="bg-gray-100 rounded-lg h-64 mb-4 flex items-center justify-center border border-gray-200 overflow-hidden">
+                    <img src={selected.front_url} alt="Documento Frente" className="max-h-full object-contain" />
                   </div>
+                ) : (
+                  <div className="bg-amber-50 text-amber-800 text-sm rounded-lg h-64 mb-4 flex items-center justify-center border border-amber-200 p-4 text-center">
+                    Documento indisponível. Configura SUPABASE_SERVICE_ROLE_KEY para gerar URLs assinadas.
+                  </div>
+                )}
+                {selected.back_path && (
+                  selected.back_url ? (
+                    <div className="bg-gray-100 rounded-lg h-64 flex items-center justify-center border border-gray-200 overflow-hidden">
+                      <img src={selected.back_url} alt="Documento Verso" className="max-h-full object-contain" />
+                    </div>
+                  ) : (
+                    <div className="bg-amber-50 text-amber-800 text-sm rounded-lg h-64 flex items-center justify-center border border-amber-200 p-4 text-center">
+                      Verso indisponível sem SUPABASE_SERVICE_ROLE_KEY.
+                    </div>
+                  )
                 )}
               </div>
               
               <div>
                 <h3 className="font-bold text-gray-700 mb-3 text-sm uppercase">Prova de Vida (Selfie)</h3>
-                <div className="bg-gray-100 rounded-lg h-64 mb-6 flex items-center justify-center border border-gray-200 overflow-hidden">
-                  <img src={selected.selfie_path} alt="Selfie" className="max-h-full object-contain" />
-                </div>
+                {selected.selfie_url ? (
+                  <div className="bg-gray-100 rounded-lg h-64 mb-6 flex items-center justify-center border border-gray-200 overflow-hidden">
+                    <img src={selected.selfie_url} alt="Selfie" className="max-h-full object-contain" />
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 text-amber-800 text-sm rounded-lg h-64 mb-6 flex items-center justify-center border border-amber-200 p-4 text-center">
+                    Selfie indisponível. Configura SUPABASE_SERVICE_ROLE_KEY para gerar URLs assinadas.
+                  </div>
+                )}
 
                 <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-6">
                   <h4 className="font-bold text-blue-900 mb-1">Checklist de Revisão:</h4>

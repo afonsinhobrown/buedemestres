@@ -32,6 +32,25 @@ export async function createService(formData: FormData) {
   const result = serviceSchema.safeParse(data)
   if (!result.success) return { error: result.error.errors[0].message }
 
+  if (session.role !== 'admin') {
+    const { rows } = await db.query(
+      `select 1
+         from provider_profiles pp
+        where pp.profile_id = $1
+          and (
+            pp.primary_category_id = $2
+            or exists (
+              select 1 from provider_categories pc
+               where pc.provider_id = pp.profile_id and pc.category_id = $2
+            )
+          )`,
+      [session.userId, result.data.category_id]
+    )
+    if (rows.length === 0) {
+      return { error: 'Só podes criar serviços nas categorias do teu cadastro.' }
+    }
+  }
+
   try {
     await db.query(`
       INSERT INTO provider_services (

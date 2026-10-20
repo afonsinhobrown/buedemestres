@@ -17,8 +17,16 @@ export default async function ServicosPrecosPage() {
   `, [session.userId])
 
   const categoriesRes = await db.query(`
-    SELECT id, name FROM categories WHERE is_active = true ORDER BY name ASC
-  `)
+    SELECT id, name
+      FROM categories
+     WHERE is_active = true
+       AND (
+         $2 = 'admin'
+         OR id = (SELECT primary_category_id FROM provider_profiles WHERE profile_id = $1)
+         OR id IN (SELECT category_id FROM provider_categories WHERE provider_id = $1)
+       )
+     ORDER BY name ASC
+  `, [session.userId, session.role])
 
   return (
     <div className="p-8 max-w-5xl mx-auto bg-gray-50 min-h-screen">

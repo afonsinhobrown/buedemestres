@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Slot, router, usePathname } from 'expo-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, Platform, AppState } from 'react-native'
 import { useAuthStore } from '@/lib/useAuthStore'
 import { registerPushToken } from '@/lib/push'
 
@@ -42,9 +42,15 @@ export default function RootLayout() {
   }, [initialized, session, pathname])
 
   useEffect(() => {
-    if (session?.user?.id) {
-      registerPushToken().catch(() => {})
-    }
+    if (!session?.user?.id) return
+
+    registerPushToken().catch(() => {})
+
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') registerPushToken().catch(() => {})
+    })
+
+    return () => subscription.remove()
   }, [session?.user?.id])
 
   return (

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { unregisterPushToken } from './push';
 
 export interface UserProfile {
   id: string;
@@ -113,6 +114,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
+    await unregisterPushToken();
     await supabase.auth.signOut();
     set({ session: null, user: null, profile: null });
   },

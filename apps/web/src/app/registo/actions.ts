@@ -28,11 +28,18 @@ export async function registerProviderAction(formData: FormData) {
       );
       const profileId = profileRes.rows[0].id;
 
-      // 2. Create provider profile
+      // 2. Create provider profile (fica pendente de verificação/KYC)
       await client.query(
         `INSERT INTO provider_profiles (profile_id, slug, business_name, headline, primary_category_id, district_id, address, lat, lng, is_published, verification)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, 'approved')`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, 'pending')`,
         [profileId, slug, businessName, headline, categoryId, districtId, address, lat, lng]
+      );
+
+      // 2.1 Associar a categoria escolhida ao cadastro do mestre
+      await client.query(
+        `INSERT INTO provider_categories (provider_id, category_id)
+         VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [profileId, categoryId]
       );
 
       // 3. Create wallet

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { unregisterPushToken } from './push';
 
 interface AuthState {
   session: Session | null;
@@ -50,6 +51,12 @@ async function ensureProvider(userId: string, fullName: string, email?: string |
         trial_ends_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
       });
     }
+
+  const categoryId = Number(provider?.primary_category_id) || 2;
+  await supabase.from('provider_categories').upsert(
+    { provider_id: userId, category_id: categoryId },
+    { onConflict: 'provider_id,category_id', ignoreDuplicates: true }
+  );
 
   return true;
 }
@@ -137,6 +144,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
   signOut: async () => {
+    await unregisterPushToken();
     await supabase.auth.signOut();
     set({ session: null, user: null, providerProfile: null });
   },
