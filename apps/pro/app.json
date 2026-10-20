@@ -25,6 +25,7 @@
       "backgroundColor": "#12163A"
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#12163A"
