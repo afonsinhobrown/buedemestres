@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator 
 import { Alert } from '../lib/alertCompat'
 import { useLocalSearchParams, router } from 'expo-router'
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || ''
+import { API_BASE } from '@/lib/api'
 
 export default function ReportarMestreScreen() {
   const params = useLocalSearchParams<{ jobId?: string }>()

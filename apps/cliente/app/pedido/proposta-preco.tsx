@@ -5,12 +5,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../lib/useAuthStore'
 import { loadSandboxSettings } from '../../lib/sandbox'
-
-// Base do servidor que fala com a PaySuite (Web). No browser usamos a mesma
-// origem; nas apps nativas apontamos para a API pública.
-const API_BASE =
-  process.env.EXPO_PUBLIC_API_URL ||
-  (Platform.OS === 'web' ? '' : 'https://buedemestres.vercel.app')
+import { API_BASE } from '../../lib/api'
 
 export default function PropostaPrecoScreen() {
   const params = useLocalSearchParams<{

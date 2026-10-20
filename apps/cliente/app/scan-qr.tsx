@@ -5,7 +5,7 @@ import { useLocalSearchParams, router } from 'expo-router'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import { useAuthStore } from '@/lib/useAuthStore'
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || ''
+import { API_BASE } from '@/lib/api'
 
 export default function ScanQrScreen() {
   const params = useLocalSearchParams<{ jobId?: string; phase?: string }>()

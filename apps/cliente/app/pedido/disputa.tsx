@@ -3,7 +3,7 @@ import { Alert } from '../../lib/alertCompat'
 import { useLocalSearchParams, router } from 'expo-router'
 import { useState } from 'react'
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || ''
+import { API_BASE } from '@/lib/api'
 
 const MOTIVOS = [
   'O trabalho não ficou como combinado',

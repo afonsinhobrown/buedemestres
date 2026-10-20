@@ -4,7 +4,7 @@ import { Alert } from '../../lib/alertCompat'
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || '';
+import { API_BASE } from '@/lib/api'
 
 export default function EmCursoScreen() {
   const router = useRouter();

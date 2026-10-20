@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabase'
 import MapaTracking from '../../components/MapaTracking'
 import { parseGeoPoint, distanceMeters, type GeoPoint } from '../../lib/geo'
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || ''
+import { API_BASE } from '@/lib/api'
 
 export default function MestreACaminhoScreen() {
   const params = useLocalSearchParams<{

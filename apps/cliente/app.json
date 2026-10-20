@@ -53,12 +53,12 @@
         "origin": false
       },
       "eas": {
-        "projectId": "8a9f8682-f634-474e-b1f8-a67d25c3bde4"
+        "projectId": "2258c0d8-8345-4101-b2a2-f99e612b7083"
       }
     },
     "experiments": {
       "baseUrl": "/apps/cliente"
     },
-    "owner": "incubadoraservicos"
+    "owner": "incubadoraservicoss-team"
   }
 }

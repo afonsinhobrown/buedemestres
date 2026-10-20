@@ -7,7 +7,7 @@ import { useAuthStore } from '../../lib/useAuthStore';
 import { loadSandboxSettings } from '../../lib/sandbox';
 import { mostrarAlerta } from '../../lib/alerts';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || '';
+import { API_BASE } from '@/lib/api'
 
 interface ServiceLine {
   id: string;

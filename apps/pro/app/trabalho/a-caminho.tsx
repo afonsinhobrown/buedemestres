@@ -487,7 +487,7 @@ export default function ProACaminhoScreen() {
       {fase === 'en_route' && (
         <>
           <TouchableOpacity style={styles.btnMapas} onPress={abrirMapas} activeOpacity={0.8}>
-            <Text style={styles.btnMapasText}>🗺 Abrir Navegação no Google Maps</Text>
+            <Text style={styles.btnMapasText}>🧭 Navegação passo-a-passo (opcional)</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

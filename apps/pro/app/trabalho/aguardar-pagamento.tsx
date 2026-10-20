@@ -3,12 +3,7 @@ import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet, Platform, 
 import { Alert } from '../../lib/alertCompat'
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
-
-// Base do servidor que fala com a PaySuite. No browser usamos a mesma origem;
-// nas apps nativas apontamos para a API pública.
-const API_BASE =
-  process.env.EXPO_PUBLIC_API_URL ||
-  (Platform.OS === 'web' ? '' : 'https://buedemestres.vercel.app');
+import { API_BASE } from '../../lib/api';
 
 export default function AguardarPagamentoScreen() {
   const router = useRouter();
