@@ -132,7 +132,7 @@ export default function SuporteScreen() {
               
               <TouchableOpacity 
                 style={styles.whatsappBtn}
-                onPress={() => Alert.alert('Apoio WhatsApp', 'A abrir chat oficial com o suporte Bué de Mestres (+258 84 000 0000)...')}
+                onPress={() => Alert.alert('Apoio WhatsApp', 'Números: 877981166, 847981166. Email: tecnoincubadora.info@tecnoincubadora.org')}
                 activeOpacity={0.8}
               >
                 <Text style={styles.whatsappBtnText}>💬 WhatsApp Oficial Bué de Mestres</Text>

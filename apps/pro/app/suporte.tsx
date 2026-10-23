@@ -95,7 +95,7 @@ export default function ProSuporteScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <TouchableOpacity
           style={styles.callBtn}
-          onPress={() => Linking.openURL('tel:+258840000000')}
+          onPress={() => Linking.openURL('tel:877981166')}
           activeOpacity={0.8}
         >
           <Text style={styles.callBtnText}>📞 Ligar para o apoio</Text>

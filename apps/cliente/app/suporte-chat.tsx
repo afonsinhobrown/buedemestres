@@ -108,7 +108,7 @@ export default function SuporteChatScreen() {
         </TouchableOpacity>
         <Text style={styles.title}>{ticket ? `TKT-${ticket.number}` : 'Suporte'}</Text>
         <Text style={styles.sub}>{ticket?.subject || 'Conversa com o centro de ajuda'}</Text>
-        <TouchableOpacity style={styles.callBtn} onPress={() => Linking.openURL('tel:+258840000000')}>
+        <TouchableOpacity style={styles.callBtn} onPress={() => Linking.openURL('tel:877981166')}>
           <Text style={styles.callBtnText}>📞 Pedir chamada</Text>
         </TouchableOpacity>
       </View>
