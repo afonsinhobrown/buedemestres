@@ -14,6 +14,7 @@ export default function OfertaPedidoScreen() {
 
   const [segundos, setSegundos] = useState(OFERTA_EXPIRA_SEG)
   const [respondido, setRespondido] = useState(false)
+  const [aAceitar, setAAceitar] = useState(false)
   const barraAnim = useRef(new Animated.Value(1)).current
 
   // Contagem regressiva
@@ -28,10 +29,37 @@ export default function OfertaPedidoScreen() {
     return () => clearInterval(iv)
   }, [])
 
-  const handleAceitar = () => {
+  const handleAceitar = async () => {
+    if (!params.offerId || respondido || aAceitar) return
+    setAAceitar(true)
     setRespondido(true)
-    // TODO: chamar accept_offer() via Supabase RPC
-    router.replace({ pathname: '/trabalho/a-caminho', params: { jobId: 'demo', ...params } })
+    try {
+      const etaSeg = parseInt(params.etaSeg ?? '480', 10)
+      const { data: jobId, error } = await supabase.rpc('accept_offer', {
+        p_offer: params.offerId,
+        p_eta_s: Number.isFinite(etaSeg) ? etaSeg : null,
+      })
+      if (error) throw error
+      if (!jobId) throw new Error('Não foi possível aceitar a oferta.')
+
+      router.replace({
+        pathname: '/trabalho/a-caminho',
+        params: { jobId: String(jobId), ...params },
+      })
+    } catch (err: any) {
+      setRespondido(false)
+      const msg = String(err?.message || err || '')
+      const amigavel =
+        msg.includes('offer_unavailable') ? 'Esta oferta já expirou ou foi atribuída.' :
+        msg.includes('request_taken') ? 'Outro mestre aceitou este pedido primeiro.' :
+        msg.includes('provider_busy') ? 'Já tens um serviço activo. Conclui-o antes de aceitar outro.' :
+        'Não foi possível aceitar a oferta. Tenta novamente.'
+      Alert.alert('Oferta indisponível', amigavel, [
+        { text: 'OK', onPress: () => router.back() },
+      ])
+    } finally {
+      setAAceitar(false)
+    }
   }
 
   const handleRecusar = () => {
@@ -99,10 +127,10 @@ export default function OfertaPedidoScreen() {
       </View>
 
       <View style={styles.btns}>
-        <TouchableOpacity style={styles.btnAceitar} onPress={handleAceitar} disabled={respondido}>
-          <Text style={styles.btnAceitarText}>✓ Aceitar</Text>
+        <TouchableOpacity style={styles.btnAceitar} onPress={handleAceitar} disabled={respondido || aAceitar}>
+          <Text style={styles.btnAceitarText}>{aAceitar ? 'A aceitar…' : '✓ Aceitar'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.btnRecusar} onPress={handleRecusar} disabled={respondido}>
+        <TouchableOpacity style={styles.btnRecusar} onPress={handleRecusar} disabled={respondido || aAceitar}>
           <Text style={styles.btnRecusarText}>✕ Recusar</Text>
         </TouchableOpacity>
       </View>

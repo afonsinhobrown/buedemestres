@@ -494,6 +494,61 @@ export default function ProHomeScreen() {
       return
     }
 
+    // Preferir accept_offer quando o despacho já criou uma oferta (marca active_job_id e cancela rivais).
+    const { data: ofertaActiva } = await supabase
+      .from('request_offers')
+      .select('id')
+      .eq('request_id', requestId)
+      .eq('provider_id', activeProId)
+      .in('status', ['sent', 'viewed'])
+      .gt('expires_at', new Date().toISOString())
+      .order('sent_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (ofertaActiva?.id) {
+      const { data: jobIdFromOffer, error: offerErr } = await supabase.rpc('accept_offer', {
+        p_offer: ofertaActiva.id,
+        p_eta_s: 480,
+      })
+
+      if (!offerErr && jobIdFromOffer) {
+        setNewRequest(null)
+        setPendingJobs(prev => prev.filter(job => job.id !== requestId))
+        setTrabalhosHoje(prev => prev + 1)
+        router.push({
+          pathname: '/trabalho/propor-preco',
+          params: {
+            jobId: String(jobIdFromOffer),
+            categoriaNome: jobTitle,
+            categoriaEmoji: '🔧',
+          },
+        })
+        return
+      }
+
+      const offerMsg = String(offerErr?.message || '')
+      if (offerMsg.includes('request_taken') || offerMsg.includes('offer_unavailable')) {
+        recusadosRef.current.add(requestId)
+        setNewRequest(null)
+        setPendingJobs(prev => prev.filter(job => job.id !== requestId))
+        Alert.alert(
+          'Pedido já atribuído',
+          'Outro mestre respondeu primeiro. Este pedido já não está disponível.'
+        )
+        return
+      }
+      if (offerMsg.includes('provider_busy')) {
+        Alert.alert(
+          'Já tens um serviço activo',
+          'Conclui ou cancela o serviço que já aceitaste antes de aceitar outro pedido.'
+        )
+        return
+      }
+      // Se a RPC falhar por outro motivo, cai no fluxo manual abaixo.
+      console.warn('accept_offer falhou, a usar fluxo manual:', offerErr)
+    }
+
     const { data: acceptedRequest, error: reqErr } = await supabase
       .from('service_requests')
       .update({
@@ -579,7 +634,7 @@ export default function ProHomeScreen() {
     router.push({
       pathname: '/trabalho/propor-preco',
       params: {
-        jobId: requestId,
+        jobId: createdJob.id || requestId,
         categoriaNome: jobTitle,
         categoriaEmoji: '🔧'
       }
