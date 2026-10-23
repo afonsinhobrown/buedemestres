@@ -92,7 +92,7 @@ export default function ProporPrecoScreen() {
         // Carregar job se existir (pode ser criado pelo cliente após o "Está puxado")
         const { data: job } = await supabase
           .from('jobs')
-          .select('id, request_id, status, price_proposed, price_estimate_min, client_id, provider_id')
+          .select('id, request_id, status, price_proposed, price_estimate_min, client_id, provider_id, turn_owner')
           .or(`id.eq.${targetId},request_id.eq.${targetId}`)
           .maybeSingle();
 
@@ -123,9 +123,14 @@ export default function ProporPrecoScreen() {
             .limit(1)
             .maybeSingle();
 
+          // O turno da negociação é a fonte de verdade. Sem isto, quando a mesma
+          // conta é usada como cliente e mestre (testes), a proposta do mestre
+          // era confundida com uma contra-proposta do cliente.
           const propEhDoCliente = !!prop && (
-            prop.proposed_by === job.client_id ||
-            (prop.description && prop.description.includes('[ESTÁ PUXADO'))
+            job.turn_owner
+              ? job.turn_owner === 'provider'
+              : prop.proposed_by === job.client_id ||
+                (prop.description && prop.description.includes('[ESTÁ PUXADO'))
           );
 
           if (propEhDoCliente) {
