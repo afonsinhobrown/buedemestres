@@ -4,11 +4,13 @@ import { useLocalSearchParams, router } from 'expo-router'
 import { useState, useEffect } from 'react'
 import * as Location from 'expo-location'
 import { supabase } from '../../lib/supabase'
+import { loadSandboxSettings } from '../../lib/sandbox'
 import MapaTracking from '../../components/MapaTracking'
 import {
   parseGeoPoint,
   distanceMeters,
   canConfirmArrival,
+  canConfirmArrivalInSandbox,
   MAX_ARRIVAL_DISTANCE_M,
   type GeoPoint,
 } from '../../lib/geo'
@@ -61,6 +63,19 @@ export default function ProACaminhoScreen() {
   const [loading, setLoading] = useState(true)
   const [isStarting, setIsStarting] = useState(false)
   const [isConfirmingArrival, setIsConfirmingArrival] = useState(false)
+  const [sandboxActive, setSandboxActive] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    loadSandboxSettings()
+      .then((settings) => {
+        if (active) setSandboxActive(settings.active)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
     async function carregarDadosReais() {
@@ -248,7 +263,34 @@ export default function ProACaminhoScreen() {
     }
   }
 
-  // 2. Informar chegada ao local (só permitido dentro do raio de 200 m)
+  // 2. Informar chegada ao local (fora do sandbox, só dentro do raio de 200 m)
+  const registarChegada = async () => {
+    setFase('arrived')
+    if (params.jobId) {
+      try {
+        await supabase
+          .from('jobs')
+          .update({
+            status: 'arrived',
+            arrived_at: new Date().toISOString()
+          })
+          .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
+          .in('status', ['en_route', 'arrived'])
+      } catch (e) {
+        console.warn('Atualizar estado chegado:', e)
+      }
+    }
+  }
+
+  const confirmarChegadaNoLocal = async () => {
+    setIsConfirmingArrival(true)
+    try {
+      await registarChegada()
+    } finally {
+      setIsConfirmingArrival(false)
+    }
+  }
+
   const handleChegada = async () => {
     if (!clientCoords) {
       Alert.alert(
@@ -290,8 +332,12 @@ export default function ProACaminhoScreen() {
       const point = { lat: atual.coords.latitude, lng: atual.coords.longitude }
       setProviderCoords(point)
 
-      if (!canConfirmArrival(point, clientCoords)) {
-        const distancia = distanceMeters(point, clientCoords)
+      const distancia = distanceMeters(point, clientCoords)
+      const dentroDoRaio = canConfirmArrival(point, clientCoords)
+      const sandboxAtivo =
+        (await loadSandboxSettings().catch(() => null))?.active ?? sandboxActive
+
+      if (!canConfirmArrivalInSandbox(point, clientCoords, sandboxAtivo)) {
         Alert.alert(
           'Ainda não estás no local',
           `Estás a ${formatarDistancia(distancia)} do cliente. Aproxima-te para poderes confirmar a chegada (máximo ${MAX_ARRIVAL_DISTANCE_M} m).`
@@ -299,21 +345,24 @@ export default function ProACaminhoScreen() {
         return
       }
 
-      setFase('arrived')
-      if (params.jobId) {
-        try {
-          await supabase
-            .from('jobs')
-            .update({
-              status: 'arrived',
-              arrived_at: new Date().toISOString()
-            })
-            .or(`id.eq.${params.jobId},request_id.eq.${params.jobId}`)
-            .in('status', ['en_route', 'arrived'])
-        } catch (e) {
-          console.warn('Atualizar estado chegado:', e)
-        }
+      if (!dentroDoRaio) {
+        Alert.alert(
+          'Chegada fora do raio (sandbox)',
+          `Estás a ${formatarDistancia(distancia)} do cliente. No modo sandbox a chegada é aceite a qualquer distância, mas para uma melhor avaliação do teu desempenho é importante que estejas próximo do cliente.`,
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+              text: 'Confirmar chegada',
+              onPress: () => {
+                void confirmarChegadaNoLocal()
+              },
+            },
+          ]
+        )
+        return
       }
+
+      await registarChegada()
     } catch (e) {
       console.warn('Erro ao confirmar chegada:', e)
       Alert.alert('Erro', 'Não foi possível confirmar a tua localização. Tenta novamente.')
@@ -404,6 +453,14 @@ export default function ProACaminhoScreen() {
           </Text>
         </View>
       </View>
+
+      {sandboxActive && (
+        <View style={styles.sandboxBanner}>
+          <Text style={styles.sandboxBannerText}>
+            MODO SANDBOX — a chegada é aceite a qualquer distância. Para uma melhor avaliação do teu desempenho, mantém-te próximo do cliente.
+          </Text>
+        </View>
+      )}
 
       <View style={styles.mapWrapper}>
         <MapaTracking provider={providerCoords} client={clientCoords} />
@@ -522,6 +579,8 @@ export default function ProACaminhoScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0F2D1A' },
   scrollContent: { flexGrow: 1, padding: 20, paddingTop: 44 },
+  sandboxBanner: { backgroundColor: 'rgba(242,201,76,0.18)', borderWidth: 1.5, borderColor: '#F2C94C', borderRadius: 8, padding: 10, marginBottom: 12 },
+  sandboxBannerText: { color: '#F2C94C', fontWeight: '900', fontSize: 11, textAlign: 'center', lineHeight: 16 },
   mapWrapper: { height: 180, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', marginBottom: 12 },
   locationError: { color: '#FCA5A5', fontSize: 11, marginBottom: 8, textAlign: 'center' },
   header: { alignItems: 'center', marginBottom: 16 },

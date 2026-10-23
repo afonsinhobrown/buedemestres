@@ -44,6 +44,19 @@ export function canConfirmArrival(
   return distanceMeters(provider, client) <= maxDistanceM
 }
 
+/**
+ * Em sandbox a chegada é aceite a qualquer distância (é ambiente de teste).
+ * Fora do sandbox mantém-se o raio normal.
+ */
+export function canConfirmArrivalInSandbox(
+  provider: GeoPoint,
+  client: GeoPoint,
+  sandboxActive: boolean,
+  maxDistanceM: number = MAX_ARRIVAL_DISTANCE_M
+): boolean {
+  return sandboxActive || canConfirmArrival(provider, client, maxDistanceM)
+}
+
 export function parseGeoPoint(value: unknown): GeoPoint | null {
   if (!value) return null
 

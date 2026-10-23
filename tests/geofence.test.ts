@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   distanceMeters,
   canConfirmArrival,
+  canConfirmArrivalInSandbox,
   MAX_ARRIVAL_DISTANCE_M,
 } from '../apps/pro/lib/geo'
 
@@ -27,4 +28,15 @@ test('canConfirmArrival recusa um mestre a mais de 200 m', () => {
 test('canConfirmArrival respeita um raio personalizado', () => {
   const provider = { lat: client.lat + 0.003, lng: client.lng }
   assert.equal(canConfirmArrival(provider, client, 1000), true)
+})
+
+test('sandbox aceita a chegada a qualquer distância', () => {
+  const provider = { lat: client.lat + 0.03, lng: client.lng }
+  assert.ok(distanceMeters(provider, client) > MAX_ARRIVAL_DISTANCE_M)
+  assert.equal(canConfirmArrivalInSandbox(provider, client, true), true)
+})
+
+test('fora do sandbox a chegada longe continua bloqueada', () => {
+  const provider = { lat: client.lat + 0.03, lng: client.lng }
+  assert.equal(canConfirmArrivalInSandbox(provider, client, false), false)
 })
