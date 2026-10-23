@@ -5,6 +5,7 @@ import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../lib/useAuthStore'
 import { loadSandboxSettings } from '../lib/sandbox'
+import { getDeviceId } from '../lib/deviceId'
 
 const formatJobTitle = (title?: string, catId?: number) => {
   if (!title || title.includes('undefined')) {
@@ -42,6 +43,7 @@ export default function ProHomeScreen() {
   const storeProvider = useAuthStore(s => s.providerProfile)
   const signOut = useAuthStore(s => s.signOut)
   const recusadosRef = useRef<Set<string>>(new Set())
+  const deviceBlockedRef = useRef(false)
   const isVerified = providerProfile?.verification === 'approved'
 
   const handleSignOut = () => {
@@ -111,14 +113,37 @@ export default function ProHomeScreen() {
           setProviderProfile(profileCompleto)
 
           const aprovado = matched.verification === 'approved'
-          setIsOnline(aprovado)
+          if (!aprovado) {
+            setIsOnline(false)
+            return
+          }
 
-          await supabase.from('provider_presence').upsert({
-            provider_id: matched.profile_id,
-            is_online: aprovado,
-            categories: ids.length ? ids : [2],
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'provider_id' })
+          // Só um dispositivo pode ficar online com a mesma conta de mestre.
+          const deviceId = await getDeviceId()
+          const { data: claimed, error: claimError } = await supabase.rpc('provider_claim_device', {
+            p_provider: matched.profile_id,
+            p_device_id: deviceId,
+            p_categories: ids.length ? ids : [2]
+          })
+
+          if (claimError) {
+            console.warn('Erro ao reclamar dispositivo:', claimError.message)
+            setIsOnline(false)
+            return
+          }
+
+          const ficouOnline = claimed === true
+          setIsOnline(ficouOnline)
+
+          if (ficouOnline) {
+            deviceBlockedRef.current = false
+          } else if (!deviceBlockedRef.current) {
+            deviceBlockedRef.current = true
+            Alert.alert(
+              'Conta activa noutro dispositivo',
+              'Esta conta de mestre já está online noutro dispositivo. Desliga-a nesse dispositivo para poderes ficar online aqui.'
+            )
+          }
         } else if (error) {
           console.error('Erro ao carregar provedores reais:', error)
         }
@@ -219,12 +244,25 @@ export default function ProHomeScreen() {
     const proId = providerProfile.profile_id
 
     const heartbeat = setInterval(async () => {
-      await supabase.from('provider_presence').upsert({
-        provider_id: proId,
-        is_online: true,
-        categories: categoryIds.length ? categoryIds : [2],
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'provider_id' })
+      const deviceId = await getDeviceId()
+      const { data: claimed, error } = await supabase.rpc('provider_claim_device', {
+        p_provider: proId,
+        p_device_id: deviceId,
+        p_categories: categoryIds.length ? categoryIds : [2]
+      })
+
+      if (error) {
+        console.warn('Heartbeat de presença:', error.message)
+        return
+      }
+
+      if (claimed !== true) {
+        setIsOnline(false)
+        Alert.alert(
+          'Sessão noutro dispositivo',
+          'A tua conta foi activada noutro dispositivo. Esta sessão ficou offline.'
+        )
+      }
     }, 40000)
 
     return () => clearInterval(heartbeat)
@@ -589,17 +627,45 @@ export default function ProHomeScreen() {
       return
     }
 
-    const newValue = !isOnline;
-    setIsOnline(newValue)
-    
+    const newValue = !isOnline
     const proId = providerProfile?.profile_id || user?.id
-    if (proId) {
-      await supabase.from('provider_presence').upsert({
-        provider_id: proId,
-        is_online: newValue,
-        categories: categoryIds.length ? categoryIds : [2],
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'provider_id' });
+
+    if (!proId) {
+      Alert.alert('Erro', 'Não foi possível identificar o teu perfil de mestre.')
+      return
+    }
+
+    const deviceId = await getDeviceId()
+
+    if (newValue) {
+      const { data: claimed, error } = await supabase.rpc('provider_claim_device', {
+        p_provider: proId,
+        p_device_id: deviceId,
+        p_categories: categoryIds.length ? categoryIds : [2]
+      })
+
+      if (error) {
+        Alert.alert('Erro', 'Não foi possível ficar online. Tenta novamente.')
+        return
+      }
+
+      if (claimed !== true) {
+        setIsOnline(false)
+        Alert.alert(
+          'Conta activa noutro dispositivo',
+          'Esta conta de mestre já está online noutro dispositivo. Desliga-a nesse dispositivo para poderes ficar online aqui.'
+        )
+        return
+      }
+
+      deviceBlockedRef.current = false
+      setIsOnline(true)
+    } else {
+      await supabase.rpc('provider_release_device', {
+        p_provider: proId,
+        p_device_id: deviceId
+      })
+      setIsOnline(false)
     }
   }
 

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { unregisterPushToken } from './push';
+import { getDeviceId } from './deviceId';
 
 interface AuthState {
   session: Session | null;
@@ -144,6 +145,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
   signOut: async () => {
+    try {
+      const providerId = get().providerProfile?.profile_id;
+      if (providerId) {
+        const deviceId = await getDeviceId();
+        await supabase.rpc('provider_release_device', {
+          p_provider: providerId,
+          p_device_id: deviceId,
+        });
+      }
+    } catch (e) {
+      console.warn('Erro ao libertar dispositivo:', e);
+    }
     await unregisterPushToken();
     await supabase.auth.signOut();
     set({ session: null, user: null, providerProfile: null });
