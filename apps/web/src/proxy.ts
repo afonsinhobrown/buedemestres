@@ -40,6 +40,15 @@ export default async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL('/painel', req.nextUrl))
   }
 
+  // Ferramentas internas de demonstração: apenas staff
+  if (pathname.startsWith('/dev')) {
+    const role = session?.role as string
+    const isStaff = ['support', 'moderator', 'finance', 'admin', 'superadmin'].includes(role)
+    if (!isStaff) {
+      return new NextResponse('Não encontrado', { status: 404 })
+    }
+  }
+
   // SECÇÃO STAFF / ADMIN / SUPERADMIN
   if (pathname.startsWith('/admin') || pathname.startsWith('/superadmin')) {
     const role = session?.role as string

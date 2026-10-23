@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function HomePage() {
   // Fetch real providers from the DB (with resilient fallback)
   let providers: any[] = []
+  let stats = { providers: 0, verified: 0, rating: 0 }
   try {
     const res = await db.query(`
       SELECT pp.slug, pp.business_name, pp.headline, pp.rating_avg, pp.rating_count,
@@ -28,6 +29,15 @@ export default async function HomePage() {
       LIMIT 3
     `)
     providers = res.rows
+
+    const statsRes = await db.query<{ providers: number; verified: number; rating: number }>(`
+      SELECT count(*)::int as providers,
+             count(*) filter (where verification = 'approved')::int as verified,
+             coalesce(round(avg(rating_avg) filter (where rating_count > 0), 1), 0) as rating
+      FROM provider_profiles
+      WHERE is_published = true
+    `)
+    stats = statsRes.rows[0] ?? stats
   } catch (error) {
     console.error('Aviso: Falha ao obter prestadores na HomePage:', error)
   }
@@ -45,10 +55,6 @@ export default async function HomePage() {
       <nav className="nav nav--flush">
         <div className="shell" style={{ display: 'flex', alignItems: 'center', gap: 26, width: '100%' }}>
           <Link href="/" className="placa pb sm" style={{ transform: 'none' }}>Bué de Mestres</Link>
-          <div style={{ display: 'flex', gap: '8px', marginRight: 'auto' }}>
-            <Link href="/" style={{ fontSize: '12px', padding: '6px 12px', backgroundColor: '#e2e8f0', borderRadius: '4px', textDecoration: 'none', color: '#334155', fontWeight: 'bold' }}>📱 Simular Cliente</Link>
-            <Link href="/dev/simulador" style={{ fontSize: '12px', padding: '6px 12px', backgroundColor: '#1e293b', borderRadius: '4px', textDecoration: 'none', color: 'white', fontWeight: 'bold' }}>🔧 Simular Mestre</Link>
-          </div>
           <Link href="#como-funciona">Como funciona</Link>
           <Link href="#para-mestres">Para mestres</Link>
           <Link href="/ajuda">Ajuda</Link>
@@ -61,7 +67,7 @@ export default async function HomePage() {
       <div className="shell">
         <section aria-label="Início" className="hero">
           <div className="hero-copy">
-            <p className="kicker">Maputo · Ofícios verificados</p>
+            <p className="kicker">Moçambique · Ofícios verificados</p>
             <h1 className="h1">Precisas de um mestre? Bué deles, no teu bairro.</h1>
             <p className="hero-sub">
               Descreves o que precisas, o mestre mais perto aceita e tu pagas só depois
@@ -84,9 +90,9 @@ export default async function HomePage() {
               </Link>
             </div>
             <ul className="hero-stats">
-              <li><b>6</b><span>ofícios registados</span></li>
-              <li><b>3</b><span>mestres verificados</span></li>
-              <li><b>4.8</b><span>avaliação média</span></li>
+              <li><b>{stats.providers}</b><span>mestres registados</span></li>
+              <li><b>{stats.verified}</b><span>mestres verificados</span></li>
+              <li><b>{Number(stats.rating) > 0 ? Number(stats.rating).toFixed(1) : '—'}</b><span>avaliação média</span></li>
             </ul>
           </div>
 
@@ -139,7 +145,7 @@ export default async function HomePage() {
         <div className="how">
           <div><b>1</b><h3>Descreve o que precisas</h3><p>Indica o problema e onde estás. Se for urgente, o pedido segue logo para os mestres mais próximos.</p></div>
           <div><b>2</b><h3>Um mestre aceita</h3><p>Vês quem é, a avaliação e a chegada no mapa. O preço é combinado na aplicação.</p></div>
-          <div><b>3</b><h3>Pagas e avaliaste</h3><p>O valor fica retido até confirmares o serviço. Depois, avalias o mestre.</p></div>
+          <div><b>3</b><h3>Pagas e avalias</h3><p>O valor fica retido até confirmares o serviço. Depois, avalias o mestre.</p></div>
         </div>
 
         <div id="para-mestres" className="placa py band" style={{ transform: 'rotate(-.5deg)' }}>
@@ -149,24 +155,16 @@ export default async function HomePage() {
       </div>
 
       <div className="strip"></div>
-      
-      <div className="shell" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 0' }}>
-        <h3 style={{ fontSize: '14px', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px', fontWeight: 600 }}>
-          Plataforma gerida por profissionais certificados
-        </h3>
-        <a href="https://www.credential.net/53726c6f-a162-47f9-aaba-4e2988f78240" target="_blank" rel="noopener noreferrer" className="hover:scale-105 transition-transform">
-          <img 
-            src="https://api.accredible.com/v1/credentials/u4gkf9oq/artifact/certificate?artifact_format=png&variant=medium" 
-            alt="Google AI-Powered Shopping ads Certification" 
-            style={{ height: '140px', borderRadius: '8px', objectFit: 'contain' }} 
-          />
-        </a>
-      </div>
 
       <footer className="foot">
         <div className="shell foot-in">
           <span>Bué de Mestres</span>
-          <span>Termos, privacidade e ajuda</span>
+          <span style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+            <Link href="/termos">Termos</Link>
+            <Link href="/privacidade">Privacidade</Link>
+            <Link href="/faq">FAQ</Link>
+            <Link href="/ajuda">Ajuda</Link>
+          </span>
         </div>
       </footer>
     </>
