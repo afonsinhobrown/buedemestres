@@ -11,6 +11,7 @@ import type { ActionState } from '@/lib/validators/auth'
 function RegisterForm() {
   const searchParams = useSearchParams()
   const refCode = searchParams.get('ref') ?? ''
+  const redirectTo = searchParams.get('redirect') ?? ''
 
   const [state, action, pending] = useActionState<ActionState | undefined, FormData>(
     registerAction,
@@ -89,6 +90,7 @@ function RegisterForm() {
 
         {/* Código de afiliado (pre-preenchido se vier via URL) */}
         <input type="hidden" name="referral_code" value={refCode} />
+        <input type="hidden" name="redirect" value={redirectTo} />
 
         <button
           type="submit"

@@ -60,7 +60,7 @@ export default async function HomePage() {
           <Link href="/ajuda">Ajuda</Link>
           <Link href="/apps/cliente/entrar">Entrar (cliente)</Link>
           <Link href="/entrar">Equipa</Link>
-          <Link href="/registo" className="btn b1 s">Criar a minha placa</Link>
+          <Link href="/registar?redirect=/pro/activar" className="btn b1 s">Criar a minha placa</Link>
         </div>
       </nav>
 
@@ -150,7 +150,7 @@ export default async function HomePage() {
 
         <div id="para-mestres" className="placa py band" style={{ transform: 'rotate(-.5deg)' }}>
           Tens um ofício? Cria a tua placa.
-          <Link href="/registo" className="btn b1 ml-4">Criar a minha placa</Link>
+          <Link href="/registar?redirect=/pro/activar" className="btn b1 ml-4">Criar a minha placa</Link>
         </div>
       </div>
 

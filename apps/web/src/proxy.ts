@@ -30,9 +30,12 @@ export default async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL('/painel', req.nextUrl))
   }
 
-  // Protecção por papel: /pro só para profissionais e admins
+  // Protecção por papel: /pro só para profissionais e admins,
+  // excepto a activação, aberta a qualquer conta autenticada.
+  const isProviderActivation = pathname === '/pro/activar'
   if (
     pathname.startsWith('/pro') &&
+    !isProviderActivation &&
     session?.role !== 'provider' &&
     session?.role !== 'admin' && 
     session?.role !== 'superadmin'

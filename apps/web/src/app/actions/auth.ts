@@ -38,6 +38,11 @@ export async function registerAction(
   }
 
   const { full_name, email, password, referral_code } = parsed.data
+  const requestedRedirect = String(formData.get('redirect') ?? '')
+  const redirectTo =
+    requestedRedirect.startsWith('/') && !requestedRedirect.startsWith('//')
+      ? requestedRedirect
+      : '/painel'
 
   // Verificar e-mail único
   const existing = await db.query(
@@ -98,7 +103,7 @@ export async function registerAction(
   })
 
   await createSession(result.id, result.role)
-  redirect('/painel')
+  redirect(redirectTo)
 }
 
 // ─────────────────────────────────────────────
@@ -287,5 +292,6 @@ export async function activateProviderAction(
     )
   })
 
+  await createSession(session.userId, 'provider')
   redirect('/pro/perfil')
 }

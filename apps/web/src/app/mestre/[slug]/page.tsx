@@ -37,7 +37,7 @@ export default async function MestreProfilePage({ params }: { params: Promise<{ 
         <Link href="/" className="placa pb sm" style={{ transform: 'none' }}>Bué de Mestres</Link>
         <span className="sp"></span>
         <Link href="/resultados">Procurar</Link>
-        <Link href="/registo" className="btn b1 s">Criar a minha placa</Link>
+        <Link href="/registar?redirect=/pro/activar" className="btn b1 s">Criar a minha placa</Link>
       </nav>
 
       <div className="max-w-[800px] mx-auto mt-8 px-4">
