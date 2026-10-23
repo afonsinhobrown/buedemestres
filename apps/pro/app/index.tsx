@@ -242,6 +242,16 @@ export default function ProHomeScreen() {
 
     const pollPedidos = async () => {
       try {
+        // Um mestre só pode atender um serviço de cada vez.
+        const { data: ocupado } = await supabase.rpc('provider_has_active_job', {
+          p_provider: activeProId
+        })
+        if (ocupado === true) {
+          setPendingJobs([])
+          setNewRequest(null)
+          return
+        }
+
         let reqQuery = supabase
           .from('service_requests')
           .select('*')
@@ -351,6 +361,19 @@ export default function ProHomeScreen() {
 
     if (!activeProId) {
       Alert.alert('Erro', 'Não foi possível identificar o teu perfil de mestre.')
+      return
+    }
+
+    // Um mestre só pode atender um serviço de cada vez.
+    const { data: ocupado } = await supabase.rpc('provider_has_active_job', {
+      p_provider: activeProId,
+      p_exclude_request: requestId
+    })
+    if (ocupado === true) {
+      Alert.alert(
+        'Já tens um serviço activo',
+        'Conclui ou cancela o serviço que já aceitaste antes de aceitar outro pedido.'
+      )
       return
     }
 
@@ -466,17 +489,40 @@ export default function ProHomeScreen() {
       console.warn('Registo de oferta aceite:', e)
     }
 
-    // 2. Registar em jobs se existir
-    try {
-      await supabase.from('jobs').upsert({
+    // 2. Registar em jobs (o trigger na BD garante um único serviço activo)
+    const { data: createdJob, error: jobError } = await supabase
+      .from('jobs')
+      .upsert({
         request_id: requestId,
         client_id: req?.client_id,
         provider_id: activeProId,
         status: 'accepted',
         accepted_at: new Date().toISOString()
       }, { onConflict: 'request_id' })
-    } catch (e) {
-      console.warn('Jobs upsert:', e)
+      .select('id')
+      .maybeSingle()
+
+    if (jobError || !createdJob) {
+      const estaOcupado = String(jobError?.message || '').includes('provider_busy')
+
+      // Devolver o pedido ao mercado para não ficar preso num mestre que não o pode atender.
+      await supabase
+        .from('service_requests')
+        .update({ status: 'open', target_provider_id: null })
+        .eq('id', requestId)
+        .eq('status', 'accepted')
+        .eq('target_provider_id', activeProId)
+
+      setNewRequest(null)
+      setPendingJobs(prev => prev.filter(job => job.id !== requestId))
+
+      Alert.alert(
+        estaOcupado ? 'Já tens um serviço activo' : 'Erro',
+        estaOcupado
+          ? 'Conclui ou cancela o serviço que já aceitaste antes de aceitar outro pedido.'
+          : 'Não foi possível registar o serviço. Tenta novamente.'
+      )
+      return
     }
 
     // 3. Atualizar presença com timestamp recente
