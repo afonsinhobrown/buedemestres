@@ -147,10 +147,18 @@ export default function PropostaPrecoScreen() {
           }
         }
 
-        // Se a última proposta é do cliente, o mestre é quem tem de aceitar/recusar.
-        const aguardar = ultimaEhDoCliente && ultima.status !== 'accepted'
+        // O turno é a fonte de verdade: quando é do mestre, o cliente já fez a
+        // contra-proposta e só pode aguardar. Quando é do cliente (ou não há
+        // turno registado), o cliente tem de ver as opções de concordar/pagar.
+        // Não usar apenas `proposed_by === client_id`: se a mesma conta for
+        // usada como cliente e mestre (testes), a proposta do mestre seria
+        // confundida com uma contra-proposta do cliente.
+        const turnOwner = jobMap?.turn_owner
+        const aguardar = turnOwner
+          ? turnOwner === 'provider'
+          : ultimaEhDoCliente && ultima?.status !== 'accepted'
         setAguardandoMestre(aguardar)
-        setContraDeCliente(aguardar ? Number(ultima.amount) : 0)
+        setContraDeCliente(aguardar ? Number(ultima?.amount || 0) : 0)
         setSemOrcamentoMestre(!propostaMaster && !aguardar)
 
         // Relógio do turno actual e deteção de expiração
