@@ -5,7 +5,6 @@ export type PlatformRates = {
   trialDays: number;
   commissionRate: number;
   trialCommissionRate: number;
-  loyaltyMasterThreshold: number;
   loyaltyClientThreshold: number;
   loyaltyDiscountPct: number;
 };
@@ -19,7 +18,6 @@ export async function loadPlatformRates(): Promise<PlatformRates> {
       'trial_days',
       'commission_rate',
       'trial_commission_rate',
-      'loyalty_master_threshold',
       'loyalty_client_threshold',
       'loyalty_discount_pct',
     ]);
@@ -32,8 +30,7 @@ export async function loadPlatformRates(): Promise<PlatformRates> {
     trialServices: num('trial_services', 5),
     trialDays: num('trial_days', 15),
     commissionRate: num('commission_rate', 0.2),
-    trialCommissionRate: num('trial_commission_rate', 0.1),
-    loyaltyMasterThreshold: num('loyalty_master_threshold', 10),
+    trialCommissionRate: num('trial_commission_rate', 0),
     loyaltyClientThreshold: num('loyalty_client_threshold', 11),
     loyaltyDiscountPct: num('loyalty_discount_pct', 10),
   };

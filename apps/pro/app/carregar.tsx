@@ -94,7 +94,7 @@ export default function CarregarScreen() {
           <Text style={styles.backBtnText}>← Voltar</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Carregar Saldo</Text>
-        <Text style={styles.sub}>Usa o saldo para comprar planos ou serviços avulso.</Text>
+        <Text style={styles.sub}>O saldo paga a comissão dos serviços concluídos e os planos de prioridade.</Text>
       </View>
 
       <View style={styles.card}>

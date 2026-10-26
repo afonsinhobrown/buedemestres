@@ -78,10 +78,8 @@ export async function POST(req: Request) {
     const providerCount = Number(providerCompleted[0]?.count || 0);
     const clientCount = Number(clientCompleted[0]?.count || 0);
 
-    let commissionRate = trialActive ? rates.trialCommissionRate : rates.commissionRate;
-    if (!trialActive && rates.loyaltyMasterThreshold > 0 && (providerCount + 1) % rates.loyaltyMasterThreshold === 0) {
-      commissionRate = rates.trialCommissionRate;
-    }
+    const trialEligible = trialActive && providerCount < rates.trialServices;
+    const commissionRate = trialEligible ? rates.trialCommissionRate : rates.commissionRate;
 
     const nextClientService = clientCount + 1;
     const clientDiscount =
@@ -93,13 +91,8 @@ export async function POST(req: Request) {
         : 0;
 
     const chargedAmount = Number((contractAmount * (1 - clientDiscount)).toFixed(2));
-    const masterPayout = Number((contractAmount * (1 - commissionRate)).toFixed(2));
-    let commission = Number((chargedAmount - masterPayout).toFixed(2));
-    let payout = masterPayout;
-    if (commission < 0) {
-      commission = 0;
-      payout = chargedAmount;
-    }
+    const commission = Number((chargedAmount * commissionRate).toFixed(2));
+    const payout = Number((chargedAmount - commission).toFixed(2));
     const storedCommissionRate = chargedAmount > 0 ? commission / chargedAmount : 0;
 
     const reference = buildPaymentReference();
@@ -159,7 +152,7 @@ export async function POST(req: Request) {
       originalAmount: contractAmount,
       discount: Number((contractAmount - chargedAmount).toFixed(2)),
       commissionRate,
-      trial: trialActive,
+      trial: trialEligible,
       sandbox: sandbox.active,
     });
   } catch (error) {

@@ -11,17 +11,12 @@ type Plan = {
   code: string
   name: string
   price: number
-  max_services: number
-  max_photos: number
-  monthly_quotes: number | null
   weekend_priority: boolean
   priority_hours: any
   recurring_visibility: boolean
   rating_boost: number
   badge: string | null
-  credit_price: number
   audience: string
-  max_masters: number
 }
 
 export default function PlanosScreen() {
@@ -33,10 +28,7 @@ export default function PlanosScreen() {
   const [wallet, setWallet] = useState(0)
   const [discount, setDiscount] = useState(0)
   const [buying, setBuying] = useState<number | null>(null)
-  const [credits, setCredits] = useState(0)
-  const [creditPrice, setCreditPrice] = useState(300)
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null)
-  const [isCompany, setIsCompany] = useState(false)
   const [rates, setRates] = useState<any>(null)
 
   const carregar = useCallback(async () => {
@@ -45,12 +37,11 @@ export default function PlanosScreen() {
       return
     }
     loadPlatformRates().then((value) => setRates(value))
-    const [{ data: planRows }, { data: sub }, { data: walletRow }, { data: discountPct }, { data: creditRow }, { data: providerRow }, { data: companyRow }] = await Promise.all([
+    const [{ data: planRows }, { data: sub }, { data: walletRow }, { data: discountPct }, { data: providerRow }, { data: companyRow }] = await Promise.all([
       supabase.from('plans').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('subscriptions').select('plan_id').eq('provider_id', providerId).eq('status', 'active').maybeSingle(),
       supabase.from('wallets').select('balance').eq('profile_id', providerId).maybeSingle(),
       supabase.rpc('provider_referral_discount_pct', { p_provider: providerId }),
-      supabase.from('service_credits').select('balance').eq('provider_id', providerId).maybeSingle(),
       supabase.from('provider_profiles').select('trial_ends_at').eq('profile_id', providerId).maybeSingle(),
       supabase.from('companies').select('id').eq('owner_id', providerId).maybeSingle(),
     ])
@@ -58,14 +49,10 @@ export default function PlanosScreen() {
     const plansList = ((planRows as Plan[]) || []).filter((plan) =>
       companyOwner ? plan.audience === 'company' : plan.audience !== 'company'
     )
-    const activePlan = plansList.find((plan) => plan.id === sub?.plan_id)
-    setIsCompany(companyOwner)
     setPlans(plansList)
     setCurrentPlanId(sub?.plan_id || null)
     setWallet(Number(walletRow?.balance || 0))
     setDiscount(Number(discountPct || 0))
-    setCredits(Number(creditRow?.balance || 0))
-    setCreditPrice(Number(activePlan?.credit_price || plansList.find((plan) => plan.code === (companyOwner ? 'company_basic' : 'basic'))?.credit_price || 300))
     setTrialEndsAt(providerRow?.trial_ends_at || null)
     setLoading(false)
   }, [providerId])
@@ -103,28 +90,16 @@ export default function PlanosScreen() {
 
   const planPrice = (plan: Plan) => Number((Number(plan.price) * (1 - discount / 100)).toFixed(2))
 
-  const comprarCreditos = async (qty: number) => {
-    if (!providerId) return
-    const total = Number((creditPrice * qty).toFixed(2))
-    if (wallet < total) {
-      Alert.alert(
-        'Saldo insuficiente',
-        `Precisas de MT ${total.toFixed(2)}. Carrega saldo primeiro.`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Carregar', onPress: () => router.push('/carregar') },
-        ]
-      )
-      return
+  const priorityLabel = (plan: Plan) => {
+    const mode = plan.priority_hours?.mode
+    if (mode === 'always') return 'Primeiro em qualquer dia e hora'
+    if (mode === 'weekend') {
+      return `Primeiro aos fins de semana (${plan.priority_hours?.start || '08:00'}–${plan.priority_hours?.end || '20:00'})`
     }
-    try {
-      const { error } = await supabase.rpc('purchase_credits', { p_provider: providerId, p_credits: qty })
-      if (error) throw error
-      Alert.alert('Créditos comprados', `${qty} crédito(s) adicionado(s).`)
-      await carregar()
-    } catch (err: any) {
-      Alert.alert('Erro', err.message || 'Não foi possível comprar créditos.')
+    if (mode === 'weekdays') {
+      return `Primeiro em dias úteis (${plan.priority_hours?.start || '08:00'}–${plan.priority_hours?.end || '18:00'})`
     }
+    return 'Sem prioridade no despacho'
   }
 
   return (
@@ -134,7 +109,7 @@ export default function PlanosScreen() {
           <Text style={styles.backBtnText}>← Voltar</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Planos & Serviços</Text>
-        <Text style={styles.sub}>Escolhe o plano mensal ou carrega saldo para serviços avulso.</Text>
+        <Text style={styles.sub}>Carrega saldo para operar. Os planos dão prioridade sobre os outros mestres.</Text>
       </View>
 
       {loading ? (
@@ -159,10 +134,10 @@ export default function PlanosScreen() {
           {rates && (
             <View style={styles.ratesCard}>
               <Text style={styles.ratesTitle}>TAXAS E FUNCIONAMENTO</Text>
-              <Text style={styles.ratesLine}>• Comissão da plataforma: {Math.round(Number(rates.commissionRate) * 100)}% do valor do serviço</Text>
-              <Text style={styles.ratesLine}>• Trial: {rates.trialDays} dias e {rates.trialServices} serviços com comissão de {Math.round(Number(rates.trialCommissionRate) * 100)}%</Text>
-              <Text style={styles.ratesLine}>• 10.º serviço do mestre: comissão de {Math.round(Number(rates.trialCommissionRate) * 100)}%</Text>
+              <Text style={styles.ratesLine}>• Comissão da plataforma: {Math.round(Number(rates.commissionRate) * 100)}% do valor pago, descontada do saldo</Text>
+              <Text style={styles.ratesLine}>• Trial: {rates.trialDays} dias e {rates.trialServices} serviços com {Math.round(Number(rates.trialCommissionRate) * 100)}% de comissão</Text>
               <Text style={styles.ratesLine}>• 11.º serviço do cliente recorrente: {rates.loyaltyDiscountPct}% de desconto</Text>
+              <Text style={styles.ratesLine}>• Para operar é obrigatório ter saldo carregado</Text>
               <TouchableOpacity onPress={() => router.push('/termos')}>
                 <Text style={styles.ratesLink}>Ler termos completos →</Text>
               </TouchableOpacity>
@@ -173,25 +148,11 @@ export default function PlanosScreen() {
             <View style={styles.trialCard}>
               <Text style={styles.trialTitle}>🎁 TRIAL ATIVO</Text>
               <Text style={styles.trialText}>
-                Até {new Date(trialEndsAt).toLocaleDateString('pt-MZ')} tens 5 serviços com comissão de 10%.
+                Até {new Date(trialEndsAt).toLocaleDateString('pt-MZ')} tens {rates?.trialServices ?? 5} serviços com{' '}
+                {Math.round(Number(rates?.trialCommissionRate ?? 0) * 100)}% de comissão.
               </Text>
             </View>
           )}
-
-          <View style={styles.creditsCard}>
-            <View>
-              <Text style={styles.creditsLabel}>CRÉDITOS DE SERVIÇO</Text>
-              <Text style={styles.creditsValue}>{credits} crédito(s)</Text>
-              <Text style={styles.creditsHint}>MT {creditPrice.toLocaleString('pt-MZ')} por crédito extra</Text>
-            </View>
-            <View style={styles.creditsButtons}>
-              {[1, 5, 10].map((qty) => (
-                <TouchableOpacity key={qty} style={styles.creditBtn} onPress={() => comprarCreditos(qty)}>
-                  <Text style={styles.creditBtnText}>+{qty}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
 
           {plans.map((plan) => {
             const active = currentPlanId === plan.id
@@ -211,18 +172,11 @@ export default function PlanosScreen() {
                   {plan.badge ? <Text style={styles.planBadge}>{plan.badge}</Text> : null}
                 </View>
 
-                <Text style={styles.benefit}>• {plan.max_services} serviços por mês</Text>
-                <Text style={styles.benefit}>• {plan.max_photos} imagens no perfil</Text>
+                <Text style={styles.benefit}>• {priorityLabel(plan)}</Text>
                 <Text style={styles.benefit}>
-                  • {plan.monthly_quotes == null ? 'Orçamentos ilimitados' : `${plan.monthly_quotes} orçamentos/mês`}
+                  • {plan.recurring_visibility ? 'Prioridade para clientes recorrentes' : 'Sem prioridade para clientes recorrentes'}
                 </Text>
-                <Text style={styles.benefit}>
-                  • {plan.weekend_priority ? 'Prioridade aos fins de semana' : 'Sem prioridade de fim de semana'}
-                </Text>
-                <Text style={styles.benefit}>
-                  • {plan.recurring_visibility ? 'Visível para clientes recorrentes' : 'Sem destaque para recorrentes'}
-                </Text>
-                <Text style={styles.benefit}>• Bónus de pontuação: {Number(plan.rating_boost).toFixed(2)}</Text>
+                <Text style={styles.benefit}>• Bónus de ranking: {Number(plan.rating_boost).toFixed(2)}</Text>
 
                 <TouchableOpacity
                   style={[styles.buyBtn, active && styles.buyBtnActive]}
@@ -236,6 +190,11 @@ export default function PlanosScreen() {
               </View>
             )
           })}
+
+          <Text style={styles.footnote}>
+            A prioridade só funciona com saldo positivo. Em cada serviço, {Math.round(Number(rates?.commissionRate ?? 0.2) * 100)}% são
+            descontados do saldo; se não chegar, o restante é retido no pagamento do cliente.
+          </Text>
 
           <TouchableOpacity style={styles.affiliateLink} onPress={() => router.push('/afiliados')}>
             <Text style={styles.affiliateLinkText}>🤝 Traz 10 mestres e ganha desconto →</Text>
@@ -268,13 +227,6 @@ const styles = StyleSheet.create({
   ratesLink: { color: '#4ADE80', fontSize: 12, fontWeight: '800', marginTop: 6 },
   trialTitle: { color: '#4ADE80', fontWeight: '900', fontSize: 11, letterSpacing: 1 },
   trialText: { color: '#BBF7D0', fontSize: 12, marginTop: 4 },
-  creditsCard: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: 'rgba(242,201,76,0.3)' },
-  creditsLabel: { color: '#F2C94C', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  creditsValue: { color: '#F5F0E8', fontSize: 24, fontWeight: '900', marginTop: 2 },
-  creditsHint: { color: '#94A3B8', fontSize: 11, marginTop: 2 },
-  creditsButtons: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  creditBtn: { flex: 1, backgroundColor: '#F2C94C', borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
-  creditBtnText: { color: '#1A1A2E', fontWeight: '900', fontSize: 14 },
   planCard: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
   planCardActive: { borderColor: '#4ADE80', borderWidth: 2 },
   planHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
@@ -283,6 +235,7 @@ const styles = StyleSheet.create({
   oldPrice: { color: '#94A3B8', fontSize: 11, textDecorationLine: 'line-through' },
   planBadge: { backgroundColor: 'rgba(242,201,76,0.18)', color: '#F2C94C', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, fontWeight: '900', fontSize: 10 },
   benefit: { color: '#CBD5E1', fontSize: 12, lineHeight: 19 },
+  footnote: { color: '#94A3B8', fontSize: 11, lineHeight: 16, marginTop: 4 },
   buyBtn: { marginTop: 12, backgroundColor: '#4ADE80', borderRadius: 8, paddingVertical: 12, alignItems: 'center' },
   buyBtnActive: { backgroundColor: 'rgba(74,222,128,0.2)', borderWidth: 1, borderColor: '#4ADE80' },
   buyBtnText: { color: '#0F2D1A', fontWeight: '900', fontSize: 13, textTransform: 'uppercase' },

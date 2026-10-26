@@ -74,7 +74,7 @@ export const SETTING_FIELDS: SettingField[] = [
     max: 100,
     step: 0.5,
     unit: '%',
-    help: 'Percentagem retida pela plataforma em cada serviço.',
+    help: 'Percentagem descontada do saldo do mestre em cada serviço.',
   },
   {
     key: 'trial_commission_rate',
@@ -88,14 +88,6 @@ export const SETTING_FIELDS: SettingField[] = [
   },
   { key: 'trial_days', label: 'Duração da experiência', type: 'number', group: 'comissoes', min: 0, unit: 'dias' },
   { key: 'trial_services', label: 'Serviços em experiência', type: 'number', group: 'comissoes', min: 0 },
-  {
-    key: 'loyalty_master_threshold',
-    label: 'Serviços para fidelidade do mestre',
-    type: 'number',
-    group: 'comissoes',
-    min: 0,
-    help: 'A cada N serviços, o mestre passa a pagar a comissão de experiência.',
-  },
   { key: 'loyalty_client_threshold', label: 'Serviços para desconto do cliente', type: 'number', group: 'comissoes', min: 0 },
   {
     key: 'loyalty_discount_pct',
@@ -236,10 +228,9 @@ export const FIELD_BY_KEY = new Map(SETTING_FIELDS.map((f) => [f.key, f]));
 
 export const DEFAULTS: Record<string, unknown> = {
   commission_rate: 0.2,
-  trial_commission_rate: 0.1,
+  trial_commission_rate: 0,
   trial_days: 15,
   trial_services: 5,
-  loyalty_master_threshold: 10,
   loyalty_client_threshold: 11,
   loyalty_discount_pct: 10,
   referral_threshold: 10,

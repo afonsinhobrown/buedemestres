@@ -14,8 +14,8 @@ export default async function ConfiguracoesPage() {
 
   const sandbox = await getSandboxSettings()
   const plansRes = await db.query(
-    `select id, code, name, price, max_services, max_photos, weekend_priority,
-            recurring_visibility, rating_boost, credit_price, max_masters
+    `select id, code, name, price, priority_hours, weekend_priority,
+            recurring_visibility, rating_boost
        from plans order by sort_order`
   )
   const isSuperadmin = session.role === 'superadmin'

@@ -56,35 +56,7 @@ export async function POST(req: Request) {
       );
       await client.query(`select release_job_payment($1)`, [job.id]);
 
-      const { rows: addenda } = await client.query<{
-        provider_payout: string;
-        commission_amount: string;
-      }>(
-        `select provider_payout, commission_amount
-           from job_addenda
-          where job_id = $1 and status = 'held'
-          for update`,
-        [job.id]
-      );
-
-      if (addenda.length > 0) {
-        const payout = addenda.reduce((acc, row) => acc + Number(row.provider_payout), 0);
-        const commission = addenda.reduce((acc, row) => acc + Number(row.commission_amount), 0);
-        await client.query(
-          `select wallet_apply($1, 'job_payout', $2, 'Aditamento de serviço', null, $3::jsonb)`,
-          [job.provider_id, payout, JSON.stringify({ job_id: job.id, kind: 'addendum' })]
-        );
-        await client.query(
-          `insert into platform_revenue(kind, amount, job_id, profile_id)
-           values ('commission', $1, $2, $3)`,
-          [commission, job.id, job.provider_id]
-        );
-        await client.query(
-          `update job_addenda set status = 'released', released_at = now()
-            where job_id = $1 and status = 'held'`,
-          [job.id]
-        );
-      }
+      await client.query(`select release_job_addenda($1)`, [job.id]);
 
       if (job.request_id) {
         await client.query(

@@ -70,23 +70,25 @@ export async function updatePlan(formData: FormData) {
 
     const name = String(formData.get('name') || '').trim()
     const price = Number(formData.get('price') || 0)
-    const maxServices = Number(formData.get('max_services') || 0)
-    const maxPhotos = Number(formData.get('max_photos') || 0)
+    const priorityMode = String(formData.get('priority_mode') || 'none')
+    const priorityStart = String(formData.get('priority_start') || '08:00')
+    const priorityEnd = String(formData.get('priority_end') || '20:00')
     const weekend = String(formData.get('weekend_priority') || '') === 'on'
     const recurring = String(formData.get('recurring_visibility') || '') === 'on'
     const ratingBoost = Number(formData.get('rating_boost') || 0)
-    const creditPrice = Number(formData.get('credit_price') || 0)
-    const maxMasters = Number(formData.get('max_masters') || 1)
 
     if (!name) return { error: 'Nome do plano em falta.' }
+    if (!['none', 'weekend', 'weekdays', 'always'].includes(priorityMode)) {
+      return { error: 'Prioridade inválida.' }
+    }
 
     await db.query(
       `update plans
-          set name = $2, price = $3, max_services = $4, max_photos = $5,
-              weekend_priority = $6, recurring_visibility = $7, rating_boost = $8,
-              credit_price = $9, max_masters = $10
+          set name = $2, price = $3,
+              priority_hours = jsonb_build_object('mode', $4::text, 'start', $5::text, 'end', $6::text),
+              weekend_priority = $7, recurring_visibility = $8, rating_boost = $9
         where id = $1`,
-      [id, name, price, maxServices, maxPhotos, weekend, recurring, ratingBoost, creditPrice, maxMasters]
+      [id, name, price, priorityMode, priorityStart, priorityEnd, weekend, recurring, ratingBoost]
     )
     revalidatePath('/configuracoes')
     return { success: true }

@@ -9,13 +9,10 @@ export type Plan = {
   code: string
   name: string
   price: number
-  max_services: number
-  max_photos: number
+  priority_hours: { mode?: string; start?: string; end?: string } | null
   weekend_priority: boolean
   recurring_visibility: boolean
   rating_boost: number
-  credit_price: number
-  max_masters: number
 }
 
 export function ConfiguracoesForm({
@@ -93,24 +90,29 @@ export function ConfiguracoesForm({
                   <input name="price" type="number" defaultValue={plan.price} className="block w-full mt-1 border rounded-lg p-2" />
                 </label>
                 <label className="text-sm text-gray-600">
-                  Serviços/mês
-                  <input name="max_services" type="number" defaultValue={plan.max_services} className="block w-full mt-1 border rounded-lg p-2" />
+                  Prioridade
+                  <select
+                    name="priority_mode"
+                    defaultValue={plan.priority_hours?.mode || 'none'}
+                    className="block w-full mt-1 border rounded-lg p-2"
+                  >
+                    <option value="none">Sem prioridade</option>
+                    <option value="weekend">Fins de semana</option>
+                    <option value="weekdays">Dias úteis</option>
+                    <option value="always">Sempre</option>
+                  </select>
                 </label>
                 <label className="text-sm text-gray-600">
-                  Imagens
-                  <input name="max_photos" type="number" defaultValue={plan.max_photos} className="block w-full mt-1 border rounded-lg p-2" />
+                  Início
+                  <input name="priority_start" type="time" defaultValue={plan.priority_hours?.start || '08:00'} className="block w-full mt-1 border rounded-lg p-2" />
+                </label>
+                <label className="text-sm text-gray-600">
+                  Fim
+                  <input name="priority_end" type="time" defaultValue={plan.priority_hours?.end || '20:00'} className="block w-full mt-1 border rounded-lg p-2" />
                 </label>
                 <label className="text-sm text-gray-600">
                   Pontuação
                   <input name="rating_boost" type="number" step="0.01" defaultValue={plan.rating_boost} className="block w-full mt-1 border rounded-lg p-2" />
-                </label>
-                <label className="text-sm text-gray-600">
-                  Crédito (MT)
-                  <input name="credit_price" type="number" defaultValue={plan.credit_price} className="block w-full mt-1 border rounded-lg p-2" />
-                </label>
-                <label className="text-sm text-gray-600">
-                  Máx. mestres
-                  <input name="max_masters" type="number" defaultValue={plan.max_masters} className="block w-full mt-1 border rounded-lg p-2" />
                 </label>
                 <div className="flex flex-col gap-2 pt-5">
                   <label className="flex items-center gap-2 text-sm text-gray-700">

@@ -23,8 +23,9 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
          (SELECT COALESCE(SUM(agreed_amount), 0) FROM jobs j WHERE j.status = 'completed' ${jobFilter}) AS gmv,
          (SELECT COALESCE(SUM(amount), 0) FROM job_payments WHERE status IN ('held','released') ${payFilter}) AS servicos_pagos,
          (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'completed' ${payFilter}) AS carregamentos,
-         (SELECT COALESCE(SUM(commission_amount), 0) FROM job_payments WHERE status IN ('held','released') ${payFilter}) AS taxas_servicos,
-         (SELECT COALESCE(SUM(amount), 0) FROM platform_revenue WHERE 1=1 ${payFilter}) AS taxas_extra,
+         (SELECT COALESCE(SUM(commission_amount + commission_from_wallet), 0) FROM job_payments WHERE status IN ('held','released') ${payFilter}) AS taxas_servicos,
+         (SELECT COALESCE(SUM(commission_amount + commission_from_wallet), 0) FROM job_addenda WHERE status IN ('held','released') ${payFilter}) AS taxas_aditamentos,
+         (SELECT COALESCE(SUM(amount), 0) FROM platform_revenue WHERE kind <> 'commission' ${payFilter}) AS taxas_extra,
          (SELECT COALESCE(SUM(ABS(amount)), 0) FROM wallet_transactions WHERE type = 'plan_purchase' ${payFilter}) AS receita_planos,
          (SELECT COALESCE(SUM(amount), 0) FROM payouts WHERE status = 'completed' ${payFilter}) AS saques,
          (SELECT COALESCE(SUM(balance), 0) FROM wallets) AS saldo_carteiras`
@@ -33,7 +34,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       `SELECT p.full_name, pp.business_name,
               COUNT(*)::int AS trabalhos,
               COALESCE(SUM(j.agreed_amount), 0) AS volume,
-              COALESCE(SUM(jp.commission_amount), 0) AS taxas
+              COALESCE(SUM(jp.commission_amount + jp.commission_from_wallet), 0) AS taxas
          FROM jobs j
          JOIN profiles p ON p.id = j.provider_id
          LEFT JOIN provider_profiles pp ON pp.profile_id = j.provider_id
@@ -44,7 +45,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         LIMIT 10`
     ),
     db.query(
-      `SELECT jp.id, jp.amount, jp.status, jp.created_at, jp.commission_amount,
+      `SELECT jp.id, jp.amount, jp.status, jp.created_at, jp.commission_amount, jp.commission_from_wallet,
               c.full_name AS client_name, pr.full_name AS provider_name
          FROM job_payments jp
          LEFT JOIN profiles c ON c.id = jp.client_id
@@ -89,7 +90,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   ])
 
   const k = kpis.rows[0]
-  const taxas = Number(k.taxas_servicos) + Number(k.taxas_extra)
+  const taxas = Number(k.taxas_servicos) + Number(k.taxas_aditamentos) + Number(k.taxas_extra)
 
   const cards = [
     { label: 'GMV (serviços concluídos)', value: `${money(k.gmv)} MT`, tone: 'text-gray-900' },
@@ -243,7 +244,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
                 <td className="py-2 font-semibold text-gray-900">{p.client_name || '—'}</td>
                 <td className="py-2">{p.provider_name || '—'}</td>
                 <td className="py-2 text-right">{money(p.amount)} MT</td>
-                <td className="py-2 text-right">{money(p.commission_amount)} MT</td>
+                <td className="py-2 text-right">{money(Number(p.commission_amount) + Number(p.commission_from_wallet))} MT</td>
                 <td className="py-2 text-right">{p.status}</td>
                 <td className="py-2 text-right text-xs text-gray-500">{new Date(p.created_at).toLocaleString('pt-MZ')}</td>
               </tr>

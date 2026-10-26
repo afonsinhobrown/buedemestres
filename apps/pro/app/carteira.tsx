@@ -5,7 +5,7 @@ import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../lib/useAuthStore'
 
-type JobPayment = { amount: number | null; commission_amount: number | null; provider_payout: number | null; status: string }
+type JobPayment = { amount: number | null; commission_amount: number | null; commission_from_wallet: number | null; provider_payout: number | null; status: string }
 type JobRow = {
   id: string
   request_id: string | null
@@ -54,7 +54,7 @@ export default function CarteiraScreen() {
         supabase.from('provider_payout_accounts').select('profile_id').eq('profile_id', providerId).maybeSingle(),
         supabase
           .from('jobs')
-          .select('id, request_id, agreed_amount, updated_at, service_requests:request_id(title), job_payments:job_payments(amount, commission_amount, provider_payout, status)')
+          .select('id, request_id, agreed_amount, updated_at, service_requests:request_id(title), job_payments:job_payments(amount, commission_amount, commission_from_wallet, provider_payout, status)')
           .eq('provider_id', providerId)
           .eq('status', 'completed')
           .order('updated_at', { ascending: false }),
@@ -145,7 +145,7 @@ export default function CarteiraScreen() {
       const bruto = Number(payment?.amount || job.agreed_amount || 0)
       const liquido = Number(payment?.provider_payout || 0)
       acc.faturacao += bruto
-      acc.comissao += Number(payment?.commission_amount || 0)
+      acc.comissao += Number(payment?.commission_amount || 0) + Number(payment?.commission_from_wallet || 0)
       if (payout?.status === 'completed') acc.pago += liquido
       else acc.devido += liquido
       return acc
@@ -214,7 +214,7 @@ export default function CarteiraScreen() {
           const request = Array.isArray(rawRequest) ? rawRequest[0] : rawRequest
           const amount = Number(payment?.provider_payout || job.agreed_amount || 0)
           const bruto = Number(payment?.amount || job.agreed_amount || 0)
-          const comissao = Number(payment?.commission_amount || 0)
+          const comissao = Number(payment?.commission_amount || 0) + Number(payment?.commission_from_wallet || 0)
           const released = payment?.status === 'released'
           return (
             <View key={job.id} style={styles.jobCard}>
