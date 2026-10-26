@@ -43,8 +43,8 @@ export default function OfertaPedidoScreen() {
       if (!jobId) throw new Error('Não foi possível aceitar a oferta.')
 
       router.replace({
-        pathname: '/trabalho/a-caminho',
-        params: { jobId: String(jobId), ...params },
+        pathname: '/trabalho/propor-preco',
+        params: { jobId: String(jobId) },
       })
     } catch (err: any) {
       setRespondido(false)

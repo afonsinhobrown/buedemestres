@@ -253,7 +253,7 @@ export default function ProACaminhoScreen() {
       if (requestId) {
         await supabase
           .from('service_requests')
-          .update({ status: 'accepted', updated_at: agora })
+          .update({ status: 'in_progress', updated_at: agora })
           .eq('id', requestId)
           .in('status', ['open', 'in_negotiation', 'accepted', 'price_proposed', 'puxado'])
       }

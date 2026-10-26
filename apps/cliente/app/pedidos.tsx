@@ -141,8 +141,40 @@ export default function PedidosScreen() {
     return title;
   };
 
-  const retomarPedido = (p: any) => {
-    if (p.status === 'price_proposed' || p.status === 'accepted') {
+  const retomarPedido = async (p: any) => {
+    // O estado do job é a fonte de verdade. O service_requests pode ter ficado
+    // dessincronizado (ex.: aceite por oferta sem target_provider_id) e nesse
+    // caso o cliente era enviado de volta para "A procurar mestre".
+    try {
+      const { data: job } = await supabase
+        .from('jobs')
+        .select('id, status')
+        .eq('request_id', p.id)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (job) {
+        if (job.status === 'accepted' || job.status === 'price_proposed' || job.status === 'puxado') {
+          router.push({
+            pathname: '/pedido/proposta-preco',
+            params: { jobId: job.id, categoriaEmoji: '🔧' }
+          })
+          return
+        }
+        if (['price_agreed', 'en_route', 'arrived', 'in_service', 'in_progress', 'awaiting_confirmation'].includes(job.status)) {
+          router.push({
+            pathname: '/pedido/mestre-a-caminho',
+            params: { jobId: job.id }
+          })
+          return
+        }
+      }
+    } catch (err) {
+      console.warn('Erro ao resolver o trabalho do pedido:', err)
+    }
+
+    if (p.status === 'price_proposed' || p.status === 'accepted' || p.status === 'puxado') {
       router.push({
         pathname: '/pedido/proposta-preco',
         params: { jobId: p.id, categoriaEmoji: '🔧' }

@@ -224,13 +224,13 @@ export default function AProcurarMestreScreen() {
       setAceite(true);
     };
 
-    const abrirOrcamento = () => {
+    const abrirOrcamento = (jobId?: string) => {
       if (navegouRef.current) return;
       navegouRef.current = true;
       router.replace({
         pathname: '/pedido/proposta-preco',
         params: {
-          jobId: requestId,
+          jobId: jobId || requestId,
           mestreNome: mestreNomeRef.current,
           categoriaEmoji: '🔧'
         }
@@ -267,6 +267,33 @@ export default function AProcurarMestreScreen() {
           .select('id, status, target_provider_id')
           .eq('id', requestId)
           .maybeSingle();
+
+        // O job é a fonte de verdade do progresso. Se o pedido ficou com um
+        // estado atrasado (ex.: aceite por oferta sem target_provider_id),
+        // seguimos o orçamento/job em vez de continuar à procura de mestre.
+        const { data: job } = await supabase
+          .from('jobs')
+          .select('id, status')
+          .eq('request_id', requestId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (job && !navegouRef.current) {
+          if (job.status === 'price_proposed' || job.status === 'puxado' || job.status === 'price_agreed') {
+            await tratarAceitacao(req?.target_provider_id ?? null, job.status);
+            abrirOrcamento(job.id);
+            return;
+          }
+          if (['en_route', 'arrived', 'in_service', 'in_progress', 'awaiting_confirmation'].includes(job.status)) {
+            navegouRef.current = true;
+            router.replace({
+              pathname: '/pedido/mestre-a-caminho',
+              params: { jobId: job.id }
+            });
+            return;
+          }
+        }
 
         if (req) {
           console.log('📡 Estado do pedido via polling:', req.status);

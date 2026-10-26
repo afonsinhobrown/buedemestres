@@ -62,14 +62,30 @@ export default function HomeScreen() {
 
       if (!error && reqs && reqs.length > 0) {
         setActiveCount(reqs.length)
-        const latest = reqs[0]
+
+        // Um cliente pode ter mais do que um pedido activo. Dar prioridade ao
+        // que precisa de acção (orçamento) evita mostrar "A procurar mestre"
+        // por causa de outro pedido aberto mais recente.
+        const prioridade: Record<string, number> = { price_proposed: 0, accepted: 1, in_progress: 2, open: 3 }
+        const latest = [...(reqs as any[])].sort(
+          (a, b) => (prioridade[a.status] ?? 9) - (prioridade[b.status] ?? 9)
+        )[0]
+
+        const { data: job } = await supabase
+          .from('jobs')
+          .select('id, status, provider_id')
+          .eq('request_id', latest.id)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
 
         let mestreNome = 'Mestre Profissional'
-        if (latest.target_provider_id) {
+        const providerIdDoPedido = latest.target_provider_id || job?.provider_id
+        if (providerIdDoPedido) {
           const { data: prov } = await supabase
             .from('provider_profiles')
             .select('business_name, profiles:profile_id(full_name)')
-            .eq('profile_id', latest.target_provider_id)
+            .eq('profile_id', providerIdDoPedido)
             .maybeSingle()
 
           if (prov) {
@@ -78,11 +94,11 @@ export default function HomeScreen() {
         }
 
         let valorProposta = latest.budget_max
-        if (latest.status === 'price_proposed') {
+        if (job?.status === 'price_proposed' || latest.status === 'price_proposed') {
           const { data: prop } = await supabase
             .from('job_price_proposals')
-            .select('*')
-            .or(`job_id.eq.${latest.id}`)
+            .select('amount')
+            .eq('job_id', job?.id || latest.id)
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle()
@@ -90,10 +106,18 @@ export default function HomeScreen() {
           if (prop?.amount) valorProposta = prop.amount
         }
 
-        const orderObj = { ...latest, mestreNome, valorProposta }
+        // O job avança mais depressa do que o pedido (ex.: mestre a caminho).
+        // Se o job estiver num estado posterior, é ele que define o destino.
+        const estadosDoJob = [
+          'accepted', 'price_proposed', 'puxado', 'price_agreed',
+          'en_route', 'arrived', 'in_service', 'in_progress', 'awaiting_confirmation'
+        ]
+        const estadoEfetivo = job && estadosDoJob.includes(job.status) ? job.status : latest.status
+
+        const orderObj = { ...latest, status: estadoEfetivo, jobId: job?.id || latest.id, mestreNome, valorProposta }
 
         // Dispara notificação popup instantânea caso tenha acabado de receber orçamento
-        if (latest.status === 'price_proposed' && (!activeOrder || activeOrder.status !== 'price_proposed')) {
+        if (estadoEfetivo === 'price_proposed' && (!activeOrder || activeOrder.status !== 'price_proposed')) {
           setPropostaModalData(orderObj)
           setModalPropostaVisivel(true)
         }
@@ -165,11 +189,11 @@ export default function HomeScreen() {
 
   const abrirPedidoAtivo = () => {
     if (!activeOrder) return
-    if (activeOrder.status === 'price_proposed' || activeOrder.status === 'accepted') {
+    if (activeOrder.status === 'price_proposed' || activeOrder.status === 'accepted' || activeOrder.status === 'puxado') {
       router.push({
         pathname: '/pedido/proposta-preco',
         params: {
-          jobId: activeOrder.id,
+          jobId: activeOrder.jobId,
           mestreNome: activeOrder.mestreNome,
           categoriaEmoji: '🔧'
         }
@@ -188,7 +212,7 @@ export default function HomeScreen() {
     } else {
       router.push({
         pathname: '/pedido/mestre-a-caminho',
-        params: { jobId: activeOrder.id }
+        params: { jobId: activeOrder.jobId }
       })
     }
   }
