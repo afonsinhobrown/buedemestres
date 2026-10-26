@@ -1,4 +1,13 @@
 
-> pro@1.0.0 typecheck C:\Users\Acer\Documents\tecnologias\buedemestres\apps\pro
+> pro@1.0.0 typecheck C:\Users\STAE-DDGEI\Documents\tecnologias\buedemestres\apps\pro
 > tsc --noEmit
 
+app/verificacao/documento.tsx(53,8): error TS2786: 'CameraView' cannot be used as a JSX component.
+  Its type 'typeof CameraView' is not a valid JSX element type.
+    Type 'typeof CameraView' is not assignable to type 'new (props: any, deprecatedLegacyContext?: any) => Component<any, any, any>'.
+      Property 'refs' is missing in type 'CameraView' but required in type 'Component<any, any, any>'.
+components/MapaTracking.tsx(111,8): error TS2786: 'WebView' cannot be used as a JSX component.
+  Its type 'typeof WebView' is not a valid JSX element type.
+    Type 'typeof WebView' is not assignable to type 'new (props: any, deprecatedLegacyContext?: any) => Component<any, any, any>'.
+      Property 'refs' is missing in type 'WebView<any>' but required in type 'Component<any, any, any>'.
+ ELIFECYCLE  Command failed with exit code 2.

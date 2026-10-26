@@ -1,4 +1,14 @@
 
-> cliente@1.0.0 typecheck C:\Users\Acer\Documents\tecnologias\buedemestres\apps\cliente
+> cliente@1.0.0 typecheck C:\Users\STAE-DDGEI\Documents\tecnologias\buedemestres\apps\cliente
 > tsc --noEmit
 
+app/(auth)/_layout.tsx(4,11): error TS2786: 'Stack' cannot be used as a JSX component.
+  Its type 'ForwardRefExoticComponent<Omit<Omit<NativeStackNavigatorProps, "id" | "children" | "initialRouteName" | "screenOptions" | "layout" | "screenListeners" | "screenLayout" | "UNSTABLE_getStateForRouteNamesChange"> & DefaultRouterOptions<...> & { ...; } & { ...; }, "children"> & Partial<...> & RefAttributes<...>> & { ......' is not a valid JSX element type.
+    Type 'ForwardRefExoticComponent<Omit<Omit<NativeStackNavigatorProps, "id" | "children" | "initialRouteName" | "screenOptions" | "layout" | "screenListeners" | "screenLayout" | "UNSTABLE_getStateForRouteNamesChange"> & DefaultRouterOptions<...> & { ...; } & { ...; }, "children"> & Partial<...> & RefAttributes<...>> & { ......' is not assignable to type '(props: any, deprecatedLegacyContext?: any) => ReactNode'.
+      Type 'import("C:/Users/STAE-DDGEI/Documents/tecnologias/buedemestres/node_modules/@types/react/index").ReactNode' is not assignable to type 'React.ReactNode'.
+        Type 'bigint' is not assignable to type 'ReactNode'.
+components/MapaTracking.tsx(111,8): error TS2786: 'WebView' cannot be used as a JSX component.
+  Its type 'typeof WebView' is not a valid JSX element type.
+    Type 'typeof WebView' is not assignable to type 'new (props: any, deprecatedLegacyContext?: any) => Component<any, any, any>'.
+      Property 'refs' is missing in type 'WebView<any>' but required in type 'Component<any, any, any>'.
+ ELIFECYCLE  Command failed with exit code 2.
