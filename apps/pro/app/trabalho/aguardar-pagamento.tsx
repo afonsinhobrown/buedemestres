@@ -256,8 +256,8 @@ export default function AguardarPagamentoScreen() {
           <Text style={{ fontSize: 48, marginBottom: 12 }}>⚠️</Text>
           <Text style={[styles.title, { color: '#F87171' }]}>Pagamento Não Concluído</Text>
           <Text style={styles.sub}>
-            O cliente cancelou ou não concluiu o pagamento de MT{' '}
-            {propostaValor ? propostaValor.toLocaleString('pt-MZ') : '...'}. O valor ainda não está retido — não
+            A tentativa de pagamento de MT{' '}
+            {propostaValor ? propostaValor.toLocaleString('pt-MZ') : '...'} não foi confirmada pela operadora móvel. O valor ainda não está retido — não
             inicies a deslocação. Se o cliente tentar novamente, este ecrã actualiza sozinho.
           </Text>
           <TouchableOpacity

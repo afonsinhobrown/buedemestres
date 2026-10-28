@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../lib/useAuthStore'
 
 import { API_BASE } from '@/lib/api'
+import { PaySuiteModal } from '../components/PaySuiteModal'
 
 export default function CarregarScreen() {
   const provider = useAuthStore((s) => s.providerProfile)
@@ -14,6 +15,8 @@ export default function CarregarScreen() {
   const [method, setMethod] = useState<'mpesa' | 'emola' | 'card'>('mpesa')
   const [submitting, setSubmitting] = useState(false)
   const [wallet, setWallet] = useState(0)
+  const [paySuiteUrl, setPaySuiteUrl] = useState<string | null>(null)
+  const [paySuiteModalVisible, setPaySuiteModalVisible] = useState(false)
 
   useEffect(() => {
     if (!providerId) return
@@ -47,11 +50,8 @@ export default function CarregarScreen() {
       if (!res.ok || !data?.ok) throw new Error(data?.error || 'Não foi possível iniciar o carregamento.')
 
       if (data.checkoutUrl) {
-        try {
-          await Linking.openURL(data.checkoutUrl)
-        } catch {
-          // o utilizador pode abrir manualmente
-        }
+        setPaySuiteUrl(data.checkoutUrl)
+        setPaySuiteModalVisible(true)
       }
 
       let tries = 0
@@ -64,6 +64,7 @@ export default function CarregarScreen() {
           const statusData = await statusRes.json().catch(() => ({}))
           if (statusData?.paid) {
             clearInterval(timer)
+            setPaySuiteModalVisible(false)
             const { data: walletRow } = await supabase
               .from('wallets')
               .select('balance')
@@ -73,6 +74,7 @@ export default function CarregarScreen() {
             Alert.alert('Carregamento concluído', `O saldo foi creditado.`)
           } else if (statusData?.failed) {
             clearInterval(timer)
+            setPaySuiteModalVisible(false)
             Alert.alert('Carregamento não concluído', 'O pagamento foi cancelado ou recusado.')
           }
         } catch {
@@ -130,6 +132,13 @@ export default function CarregarScreen() {
           {submitting ? <ActivityIndicator color="#0F2D1A" /> : <Text style={styles.btnText}>Carregar Saldo</Text>}
         </TouchableOpacity>
       </View>
+
+      <PaySuiteModal
+        visible={paySuiteModalVisible}
+        checkoutUrl={paySuiteUrl}
+        onClose={() => setPaySuiteModalVisible(false)}
+        title="Carregar Saldo - PaySuite"
+      />
     </View>
   )
 }

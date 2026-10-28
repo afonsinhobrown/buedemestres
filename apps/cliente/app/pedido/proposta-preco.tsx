@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../lib/useAuthStore'
 import { loadSandboxSettings } from '../../lib/sandbox'
 import { API_BASE } from '../../lib/api'
+import { PaySuiteModal } from '../../components/PaySuiteModal'
 
 export default function PropostaPrecoScreen() {
   const params = useLocalSearchParams<{
@@ -34,6 +35,7 @@ export default function PropostaPrecoScreen() {
   const [contraValor, setContraValor] = useState('')
   const [contraNota, setContraNota] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [paySuiteModalVisivel, setPaySuiteModalVisivel] = useState(false)
 
   // Autoria da negociação: quem deve responder à última proposta
   const [aguardandoMestre, setAguardandoMestre] = useState(false)
@@ -221,6 +223,7 @@ export default function PropostaPrecoScreen() {
           clearInterval(timer)
           checkTimerRef.current = null
           setVerificandoPagamento(false)
+          setPaySuiteModalVisivel(false)
           if (proposalData?.id) {
             await supabase.from('job_price_proposals').update({ status: 'accepted' }).eq('id', proposalData.id)
           }
@@ -232,8 +235,9 @@ export default function PropostaPrecoScreen() {
           clearInterval(timer)
           checkTimerRef.current = null
           setVerificandoPagamento(false)
+          setPaySuiteModalVisivel(false)
           setPagamentoPendente(null)
-          Alert.alert('Pagamento não concluído', 'O pagamento foi recusado ou cancelado. Tenta novamente.')
+          Alert.alert('Pagamento não concluído', 'A transação não foi confirmada pela operadora (tempo esgotado ou saldo insuficiente). Podes tentar novamente.')
         }
       } catch {
         // rede instável — continua a tentar
@@ -288,7 +292,7 @@ export default function PropostaPrecoScreen() {
       setPagamentoPendente({ url: data.checkoutUrl ?? null, reference: data.reference })
 
       if (data.checkoutUrl) {
-        try { await Linking.openURL(data.checkoutUrl) } catch { /* web pode bloquear */ }
+        setPaySuiteModalVisivel(true)
       }
 
       verificarPagamento(target)
@@ -301,6 +305,7 @@ export default function PropostaPrecoScreen() {
 
   const handleCancelarPagamentoPendente = async () => {
     const target = actualJobId || params.jobId
+    setPaySuiteModalVisivel(false)
     try {
       await fetch(`${API_BASE}/api/payments/cancel`, {
         method: 'POST',
@@ -656,9 +661,9 @@ export default function PropostaPrecoScreen() {
             {pagamentoPendente.url && (
               <TouchableOpacity
                 style={[styles.btnPrimary, { marginTop: 12 }]}
-                onPress={() => Linking.openURL(pagamentoPendente.url as string)}
+                onPress={() => setPaySuiteModalVisivel(true)}
               >
-                <Text style={styles.btnText}>Abrir Pagamento PaySuite</Text>
+                <Text style={styles.btnText}>Continuar no Pagamento PaySuite</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -868,6 +873,13 @@ export default function PropostaPrecoScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* MODAL WEBVIEW EMBUTIDO (PaySuite) */}
+      <PaySuiteModal
+        visible={paySuiteModalVisivel}
+        checkoutUrl={pagamentoPendente?.url || null}
+        onClose={() => setPaySuiteModalVisivel(false)}
+      />
     </View>
   )
 }

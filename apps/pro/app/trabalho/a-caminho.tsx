@@ -205,7 +205,7 @@ export default function ProACaminhoScreen() {
     if (clientCoords) {
       Linking.openURL(`https://maps.google.com/?q=${clientCoords.lat},${clientCoords.lng}`)
     } else {
-      Linking.openURL(`https://maps.google.com/?q=-25.82898,32.58233`)
+      Linking.openURL(`https://maps.google.com/?q=-25.9692,32.5732`)
     }
   }
 

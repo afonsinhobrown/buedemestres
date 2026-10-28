@@ -7,6 +7,7 @@ import MapaTracking from '../../components/MapaTracking'
 import { parseGeoPoint, distanceMeters, type GeoPoint } from '../../lib/geo'
 
 import { API_BASE } from '@/lib/api'
+import { PaySuiteModal } from '../../components/PaySuiteModal'
 
 export default function MestreACaminhoScreen() {
   const params = useLocalSearchParams<{
@@ -23,6 +24,8 @@ export default function MestreACaminhoScreen() {
   const [transporteUtilizado, setTransporteUtilizado] = useState<string>('carro_proprio')
   const [addendum, setAddendum] = useState<any>(null)
   const [addendumPagando, setAddendumPagando] = useState(false)
+  const [paySuiteCheckoutUrl, setPaySuiteCheckoutUrl] = useState<string | null>(null)
+  const [paySuiteModalVisible, setPaySuiteModalVisible] = useState(false)
   const [providerPoint, setProviderPoint] = useState<GeoPoint | null>(null)
   const [clientPoint, setClientPoint] = useState<GeoPoint | null>(null)
   const [empresaInfo, setEmpresaInfo] = useState<{ trade_name: string; legal_name: string } | null>(null)
@@ -192,11 +195,8 @@ export default function MestreACaminhoScreen() {
         throw new Error(data?.error || 'Não foi possível iniciar o pagamento do aditamento.')
       }
       if (data.checkoutUrl) {
-        try {
-          await Linking.openURL(data.checkoutUrl)
-        } catch {
-          // O utilizador pode abrir manualmente
-        }
+        setPaySuiteCheckoutUrl(data.checkoutUrl)
+        setPaySuiteModalVisible(true)
       }
       let tries = 0
       const timer = setInterval(async () => {
@@ -208,10 +208,12 @@ export default function MestreACaminhoScreen() {
           const statusData = await statusRes.json().catch(() => ({}))
           if (statusData?.paid) {
             clearInterval(timer)
+            setPaySuiteModalVisible(false)
             setAddendum((prev: any) => ({ ...prev, status: 'held' }))
             Alert.alert('Aditamento pago', 'O valor adicional ficou retido em segurança.')
           } else if (statusData?.failed) {
             clearInterval(timer)
+            setPaySuiteModalVisible(false)
             setAddendum((prev: any) => ({ ...prev, status: 'failed' }))
             Alert.alert('Pagamento não concluído', 'O pagamento do aditamento foi cancelado ou recusado.')
           }
@@ -474,6 +476,13 @@ export default function MestreACaminhoScreen() {
           🔒 Segurança Bué de Mestres: Sem dinheiro em mão. O pagamento foi retido na plataforma e só é libertado após confirmar a conclusão.
         </Text>
       </View>
+
+      <PaySuiteModal
+        visible={paySuiteModalVisible}
+        checkoutUrl={paySuiteCheckoutUrl}
+        onClose={() => setPaySuiteModalVisible(false)}
+        title="Pagamento de Aditamento - PaySuite"
+      />
     </View>
   )
 }

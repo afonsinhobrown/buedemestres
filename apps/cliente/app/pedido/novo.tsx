@@ -91,7 +91,7 @@ export default function NovoPedidoImediatoScreen() {
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 4000)
+      const timeoutId = setTimeout(() => controller.abort(), 6000)
 
       const response = await fetch(url, {
         headers: { 'User-Agent': 'BueDeMestres-App/1.0' },
@@ -103,30 +103,32 @@ export default function NovoPedidoImediatoScreen() {
         const data = await response.json()
         const addr = data.address || {}
 
-        const rua = addr.road || addr.street || addr.pedestrian || addr.footway || addr.path || 'Rua sem nome registado'
-        const bairro = addr.suburb || addr.neighbourhood || addr.residential || addr.quarter || 'Bairro Zimpeto'
+        const rua = addr.road || addr.street || addr.pedestrian || addr.footway || addr.path || 'Rua indicada no mapa'
+        const bairro = addr.suburb || addr.neighbourhood || addr.residential || addr.quarter || addr.subdistrict || addr.district || ''
         const cidade = addr.city || addr.town || addr.municipality || 'Maputo'
+
+        const bairroFormatado = bairro ? bairro : cidade
 
         setAddressInfo({
           rua,
-          bairro,
+          bairro: bairroFormatado,
           cidade,
-          completo: data.display_name || `${rua}, ${bairro}, ${cidade}`
+          completo: data.display_name || (rua ? `${rua}, ${bairroFormatado}` : cidade)
         })
       } else {
         setAddressInfo({
-          rua: 'Primeira Rua',
-          bairro: 'Zimpeto',
+          rua: 'Rua indicada no mapa',
+          bairro: 'Localização atual',
           cidade: 'Maputo',
-          completo: 'Primeira Rua, Zimpeto, Maputo'
+          completo: 'Localização GPS indicada'
         })
       }
     } catch {
       setAddressInfo({
-        rua: 'Primeira Rua',
-        bairro: 'Zimpeto',
+        rua: 'Rua indicada no mapa',
+        bairro: 'Localização atual',
         cidade: 'Maputo',
-        completo: 'Primeira Rua, Zimpeto, Maputo'
+        completo: 'Localização GPS indicada'
       })
     } finally {
       setIsResolvingAddress(false)
@@ -141,26 +143,37 @@ export default function NovoPedidoImediatoScreen() {
     }
 
     setIsLocating(true)
-    let lat = -25.82898
-    let lng = 32.58233
-    let acc = 15
+    // Coordenadas centrais neutras (Maputo) apenas se nenhum sinal for encontrado
+    let lat = -25.9692
+    let lng = 32.5732
+    let acc = 25
 
     try {
       const { status } = await Location.requestForegroundPermissionsAsync()
 
       if (status === 'granted') {
+        // Tentar obter primeiro a última localização conhecida (é instantânea)
+        const lastKnown = await Location.getLastKnownPositionAsync().catch(() => null)
+        if (lastKnown?.coords) {
+          lat = lastKnown.coords.latitude
+          lng = lastKnown.coords.longitude
+          acc = lastKnown.coords.accuracy ?? 25
+          setLocation(lastKnown)
+        }
+
+        // Tentar obter a localização precisa com timeout generoso (8 segundos)
         const locationPromise = Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         })
-        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000))
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000))
         const loc = await Promise.race([locationPromise, timeoutPromise])
 
-        if (loc) {
+        if (loc?.coords) {
           lat = loc.coords.latitude
           lng = loc.coords.longitude
           acc = loc.coords.accuracy ?? 15
           setLocation(loc)
-        } else {
+        } else if (!lastKnown) {
           setLocation({
             coords: {
               latitude: lat,
@@ -222,9 +235,9 @@ export default function NovoPedidoImediatoScreen() {
       return
     }
 
-    const lat = location?.coords?.latitude ?? -25.82898
-    const lng = location?.coords?.longitude ?? 32.58233
-    const moradaEnvio = referencia || (addressInfo ? `${addressInfo.rua}, ${addressInfo.bairro}` : 'Maputo')
+    const lat = location?.coords?.latitude ?? -25.9692
+    const lng = location?.coords?.longitude ?? 32.5732
+    const moradaEnvio = referencia || (addressInfo ? `${addressInfo.rua}, ${addressInfo.bairro}` : 'Localização indicada pelo cliente')
 
     router.push({
       pathname: '/pedido/a-procurar',

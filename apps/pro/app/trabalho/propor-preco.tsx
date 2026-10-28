@@ -424,7 +424,7 @@ export default function ProporPrecoScreen() {
             "{jobData?.description || 'Sem descrição adicional'}"
           </Text>
           <Text style={styles.problemaCardRef}>
-            📍 Local: {jobData?.location_note || 'Bairro Zimpeto, Maputo'}
+            📍 Local: {jobData?.location_note || 'Localização indicada pelo cliente'}
           </Text>
         </View>
 

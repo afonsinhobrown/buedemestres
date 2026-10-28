@@ -121,7 +121,15 @@ export async function POST(req: Request) {
     });
 
     await db.query(
-      `update jobs set agreed_amount = $2, price_proposed = $2, updated_at = now() where id = $1`,
+      `update jobs
+          set agreed_amount = $2,
+              price_proposed = $2,
+              status = case when status = 'cancelled' then 'price_proposed' else status end,
+              cancel_reason = null,
+              turn_expires_at = now() + interval '30 minutes',
+              negotiation_state = 'pagamento_em_curso',
+              updated_at = now()
+        where id = $1`,
       [job.id, contractAmount]
     );
 
