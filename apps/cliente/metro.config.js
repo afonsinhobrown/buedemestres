@@ -9,11 +9,17 @@ const config = getDefaultConfig(projectRoot)
 // Watch all files within the monorepo
 config.watchFolders = [workspaceRoot]
 
-// Let Metro know where to resolve packages
+// Let Metro know where to resolve packages (hoisted at monorepo root)
 config.resolver.nodeModulesPaths = [
-  path.resolve(projectRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'node_modules'),
 ]
+
+// Ensure serverRoot is the app directory so entry-file resolves correctly
+config.server = {
+  ...config.server,
+  unstable_serverRoot: projectRoot,
+}
+
 
 // Force Metro to resolve (sub)dependencies from the nodeModulesPaths
 
