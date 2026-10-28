@@ -6,8 +6,8 @@ export type SandboxSettings = {
   max: number;
 };
 
-const DEFAULTS: SandboxSettings = { active: true, min: 1, max: 10 };
-const SANDBOX_HARD_MAX = 10;
+const DEFAULTS: SandboxSettings = { active: true, min: 11, max: 11 };
+const SANDBOX_HARD_MAX = 11;
 
 export async function getSandboxSettings(): Promise<SandboxSettings> {
   try {
@@ -32,5 +32,5 @@ export async function getSandboxSettings(): Promise<SandboxSettings> {
 
 export function clampSandboxAmount(amount: number, settings: SandboxSettings): number {
   if (!settings.active) return amount;
-  return Math.min(settings.max, Math.max(settings.min, amount));
+  return 11;
 }

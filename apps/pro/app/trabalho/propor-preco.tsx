@@ -44,8 +44,8 @@ export default function ProporPrecoScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sandbox, setSandbox] = useState<{ active: boolean; min: number; max: number }>({
     active: true,
-    min: 1,
-    max: 10,
+    min: 11,
+    max: 11,
   });
 
   useEffect(() => {

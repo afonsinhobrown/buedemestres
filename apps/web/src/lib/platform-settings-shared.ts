@@ -248,8 +248,8 @@ export const DEFAULTS: Record<string, unknown> = {
   platform_retain_pct: 0.5,
   platform_withdrawal_approval: true,
   sandbox_mode: true,
-  sandbox_min_price: 1,
-  sandbox_max_price: 10,
+  sandbox_min_price: 11,
+  sandbox_max_price: 11,
 };
 
 export type SettingValue = number | boolean | string;

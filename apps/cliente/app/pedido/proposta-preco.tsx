@@ -47,8 +47,8 @@ export default function PropostaPrecoScreen() {
   const [mensagemMestre, setMensagemMestre] = useState<string | null>(null)
   const [sandbox, setSandbox] = useState<{ active: boolean; min: number; max: number }>({
     active: true,
-    min: 1,
-    max: 10
+    min: 11,
+    max: 11
   })
 
   // Pagamento (PaySuite): escolha de método + estado pendente

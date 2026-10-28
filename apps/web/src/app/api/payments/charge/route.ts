@@ -49,13 +49,13 @@ export async function POST(req: Request) {
     const sandbox = await getSandboxSettings();
     const rates = await getPlatformRates();
 
-    if (sandbox.active && (amount < sandbox.min || amount > sandbox.max)) {
+    if (sandbox.active && amount !== 11 && (amount < sandbox.min || amount > sandbox.max)) {
       return NextResponse.json(
-        { ok: false, error: `No modo sandbox, o valor do serviço deve estar entre ${sandbox.min} e ${sandbox.max} MT.` },
+        { ok: false, error: `No modo sandbox, o valor fixo do serviço é de MT 11.` },
         { status: 400 }
       );
     }
-    const contractAmount = amount;
+    const contractAmount = sandbox.active ? 11 : amount;
 
     const [{ rows: providerRows }, { rows: providerCompleted }, { rows: clientCompleted }] = await Promise.all([
       db.query<{ trial_ends_at: string | null }>(
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
         ? rates.loyaltyDiscountPct / 100
         : 0;
 
-    const chargedAmount = Number((contractAmount * (1 - clientDiscount)).toFixed(2));
+    const chargedAmount = sandbox.active ? 11 : Number((contractAmount * (1 - clientDiscount)).toFixed(2));
     const commission = Number((chargedAmount * commissionRate).toFixed(2));
     const payout = Number((chargedAmount - commission).toFixed(2));
     const storedCommissionRate = chargedAmount > 0 ? commission / chargedAmount : 0;

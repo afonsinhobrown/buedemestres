@@ -37,8 +37,8 @@ export async function updateSandbox(formData: FormData) {
   try {
     await requireAdmin()
     const active = String(formData.get('active') || '') === 'on'
-    const min = Number(formData.get('min') || 1)
-    const max = Math.min(Number(formData.get('max') || 10), 10)
+    const min = Number(formData.get('min') || 11)
+    const max = Number(formData.get('max') || 11)
     if (!Number.isFinite(min) || !Number.isFinite(max) || min <= 0 || max < min) {
       return { error: 'Valores de sandbox inválidos.' }
     }

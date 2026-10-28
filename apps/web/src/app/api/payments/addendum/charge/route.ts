@@ -50,8 +50,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'referência em falta' }, { status: 409 });
     }
 
+    const { getSandboxSettings } = await import('@/lib/sandbox');
+    const sandbox = await getSandboxSettings();
+    const finalAmount = sandbox.active ? 11 : Number(addendum.amount);
+
     const charge = await createPaySuiteCharge({
-      amountMZN: Number(addendum.amount),
+      amountMZN: finalAmount,
       reference: addendum.provider_ref,
       method: mapMethod(method),
       description: `Bué de Mestres — aditamento ${addendum.provider_ref}`,

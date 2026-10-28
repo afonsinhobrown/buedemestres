@@ -7,16 +7,27 @@ import { useAuthStore } from '../lib/useAuthStore'
 
 import { API_BASE } from '@/lib/api'
 import { PaySuiteModal } from '../components/PaySuiteModal'
+import { loadSandboxSettings, type SandboxSettings } from '../lib/sandbox'
 
 export default function CarregarScreen() {
   const provider = useAuthStore((s) => s.providerProfile)
   const providerId = provider?.profile_id as string | undefined
+  const [sandbox, setSandbox] = useState<SandboxSettings>({ active: false, min: 11, max: 11 })
   const [amount, setAmount] = useState('500')
   const [method, setMethod] = useState<'mpesa' | 'emola' | 'card'>('mpesa')
   const [submitting, setSubmitting] = useState(false)
   const [wallet, setWallet] = useState(0)
   const [paySuiteUrl, setPaySuiteUrl] = useState<string | null>(null)
   const [paySuiteModalVisible, setPaySuiteModalVisible] = useState(false)
+
+  useEffect(() => {
+    loadSandboxSettings().then((s) => {
+      setSandbox(s)
+      if (s.active) {
+        setAmount('11')
+      }
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (!providerId) return
@@ -30,12 +41,13 @@ export default function CarregarScreen() {
 
   const carregar = async () => {
     const value = parseFloat(amount)
+    const minVal = sandbox.active ? 11 : 50
     if (!providerId) {
       Alert.alert('Sessão', 'Entra na tua conta de mestre.')
       return
     }
-    if (!Number.isFinite(value) || value < 50) {
-      Alert.alert('Valor inválido', 'O carregamento mínimo é MT 50.')
+    if (!Number.isFinite(value) || value < minVal) {
+      Alert.alert('Valor inválido', `O carregamento mínimo é MT ${minVal}.`)
       return
     }
 
@@ -103,7 +115,9 @@ export default function CarregarScreen() {
         <Text style={styles.label}>SALDO ATUAL</Text>
         <Text style={styles.balance}>MT {wallet.toLocaleString('pt-MZ')}</Text>
 
-        <Text style={[styles.label, { marginTop: 18 }]}>VALOR A CARREGAR (MÍN. MT 50)</Text>
+        <Text style={[styles.label, { marginTop: 18 }]}>
+          VALOR A CARREGAR (MÍN. MT {sandbox.active ? 11 : 50})
+        </Text>
         <TextInput
           style={styles.input}
           keyboardType="numeric"
