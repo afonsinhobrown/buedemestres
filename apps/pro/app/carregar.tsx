@@ -17,6 +17,7 @@ export default function CarregarScreen() {
   const [method, setMethod] = useState<'mpesa' | 'emola' | 'card'>('mpesa')
   const [submitting, setSubmitting] = useState(false)
   const [wallet, setWallet] = useState(0)
+  const [debt, setDebt] = useState(0)
   const [paySuiteUrl, setPaySuiteUrl] = useState<string | null>(null)
   const [paySuiteModalVisible, setPaySuiteModalVisible] = useState(false)
 
@@ -33,10 +34,13 @@ export default function CarregarScreen() {
     if (!providerId) return
     supabase
       .from('wallets')
-      .select('balance')
+      .select('balance, platform_debt')
       .eq('profile_id', providerId)
       .maybeSingle()
-      .then(({ data }) => setWallet(Number(data?.balance || 0)))
+      .then(({ data }) => {
+        setWallet(Number(data?.balance || 0))
+        setDebt(Number(data?.platform_debt || 0))
+      })
   }, [providerId])
 
   const carregar = async () => {
@@ -79,10 +83,11 @@ export default function CarregarScreen() {
             setPaySuiteModalVisible(false)
             const { data: walletRow } = await supabase
               .from('wallets')
-              .select('balance')
+              .select('balance, platform_debt')
               .eq('profile_id', providerId)
               .maybeSingle()
             setWallet(Number(walletRow?.balance || 0))
+            setDebt(Number(walletRow?.platform_debt || 0))
             Alert.alert('Carregamento concluído', `O saldo foi creditado.`)
           } else if (statusData?.failed) {
             clearInterval(timer)
@@ -112,8 +117,13 @@ export default function CarregarScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.label}>SALDO ATUAL</Text>
+        <Text style={styles.label}>SALDO DE OPERAÇÃO</Text>
         <Text style={styles.balance}>MT {wallet.toLocaleString('pt-MZ')}</Text>
+        {debt > 0 && (
+          <Text style={styles.debt}>
+            Comissão em dívida: MT {debt.toLocaleString('pt-MZ')} — será regularizada neste carregamento.
+          </Text>
+        )}
 
         <Text style={[styles.label, { marginTop: 18 }]}>
           VALOR A CARREGAR (MÍN. MT {sandbox.active ? 11 : 50})
@@ -167,6 +177,7 @@ const styles = StyleSheet.create({
   card: { margin: 16, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 12, padding: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
   label: { color: '#94A3B8', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
   balance: { color: '#F5F0E8', fontSize: 28, fontWeight: '900', marginTop: 2 },
+  debt: { color: '#F87171', fontSize: 11, fontWeight: '800', marginTop: 6 },
   input: { marginTop: 6, backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', color: '#F5F0E8', fontSize: 22, fontWeight: '900', paddingHorizontal: 14, paddingVertical: 12 },
   methods: { flexDirection: 'row', gap: 8, marginTop: 8 },
   methodBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
