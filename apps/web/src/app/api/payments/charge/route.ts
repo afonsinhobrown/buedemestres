@@ -92,7 +92,9 @@ export async function POST(req: Request) {
 
     const chargedAmount = sandbox.active ? 11 : Number((contractAmount * (1 - clientDiscount)).toFixed(2));
     const commission = Number((chargedAmount * commissionRate).toFixed(2));
-    const payout = Number((chargedAmount - commission).toFixed(2));
+    // O mestre recebe o valor integral do serviço; a comissão é debitada
+    // separadamente do saldo de operação (migrations/0253).
+    const payout = chargedAmount;
     const storedCommissionRate = chargedAmount > 0 ? commission / chargedAmount : 0;
 
     const reference = buildPaymentReference();

@@ -108,7 +108,7 @@ async function markPayoutFailed(payout: PayoutRow, reason: string) {
       [payout.id, reason]
     );
     await client.query(
-      `select wallet_apply($1, 'refund', $2, 'Saque falhado — valor devolvido', null, $3::jsonb)`,
+      `select wallet_apply_earnings($1, 'refund', $2, 'Saque falhado — valor devolvido', null, $3::jsonb)`,
       [payout.provider_id, payout.amount, JSON.stringify({ payout_id: payout.id })]
     );
     await client.query(
@@ -170,7 +170,7 @@ export async function failPayoutByReference(
       [payout.id, reason || 'Falha no envio']
     );
     await client.query(
-      `select wallet_apply($1, 'refund', $2, 'Saque falhado — valor devolvido', null, $3::jsonb)`,
+      `select wallet_apply_earnings($1, 'refund', $2, 'Saque falhado — valor devolvido', null, $3::jsonb)`,
       [payout.provider_id, payout.amount, JSON.stringify({ payout_id: payout.id, reference })]
     );
     await client.query(
@@ -207,7 +207,7 @@ export async function rejectPayout(
       [payout.id, reason]
     );
     await client.query(
-      `select wallet_apply($1, 'refund', $2, 'Saque rejeitado — valor devolvido', null, $3::jsonb)`,
+      `select wallet_apply_earnings($1, 'refund', $2, 'Saque rejeitado — valor devolvido', null, $3::jsonb)`,
       [payout.provider_id, payout.amount, JSON.stringify({ payout_id: payout.id })]
     );
     await client.query(

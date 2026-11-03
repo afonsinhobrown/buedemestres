@@ -47,7 +47,8 @@ export async function POST(req: Request) {
     }
     const finalAmount = amount;
     const commission = Number((finalAmount * rate).toFixed(2));
-    const payout = Number((finalAmount - commission).toFixed(2));
+    // Valor integral para o mestre; comissão debitada do saldo de operação.
+    const payout = finalAmount;
     const reference = buildPaymentReference();
 
     const { rows: addendumRows } = await db.query<{ id: string }>(
