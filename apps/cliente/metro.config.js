@@ -20,9 +20,6 @@ config.server = {
   unstable_serverRoot: projectRoot,
 }
 
-
-// Force Metro to resolve (sub)dependencies from the nodeModulesPaths
-
 config.resolver.alias = {
   '@': __dirname,
   '@/lib': __dirname + '/lib',
