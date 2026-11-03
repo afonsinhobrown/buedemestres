@@ -35,6 +35,8 @@ export default function ProHomeScreen() {
   const [providerProfile, setProviderProfile] = useState<any>(null)
   const [availableProviders, setAvailableProviders] = useState<any[]>([])
   const [walletBalance, setWalletBalance] = useState<number>(0)
+  const [earningsBalance, setEarningsBalance] = useState<number>(0)
+  const [platformDebt, setPlatformDebt] = useState<number>(0)
   const [heldAmount, setHeldAmount] = useState<number>(0)
   const [financeSummary, setFinanceSummary] = useState({ devido: 0, pago: 0, faturacao: 0 })
   const [unreadCount, setUnreadCount] = useState<number>(0)
@@ -161,7 +163,7 @@ export default function ProHomeScreen() {
     let active = true
     const carregarSaldo = async () => {
       const [{ data }, { data: jobRows }, { data: payoutRows }, { data: heldRows }] = await Promise.all([
-        supabase.from('wallets').select('balance').eq('profile_id', proId).maybeSingle(),
+        supabase.from('wallets').select('balance, earnings_balance, platform_debt').eq('profile_id', proId).maybeSingle(),
         supabase
           .from('jobs')
           .select('id, agreed_amount, job_payments:job_payments(amount, provider_payout, status)')
@@ -172,6 +174,8 @@ export default function ProHomeScreen() {
       ])
       if (!active) return
       setWalletBalance(Number(data?.balance || 0))
+      setEarningsBalance(Number(data?.earnings_balance || 0))
+      setPlatformDebt(Number(data?.platform_debt || 0))
       setHeldAmount(
         ((heldRows as any[]) || []).reduce(
           (total, row) => total + Number(row.provider_payout ?? row.amount ?? 0),
@@ -875,7 +879,7 @@ export default function ProHomeScreen() {
           <Text style={styles.statLabel}>Hoje</Text>
         </View>
         <TouchableOpacity style={styles.statBox} onPress={() => router.push('/carteira')} activeOpacity={0.8}>
-          <Text style={styles.statNumber}>MT {walletBalance.toLocaleString('pt-MZ')}</Text>
+          <Text style={styles.statNumber}>MT {earningsBalance.toLocaleString('pt-MZ')}</Text>
           <Text style={styles.statLabel}>Ganhos ›</Text>
         </TouchableOpacity>
         <View style={styles.statBox}>
@@ -883,6 +887,11 @@ export default function ProHomeScreen() {
           <Text style={styles.statLabel}>Nota</Text>
         </View>
       </View>
+
+      <Text style={styles.opHint}>
+        Saldo de operação: MT {walletBalance.toLocaleString('pt-MZ')}
+        {platformDebt > 0 ? ` · Dívida: MT ${platformDebt.toLocaleString('pt-MZ')}` : ''}
+      </Text>
 
       <TouchableOpacity
         style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}
@@ -1132,6 +1141,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginBottom: 24,
+  },
+  opHint: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    marginTop: -14,
+    marginBottom: 10,
+    textAlign: 'center',
   },
   statBox: {
     flex: 1,
