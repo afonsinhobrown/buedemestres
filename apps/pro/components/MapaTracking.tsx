@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useRef } from 'react'
 import { StyleSheet, View } from 'react-native'
-import { WebView } from 'react-native-webview'
+import { WebView as NativeWebView } from 'react-native-webview'
+
+type WebView = NativeWebView
+const WebViewField = NativeWebView as unknown as React.ComponentType<Record<string, unknown>>
 
 export type MapPoint = { lat: number; lng: number }
 
@@ -108,7 +111,7 @@ export default function MapaTracking({ provider, client }: Props) {
 
   return (
     <View style={styles.container}>
-      <WebView
+      <WebViewField
         ref={webRef}
         originWhitelist={['*']}
         source={{ html: initialHtml }}

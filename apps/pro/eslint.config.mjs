@@ -19,6 +19,7 @@ export default defineConfig([
       'android/**',
       'ios/**',
       'node_modules/**',
+      'node_modules_old/**',
       'babel.config.js',
       'metro.config.js',
     ],

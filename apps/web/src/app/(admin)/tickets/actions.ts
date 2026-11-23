@@ -67,6 +67,8 @@ export async function resolveDispute(ticketNumber: string, action: ResolutionAct
     if (!ticket) return { error: 'Ticket não encontrado' }
     if (!ticket.related_job_id) return { error: 'Ticket sem trabalho associado' }
 
+    let refundResult: { amount?: number; destination?: string; refund_id?: string } | null = null
+
     await db.transaction(async (client) => {
       const { rows: jobRows } = await client.query<{
         id: string
@@ -115,16 +117,20 @@ export async function resolveDispute(ticketNumber: string, action: ResolutionAct
           ]
         )
       } else {
-        await client.query(
-          `update job_payments set status = 'refunded', refunded_at = now()
-            where job_id = $1 and status in ('disputed', 'held')`,
+        const { rows: refundRows } = await client.query<{
+          result: { ok: boolean; error?: string; amount?: number; destination?: string; refund_id?: string }
+        }>(
+          `select refund_held_job_payment(
+             $1,
+             app_setting_text('escrow_default_refund_destination', 'wallet')
+           ) as result`,
           [job.id]
         )
-        await client.query(
-          `update job_addenda set status = 'refunded'
-            where job_id = $1 and status in ('disputed', 'held')`,
-          [job.id]
-        )
+        const refund = refundRows[0]?.result
+        if (!refund?.ok) {
+          throw new Error(refund?.error || 'Não foi possível estornar o pagamento retido')
+        }
+        refundResult = refund
         await client.query(
           `update jobs set status = 'cancelled', cancel_reason = 'disputa_reembolsada', updated_at = now()
             where id = $1`,
@@ -143,12 +149,13 @@ export async function resolveDispute(ticketNumber: string, action: ResolutionAct
         await client.query(
           `insert into notifications(profile_id, type, title, body, data)
            values
-             ($1, 'dispute_resolved', 'Disputa resolvida', 'A equipa de apoio decidiu reembolsar o cliente. O valor não foi libertado.', $3::jsonb),
-             ($2, 'dispute_resolved', 'Disputa resolvida', 'A equipa de apoio decidiu reembolsar o pagamento retido.', $3::jsonb)`,
+              ($1, 'dispute_resolved', 'Disputa resolvida', 'A equipa de apoio decidiu reembolsar o cliente. O valor não foi libertado ao mestre.', $3::jsonb),
+              ($2, 'dispute_resolved', 'Disputa resolvida', 'A equipa de apoio reembolsou ' || $4::numeric || ' MT conforme o destino configurado.', $3::jsonb)`,
           [
             job.provider_id,
             job.client_id,
-            JSON.stringify({ job_id: job.id, ticket: ticket.number, action }),
+            JSON.stringify({ job_id: job.id, ticket: ticket.number, action, refund }),
+            refund.amount ?? 0,
           ]
         )
       }
@@ -162,7 +169,7 @@ export async function resolveDispute(ticketNumber: string, action: ResolutionAct
       await client.query(
         `insert into ticket_events(ticket_id, actor_id, type, meta)
          values ($1, $2, 'dispute_resolved', $3::jsonb)`,
-        [ticket.id, session.userId, JSON.stringify({ action })]
+         [ticket.id, session.userId, JSON.stringify({ action, refund: refundResult })]
       )
       await client.query(
         `insert into ticket_messages(ticket_id, author_id, body)

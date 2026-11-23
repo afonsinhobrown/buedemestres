@@ -37,16 +37,12 @@ export async function updateSandbox(formData: FormData) {
   try {
     await requireAdmin()
     const active = String(formData.get('active') || '') === 'on'
-    const min = Number(formData.get('min') || 11)
-    const max = Number(formData.get('max') || 11)
-    if (!Number.isFinite(min) || !Number.isFinite(max) || min <= 0 || max < min) {
-      return { error: 'Valores de sandbox inválidos.' }
-    }
+    const sandboxAmount = 11
     await db.transaction(async (client) => {
       for (const [key, value] of [
         ['sandbox_mode', JSON.stringify(active)],
-        ['sandbox_min_price', JSON.stringify(min)],
-        ['sandbox_max_price', JSON.stringify(max)],
+        ['sandbox_min_price', JSON.stringify(sandboxAmount)],
+        ['sandbox_max_price', JSON.stringify(sandboxAmount)],
       ]) {
         await client.query(
           `insert into app_settings(key, value, updated_at) values ($1, $2::jsonb, now())

@@ -1,9 +1,12 @@
-import { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Alert } from '../../lib/alertCompat'
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { CameraView as NativeCameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { updateKycDraft } from '../../lib/kycDraft';
+
+type CameraView = NativeCameraView;
+const CameraViewField = NativeCameraView as unknown as React.ComponentType<Record<string, unknown>>;
 
 export default function VerificacaoDocumentoScreen() {
   const router = useRouter();
@@ -50,7 +53,7 @@ export default function VerificacaoDocumentoScreen() {
 
   return (
     <View style={styles.container}>
-      <CameraView 
+      <CameraViewField
         ref={cameraRef}
         style={StyleSheet.absoluteFill} 
         facing="back"
@@ -82,7 +85,7 @@ export default function VerificacaoDocumentoScreen() {
             {saving && <ActivityIndicator color="#2563EB" />}
           </TouchableOpacity>
         </View>
-      </CameraView>
+      </CameraViewField>
     </View>
   );
 }

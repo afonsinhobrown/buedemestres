@@ -32,7 +32,7 @@ export default function AguardarPagamentoScreen() {
   useEffect(() => {
     if (!jobId) return;
 
-    let pollTimer: NodeJS.Timeout;
+    let pollTimer: ReturnType<typeof setTimeout>;
 
     // Fecha negociações vencidas (o cron também o faz; aqui é imediato)
     supabase.rpc('expire_stale_negotiations').then(() => {}, () => {});

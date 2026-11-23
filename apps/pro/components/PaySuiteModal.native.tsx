@@ -9,7 +9,9 @@ import {
   SafeAreaView,
   StatusBar,
 } from 'react-native'
-import { WebView } from 'react-native-webview'
+import { WebView as NativeWebView } from 'react-native-webview'
+
+const WebView = NativeWebView as unknown as React.ComponentType<Record<string, unknown>>
 
 interface PaySuiteModalProps {
   visible: boolean

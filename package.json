@@ -7,7 +7,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "test": "tsx --test \"tests/*.test.ts\"",
+    "test": "tsx --test tests/geofence.test.ts tests/job-flow.test.ts tests/payment-state.test.ts tests/search-map.test.ts",
     "bootstrap:superadmin": "tsx scripts/bootstrap-superadmin.ts",
     "sim": "turbo run web --parallel --filter=cliente --filter=pro"
   },

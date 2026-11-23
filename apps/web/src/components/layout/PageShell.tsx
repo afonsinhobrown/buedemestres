@@ -1,4 +1,5 @@
 import React from 'react'
+import Link from 'next/link'
 import { BottomNav } from './BottomNav'
 
 interface PageShellProps {
@@ -13,9 +14,9 @@ export function PageShell({ children, noNav = false }: PageShellProps) {
       <header className="hidden md:flex h-16 bg-[var(--color-papel)] border-b border-[var(--color-zinco-200)] px-6 items-center justify-between sticky top-0 z-40">
         <div className="font-bold display-wide text-[var(--color-cobalto)]">BUÉ DE MESTRES</div>
         <nav className="flex gap-6 text-sm font-medium">
-          <a href="/pesquisar" className="hover:text-[var(--color-cobalto)]">Procurar</a>
-          <a href="/pedidos" className="hover:text-[var(--color-cobalto)]">Pedidos</a>
-          <a href="/painel" className="hover:text-[var(--color-cobalto)]">Conta</a>
+          <Link href="/pesquisar" className="hover:text-[var(--color-cobalto)]">Procurar</Link>
+          <Link href="/pedidos" className="hover:text-[var(--color-cobalto)]">Pedidos</Link>
+          <Link href="/painel" className="hover:text-[var(--color-cobalto)]">Conta</Link>
         </nav>
       </header>
 

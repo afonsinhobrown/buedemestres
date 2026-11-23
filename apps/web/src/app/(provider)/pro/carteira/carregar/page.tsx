@@ -85,7 +85,7 @@ export default function CarregarCarteiraPage() {
             <Wallet size={24} className="shrink-0 text-[var(--color-amarelo)] mt-0.5" weight="fill" />
             <div>
               <span className="font-bold">Aviso (Fase 4):</span> O pagamento via M-Pesa está oculto temporariamente. 
-              Ao clicares em "Confirmar", o teu saldo será imediatamente carregado via método "manual" (modo simulação).
+              Ao clicares em &quot;Confirmar&quot;, o teu saldo será imediatamente carregado via método &quot;manual&quot; (modo simulação).
             </div>
           </div>
 
