@@ -271,6 +271,13 @@
 .bdm-top-link { background: none; color: var(--bdm-ink); font-size: 13px; font-weight: 600; text-decoration: none; }
 .bdm-top-link:hover { color: var(--bdm-blue); }
 .bdm-top-cta { background: var(--bdm-yellow); color: #13294a; border-radius: 13px; padding: 13px 20px; font-size: 13px; font-weight: 800; text-decoration: none; box-shadow: 0 3px 0 rgba(172, 126, 0, .12); }
+.bdm-mobile-nav { display: none; }
+.bdm-mini-links { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; padding: 0 5px 4px; }
+.bdm-mini-links a { color: var(--bdm-blue); font-size: 11px; font-weight: 700; text-decoration: none; }
+.bdm-service-card strong { display: block; font-size: 12px; margin-bottom: 8px; }
+.bdm-service-links { display: grid; gap: 6px; }
+.bdm-service-links a { color: var(--bdm-blue); font-size: 12px; font-weight: 650; text-decoration: none; }
+.bdm-service-links a:hover, .bdm-mini-links a:hover { text-decoration: underline; }
 
 .bdm-app { flex: 1; min-height: 0; width: 100%; max-width: 1800px; margin: 0 auto; padding: 16px 18px 18px; display: grid; grid-template-columns: 245px minmax(420px, 1fr) 270px; gap: 14px; }
 .bdm-panel { background: #fff; border: 1px solid var(--bdm-line); border-radius: 17px; box-shadow: 0 2px 8px rgba(16, 43, 85, .04); overflow: hidden; }
@@ -363,6 +370,10 @@
 .bdm-help p { font-size: 10px; color: #6c5a25; margin: 5px 0 10px; }
 .bdm-help a { background: #13b76a; color: #fff; border-radius: 22px; padding: 9px 15px; font-size: 11px; font-weight: 800; text-decoration: none; }
 
+@media (max-width: 1180px) {
+  .bdm-top-link--optional { display: none; }
+}
+
 @media (max-width: 1050px) {
   .bdm-app { grid-template-columns: 205px minmax(360px, 1fr); }
   .bdm-right-panel { display: none; }
@@ -379,7 +390,10 @@
   .bdm-brand-name small, .bdm-location-top, .bdm-top-link { display: none; }
   .bdm-top-actions { gap: 8px; }
   .bdm-top-cta { padding: 10px 12px; font-size: 11px; }
-  .bdm-app { height: calc(100dvh - 58px); min-height: 0; display: block; padding: 0; position: relative; }
+  .bdm-mobile-nav { display: flex; gap: 6px; overflow-x: auto; padding: 8px 13px; background: #fff; border-bottom: 1px solid var(--bdm-line); flex-shrink: 0; }
+  .bdm-mobile-nav a { white-space: nowrap; font-size: 11px; font-weight: 700; color: var(--bdm-ink); text-decoration: none; padding: 7px 10px; border-radius: 999px; background: var(--bdm-bg); }
+  .bdm-mobile-nav a:first-child { background: var(--bdm-yellow); }
+  .bdm-app { flex: 1; height: auto; min-height: 0; display: block; padding: 0; position: relative; }
   .bdm-left-panel, .bdm-right-panel { display: none; }
   .bdm-center { height: 100%; display: block; }
   .bdm-map-shell { height: 100%; min-height: 0; border: 0; border-radius: 0; box-shadow: none; }

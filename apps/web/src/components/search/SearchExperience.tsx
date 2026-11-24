@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { SearchMapPosition, SearchMapProvider } from './SearchMap'
 import { formatMT } from '@/lib/utils/format-mzn'
@@ -55,6 +56,8 @@ export default function SearchExperience({
   const [userPosition, setUserPosition] = useState<SearchMapPosition | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const cardRefs = useRef<Record<string, HTMLElement | null>>({})
+  const pathname = usePathname()
+  const basePath = pathname === '/' ? '/' : '/resultados'
 
   const visibleProviders = useMemo(
     () => sortSearchProviders(providers, sort, userPosition),
@@ -83,7 +86,7 @@ export default function SearchExperience({
     if (place) params.set('onde', place)
     if (categoryId && categoryId > 0) params.set('categoria', String(categoryId))
     const suffix = params.toString()
-    return `/resultados${suffix ? `?${suffix}` : ''}`
+    return `${basePath}${suffix ? `?${suffix}` : ''}`
   }
 
   const activeCategory = categories.find((category) => category.id === selectedCategory)
@@ -101,12 +104,24 @@ export default function SearchExperience({
         </Link>
         <div className="bdm-top-actions">
           <span className="bdm-location-top">📍 {place || 'Todo o país'}</span>
-          <Link href="/" className="bdm-top-link">Como funciona</Link>
-          <Link href="/registo" className="bdm-top-link">Para mestres</Link>
-          <Link href={signedIn ? '/painel' : '/entrar'} className="bdm-top-link">Entrar</Link>
-          <Link href="/registo" className="bdm-top-cta">Criar conta</Link>
+          <Link href="/inicio#como-funciona" className="bdm-top-link bdm-top-link--optional">Como funciona</Link>
+          <Link href="/registar?redirect=/pro/activar" className="bdm-top-link">Para mestres</Link>
+          <Link href="/ajuda" className="bdm-top-link">Ajuda</Link>
+          <Link href={signedIn ? '/painel' : '/entrar'} className="bdm-top-link">{signedIn ? 'Painel' : 'Entrar'}</Link>
+          <Link href="/registar" className="bdm-top-cta">Criar conta</Link>
         </div>
       </header>
+
+      <nav className="bdm-mobile-nav" aria-label="Serviços">
+        <Link href="/">Mapa</Link>
+        <Link href="/chamar">Chamar agora</Link>
+        <Link href={signedIn ? '/trabalhos' : '/apps/cliente/entrar'}>Trabalhos</Link>
+        <Link href={signedIn ? '/pedidos' : '/apps/cliente/entrar'}>Pedidos</Link>
+        <Link href="/notificacoes">Notificações</Link>
+        <Link href="/pro/trabalhos">Área do mestre</Link>
+        <Link href="/ajuda">Ajuda</Link>
+        <Link href="/inicio#como-funciona">Como funciona</Link>
+      </nav>
 
       <main className="bdm-app">
         <aside className="bdm-panel bdm-left-panel">
@@ -139,6 +154,15 @@ export default function SearchExperience({
             <div className="bdm-small-note">
               Escolhe uma especialidade para veres os profissionais publicados no mapa.
             </div>
+            <div className="bdm-mini-links">
+              <Link href="/chamar">Chamar agora</Link>
+              <Link href={signedIn ? '/trabalhos' : '/apps/cliente/entrar'}>Os meus trabalhos</Link>
+              <Link href={signedIn ? '/pedidos' : '/apps/cliente/entrar'}>Os meus pedidos</Link>
+              <Link href="/notificacoes">Notificações</Link>
+              <Link href="/pro/trabalhos">Área do mestre</Link>
+              <Link href="/inicio">Como funciona</Link>
+              <Link href="/ajuda">Ajuda</Link>
+            </div>
           </div>
         </aside>
 
@@ -151,7 +175,7 @@ export default function SearchExperience({
               userPosition={userPosition}
               onPosition={setUserPosition}
             />
-            <form className="bdm-map-search" action="/resultados" method="GET">
+            <form className="bdm-map-search" action={basePath} method="GET">
               <span className="bdm-search-icon">⌕</span>
               <input
                 name="q"
@@ -269,6 +293,18 @@ export default function SearchExperience({
                 <strong>Mestres verificados</strong>
                 <small>Mais confiança em cada serviço.</small>
               </span>
+            </div>
+          </div>
+          <div className="bdm-info-card bdm-service-card">
+            <strong>Serviços</strong>
+            <div className="bdm-service-links">
+              <Link href="/chamar">Chamar agora</Link>
+              <Link href={signedIn ? '/trabalhos' : '/apps/cliente/entrar'}>Os meus trabalhos</Link>
+              <Link href={signedIn ? '/pedidos' : '/apps/cliente/entrar'}>Os meus pedidos</Link>
+              <Link href="/notificacoes">Notificações</Link>
+              <Link href="/pro/trabalhos">Área do mestre</Link>
+              <Link href="/inicio#como-funciona">Como funciona</Link>
+              <Link href="/ajuda">Ajuda</Link>
             </div>
           </div>
           {ad ? (

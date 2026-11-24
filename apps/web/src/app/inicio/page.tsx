@@ -1,0 +1,222 @@
+import React from 'react'
+import Link from 'next/link'
+import { db } from '@/lib/db'
+import { AdsRail } from '@/components/ads/AdsRail'
+import HomeMap from '@/components/search/HomeMap'
+import type { SearchMapProvider } from '@/components/search/SearchMap'
+
+export const dynamic = 'force-dynamic'
+
+export default async function InicioPage() {
+  let providers: any[] = []
+  let mapProviders: SearchMapProvider[] = []
+  let stats = { providers: 0, verified: 0, rating: 0 }
+  try {
+    const res = await db.query(`
+      SELECT pp.slug, pp.business_name, pp.headline, pp.rating_avg, pp.rating_count,
+             pp.verification, d.name as district_name, p.name as province_name,
+             c.name as category_name,
+             CASE c.slug
+               WHEN 'mecanico' THEN 'pb'
+               WHEN 'explicador' THEN 'py'
+               WHEN 'carpinteiro' THEN 'po'
+               ELSE 'pb'
+             END as color_class
+      FROM provider_profiles pp
+      JOIN districts d ON pp.district_id = d.id
+      JOIN provinces p ON d.province_id = p.id
+      JOIN categories c ON pp.primary_category_id = c.id
+      WHERE pp.is_published = true
+      ORDER BY pp.rating_avg DESC NULLS LAST
+      LIMIT 3
+    `)
+    providers = res.rows
+
+    const mapResult = await db.query(`
+      SELECT pp.profile_id::text as id, pp.slug, pp.business_name as name, pp.headline,
+             c.name as category_name, coalesce(c.icon, '⚙') as category_icon,
+             c.slug as category_slug, d.name as district_name,
+             pp.rating_avg::float8 as rating, pp.rating_count,
+             (pp.verification = 'approved') as verified,
+             pp.is_available,
+             pp.lat::float8 as lat, pp.lng::float8 as lng,
+             (select min(ps.price_min) from provider_services ps
+               where ps.provider_id = pp.profile_id and ps.is_active = true)::float8 as price_min
+      FROM provider_profiles pp
+      JOIN districts d ON pp.district_id = d.id
+      JOIN provinces p ON d.province_id = p.id
+      JOIN categories c ON pp.primary_category_id = c.id
+      WHERE pp.is_published = true and pp.lat is not null and pp.lng is not null
+      ORDER BY pp.rating_avg DESC NULLS LAST
+      LIMIT 12
+    `)
+    mapProviders = mapResult.rows.map((row: Record<string, unknown>) => ({
+      id: String(row.id),
+      slug: String(row.slug),
+      name: String(row.name),
+      headline: row.headline == null ? null : String(row.headline),
+      categoryName: row.category_name == null ? null : String(row.category_name),
+      categoryIcon: row.category_icon == null ? null : String(row.category_icon),
+      categorySlug: row.category_slug == null ? null : String(row.category_slug),
+      districtName: row.district_name == null ? null : String(row.district_name),
+      rating: Number(row.rating) || 0,
+      ratingCount: Number(row.rating_count) || 0,
+      verified: Boolean(row.verified),
+      available: Boolean(row.is_available),
+      featured: false,
+      lat: Number(row.lat),
+      lng: Number(row.lng),
+      distanceKm: null,
+      priceMin: row.price_min == null ? null : Number(row.price_min),
+    }))
+
+    const statsRes = await db.query<{ providers: number; verified: number; rating: number }>(`
+      SELECT count(*)::int as providers,
+             count(*) filter (where verification = 'approved')::int as verified,
+             coalesce(round(avg(rating_avg) filter (where rating_count > 0), 1), 0) as rating
+      FROM provider_profiles
+      WHERE is_published = true
+    `)
+    stats = statsRes.rows[0] ?? stats
+  } catch (error) {
+    console.error('Aviso: Falha ao obter prestadores na página inicial:', error)
+  }
+
+  return (
+    <>
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+        <symbol id="selo" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10.5" fill="#FFC61A" stroke="#12163A" strokeWidth="2" />
+          <circle cx="12" cy="12" r="7.6" fill="none" stroke="#12163A" strokeWidth="1" strokeDasharray="2 1.6" />
+          <path d="M7.6 12.4l3 3 5.8-6.4" fill="none" stroke="#12163A" strokeWidth="2.4" strokeLinecap="square" />
+        </symbol>
+      </svg>
+
+      <nav className="nav nav--flush">
+        <div className="shell" style={{ display: 'flex', alignItems: 'center', gap: 26, width: '100%' }}>
+          <Link href="/" className="placa pb sm" style={{ transform: 'none' }}>Bué de Mestres</Link>
+          <Link href="/">Mapa</Link>
+          <Link href="#como-funciona">Como funciona</Link>
+          <Link href="#para-mestres">Para mestres</Link>
+          <Link href="/ajuda">Ajuda</Link>
+          <Link href="/apps/cliente/entrar">Entrar (cliente)</Link>
+          <Link href="/entrar">Equipa</Link>
+          <Link href="/registar?redirect=/pro/activar" className="btn b1 s">Criar a minha placa</Link>
+        </div>
+      </nav>
+
+      <div className="shell">
+        <section aria-label="Início" className="hero">
+          <div className="hero-copy">
+            <p className="kicker">Moçambique · Ofícios verificados</p>
+            <h1 className="h1">Precisas de um mestre? Bué deles, no teu bairro.</h1>
+            <p className="hero-sub">
+              Descreves o que precisas, o mestre mais perto aceita e tu pagas só depois
+              do serviço feito.
+            </p>
+            <form className="search search--row" action="/" method="GET">
+              <div>
+                <label className="lbl" htmlFor="q1">Preciso de</label>
+                <input className="inp" id="q1" name="q" placeholder="mecânico, explicador de Matemática…" required />
+              </div>
+              <div>
+                <label className="lbl" htmlFor="w1">Onde</label>
+                <input className="inp" id="w1" name="onde" defaultValue="Polana, Maputo" required />
+              </div>
+              <button type="submit" className="btn b1">Procurar mestres</button>
+            </form>
+            <div style={{ marginTop: '16px' }}>
+              <Link href="/chamar" className="btn hover:scale-105 transition-transform" style={{ backgroundColor: '#e53e3e', color: 'white', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '16px' }}>
+                <span style={{ fontSize: '24px' }}>🚨</span> CHAMAR AGORA (URGÊNCIA)
+              </Link>
+            </div>
+            <ul className="hero-stats">
+              <li><b>{stats.providers}</b><span>mestres registados</span></li>
+              <li><b>{stats.verified}</b><span>mestres verificados</span></li>
+              <li><b>{Number(stats.rating) > 0 ? Number(stats.rating).toFixed(1) : '—'}</b><span>avaliação média</span></li>
+            </ul>
+          </div>
+
+          <Link href="/" className="wall block" aria-label="Ofícios">
+            <div className="placa pb hover:scale-105 transition-transform" style={{ gridColumn: 'span 7', gridRow: 'span 2', '--r': '-.6deg', '--i': 0, fontSize: '58px' } as React.CSSProperties}>Mecânico<small>Pneus, travões, electricidade auto</small></div>
+            <div className="placa py hover:scale-105 transition-transform" style={{ gridColumn: 'span 5', gridRow: 'span 1', '--r': '.7deg', '--i': 1 } as React.CSSProperties}>Explicador<small>Todas as classes</small></div>
+            <div className="placa po hover:scale-105 transition-transform" style={{ gridColumn: 'span 5', gridRow: 'span 2', '--r': '.5deg', '--i': 2, fontSize: '44px' } as React.CSSProperties}>Carpinteiro<small>Portas e móveis</small></div>
+            <div className="placa pp hover:scale-105 transition-transform" style={{ gridColumn: 'span 4', '--r': '-.5deg', '--i': 3, fontSize: '34px' } as React.CSSProperties}>Pedreiro</div>
+            <div className="placa pb hover:scale-105 transition-transform" style={{ gridColumn: 'span 8', '--r': '.4deg', '--i': 4 } as React.CSSProperties}>Electricista<small>Instalações e avarias</small></div>
+            <div className="placa pp hover:scale-105 transition-transform" style={{ gridColumn: 'span 7', '--r': '-.4deg', '--i': 5, fontSize: '34px' } as React.CSSProperties}>Canalizador</div>
+          </Link>
+        </section>
+
+        <h2 className="h2 h2s h2s--flush">Mestres verificados perto de ti</h2>
+        <div className="cards cards--flush">
+          {providers.length > 0 ? (
+            providers.map((p) => (
+              <Link href={`/mestre/${p.slug}`} key={p.slug} className="ficha block cursor-pointer hover:shadow-lg transition-shadow">
+                <div className={`placa ${p.color_class}`} style={{ transform: 'none' }}>{p.category_name}<small>{p.headline}</small></div>
+                <div className="fi">
+                  <h3>{p.business_name}</h3>
+                  <div className="rt"><b>{p.rating_avg}</b><span>{p.rating_count} avaliações</span></div>
+                  <p className="mut">{p.district_name}</p>
+                  {p.verification === 'approved' && (
+                    <div className="tags">
+                      <svg className="selo"><use href="#selo"/></svg>Verificado
+                    </div>
+                  )}
+                  <p className="pr">Ver perfil</p>
+                </div>
+                <div className="acts">
+                  <span className="btn b1 s">Chamar agora</span>
+                </div>
+              </Link>
+            ))
+          ) : (
+            <p>Nenhum mestre encontrado.</p>
+          )}
+        </div>
+
+        <section className="home-map-section" id="mapa">
+          <div className="home-map-head">
+            <div>
+              <h2 className="h2 h2s h2s--flush">Mestres no mapa</h2>
+              <p>Profissionais publicados com localização disponível.</p>
+            </div>
+            <Link href="/" className="btn b1 s">Abrir mapa</Link>
+          </div>
+          <HomeMap providers={mapProviders} />
+        </section>
+      </div>
+
+      <div className="ads-home">
+        <AdsRail />
+      </div>
+
+      <div className="shell">
+        <h2 id="como-funciona" className="h2 h2s h2s--flush">Como funciona</h2>
+        <div className="how">
+          <div><b>1</b><h3>Descreve o que precisas</h3><p>Indica o problema e onde estás. Se for urgente, o pedido segue logo para os mestres mais próximos.</p></div>
+          <div><b>2</b><h3>Um mestre aceita</h3><p>Vês quem é, a avaliação e a chegada no mapa. O preço é combinado na aplicação.</p></div>
+          <div><b>3</b><h3>Pagas e avalias</h3><p>O valor fica retido até confirmares o serviço. Depois, avalias o mestre.</p></div>
+        </div>
+
+        <div id="para-mestres" className="placa py band" style={{ transform: 'rotate(-.5deg)' }}>
+          Tens um ofício? Cria a tua placa.
+          <Link href="/registar?redirect=/pro/activar" className="btn b1 ml-4">Criar a minha placa</Link>
+        </div>
+      </div>
+
+      <div className="strip"></div>
+
+      <footer className="foot">
+        <div className="shell foot-in">
+          <span>Bué de Mestres</span>
+          <span style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+            <Link href="/termos">Termos</Link>
+            <Link href="/privacidade">Privacidade</Link>
+            <Link href="/faq">FAQ</Link>
+            <Link href="/ajuda">Ajuda</Link>
+          </span>
+        </div>
+      </footer>
+    </>
+  )
+}
