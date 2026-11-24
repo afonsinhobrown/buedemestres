@@ -278,6 +278,13 @@
 .bdm-service-links { display: grid; gap: 6px; }
 .bdm-service-links a { color: var(--bdm-blue); font-size: 12px; font-weight: 650; text-decoration: none; }
 .bdm-service-links a:hover, .bdm-mini-links a:hover { text-decoration: underline; }
+.bdm-session { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 999px; background: var(--bdm-bg); border: 1px solid var(--bdm-line); max-width: 250px; }
+.bdm-session strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--bdm-ink); }
+.bdm-role-badge { flex-shrink: 0; background: var(--bdm-yellow); color: #13294a; border-radius: 999px; padding: 4px 8px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; }
+.bdm-logout { background: transparent; border: 0; color: var(--bdm-muted); font-size: 12px; font-weight: 700; cursor: pointer; padding: 4px; }
+.bdm-logout:hover { color: #bf3a21; }
+.bdm-mobile-nav button { white-space: nowrap; font-size: 11px; font-weight: 700; color: #bf3a21; text-decoration: none; padding: 7px 10px; border-radius: 999px; background: #fff1ef; border: 0; cursor: pointer; }
+.bdm-mobile-session { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 11px; font-weight: 800; color: var(--bdm-ink); padding: 7px 10px; border-radius: 999px; background: #fff8df; }
 
 .bdm-app { flex: 1; min-height: 0; width: 100%; max-width: 1800px; margin: 0 auto; padding: 16px 18px 18px; display: grid; grid-template-columns: 245px minmax(420px, 1fr) 270px; gap: 14px; }
 .bdm-panel { background: #fff; border: 1px solid var(--bdm-line); border-radius: 17px; box-shadow: 0 2px 8px rgba(16, 43, 85, .04); overflow: hidden; }
@@ -388,6 +395,7 @@
   .bdm-brand-mark { width: 35px; height: 35px; font-size: 20px; }
   .bdm-brand-name { font-size: 17px; }
   .bdm-brand-name small, .bdm-location-top, .bdm-top-link { display: none; }
+  .bdm-top-actions .bdm-session, .bdm-top-actions form { display: none; }
   .bdm-top-actions { gap: 8px; }
   .bdm-top-cta { padding: 10px 12px; font-size: 11px; }
   .bdm-mobile-nav { display: flex; gap: 6px; overflow-x: auto; padding: 8px 13px; background: #fff; border-bottom: 1px solid var(--bdm-line); flex-shrink: 0; }

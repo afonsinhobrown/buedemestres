@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { db } from '@/lib/db'
-import { getOptionalSession } from '@/lib/session'
+import { getViewer } from '@/lib/viewer'
 import { ads } from '@/lib/ads'
 import SearchExperience, { type SearchCategory } from '@/components/search/SearchExperience'
 import type { SearchMapProvider } from '@/components/search/SearchMap'
@@ -95,7 +95,7 @@ export default async function ResultadosPage({ searchParams }: { searchParams: S
     priceMin: row.price_min == null ? null : Number(row.price_min),
   }))
 
-  const session = await getOptionalSession()
+  const viewer = await getViewer()
   const ad = ads[0]
   const adProp = ad
     ? { src: ad.src, alt: ad.alt, label: ad.label, width: ad.width, height: ad.height, href: ad.href }
@@ -108,7 +108,7 @@ export default async function ResultadosPage({ searchParams }: { searchParams: S
       query={query}
       place={place}
       selectedCategory={selectedCategory}
-      signedIn={Boolean(session?.userId)}
+      viewer={viewer ? { role: viewer.role, name: viewer.name } : null}
       ad={adProp}
     />
   )

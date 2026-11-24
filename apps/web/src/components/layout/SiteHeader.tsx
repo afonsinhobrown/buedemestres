@@ -1,6 +1,12 @@
 import Link from 'next/link'
+import { logoutAction } from '@/app/actions/auth'
+import { roleLabel, roleLinks } from '@/lib/role-nav'
+import { getViewer } from '@/lib/viewer'
 
-export function SiteHeader() {
+export async function SiteHeader() {
+  const viewer = await getViewer()
+  const links = viewer ? roleLinks(viewer.role) : []
+
   return (
     <div className="site-chrome">
       <header className="bdm-topbar">
@@ -13,24 +19,58 @@ export function SiteHeader() {
         </Link>
         <div className="bdm-top-actions">
           <Link href="/" className="bdm-top-link">Mapa</Link>
-          <Link href="/chamar" className="bdm-top-link bdm-top-link--optional">Chamar agora</Link>
-          <Link href="/trabalhos" className="bdm-top-link">Trabalhos</Link>
-          <Link href="/pedidos" className="bdm-top-link bdm-top-link--optional">Pedidos</Link>
-          <Link href="/pro/trabalhos" className="bdm-top-link bdm-top-link--optional">Área do mestre</Link>
-          <Link href="/ajuda" className="bdm-top-link">Ajuda</Link>
-          <Link href="/entrar" className="bdm-top-link">Entrar</Link>
-          <Link href="/registar" className="bdm-top-cta">Criar conta</Link>
+          {viewer ? (
+            <>
+              {links.map((link, index) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`bdm-top-link ${index > 2 ? 'bdm-top-link--optional' : ''}`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+              <div className="bdm-session">
+                <span className="bdm-role-badge">{roleLabel(viewer.role)}</span>
+                <strong>{viewer.name}</strong>
+              </div>
+              <form action={logoutAction}>
+                <button type="submit" className="bdm-logout">Sair</button>
+              </form>
+            </>
+          ) : (
+            <>
+              <Link href="/como-funciona" className="bdm-top-link bdm-top-link--optional">Como funciona</Link>
+              <Link href="/ajuda" className="bdm-top-link">Ajuda</Link>
+              <Link href="/entrar" className="bdm-top-link">Entrar</Link>
+              <Link href="/registar" className="bdm-top-cta">Criar conta</Link>
+            </>
+          )}
         </div>
       </header>
       <nav className="bdm-mobile-nav" aria-label="Serviços">
         <Link href="/">Mapa</Link>
-        <Link href="/chamar">Chamar agora</Link>
-        <Link href="/trabalhos">Trabalhos</Link>
-        <Link href="/pedidos">Pedidos</Link>
-        <Link href="/pro/trabalhos">Área do mestre</Link>
-        <Link href="/notificacoes">Notificações</Link>
-        <Link href="/ajuda">Ajuda</Link>
-        <Link href="/como-funciona">Como funciona</Link>
+        {viewer ? (
+          <>
+            <span className="bdm-mobile-session">
+              <span className="bdm-role-badge">{roleLabel(viewer.role)}</span>
+              {viewer.name}
+            </span>
+            {links.map((link) => (
+              <Link key={link.href} href={link.href}>{link.label}</Link>
+            ))}
+            <form action={logoutAction}>
+              <button type="submit">Sair</button>
+            </form>
+          </>
+        ) : (
+          <>
+            <Link href="/chamar">Chamar agora</Link>
+            <Link href="/como-funciona">Como funciona</Link>
+            <Link href="/ajuda">Ajuda</Link>
+            <Link href="/entrar">Entrar</Link>
+          </>
+        )}
       </nav>
     </div>
   )
