@@ -3,7 +3,17 @@
 import React, { useState } from 'react';
 import { requestServiceAction } from '@/app/actions/jobs';
 
-export default function RequestServiceModal({ providerId, providerName }: { providerId: string, providerName: string }) {
+export default function RequestServiceModal({
+  providerId,
+  providerName,
+  defaultLat,
+  defaultLng,
+}: {
+  providerId: string
+  providerName: string
+  defaultLat?: number | null
+  defaultLng?: number | null
+}) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -27,6 +37,8 @@ export default function RequestServiceModal({ providerId, providerName }: { prov
             
             <form action={requestServiceAction} className="flex flex-col gap-4">
               <input type="hidden" name="providerId" value={providerId} />
+              {defaultLat != null && <input type="hidden" name="lat" value={defaultLat} />}
+              {defaultLng != null && <input type="hidden" name="lng" value={defaultLng} />}
               
               <div className="flex flex-col gap-1">
                 <label className="font-bold text-sm">O seu Nome</label>

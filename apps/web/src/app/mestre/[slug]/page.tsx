@@ -1,82 +1,203 @@
-import React from 'react';
-import Link from 'next/link';
-import { db } from '@/lib/db';
-import { notFound } from 'next/navigation';
-import RequestServiceModal from '@/components/RequestServiceModal';
+import { notFound } from 'next/navigation'
+import Link from 'next/link'
+import { db } from '@/lib/db'
+import RequestServiceModal from '@/components/RequestServiceModal'
+import HomeMap from '@/components/search/HomeMap'
+import type { SearchMapProvider } from '@/components/search/SearchMap'
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
 
-export default async function MestreProfilePage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+type ProfileService = {
+  id: string
+  title: string
+  description: string | null
+  price_type: 'fixed' | 'hourly' | 'from' | 'quote'
+  price_min: string | number | null
+  price_max: string | number | null
+  category_name: string | null
+}
 
+type ProfileReview = {
+  id: string
+  rating: number
+  comment: string | null
+  created_at: string | Date
+  client_name: string | null
+}
+
+function money(value: string | number | null): string | null {
+  if (value == null) return null
+  const amount = Number(value)
+  if (!Number.isFinite(amount)) return null
+  return `${new Intl.NumberFormat('pt-MZ', { maximumFractionDigits: 0 }).format(amount)} MT`
+}
+
+function servicePrice(service: ProfileService): string {
+  const min = money(service.price_min)
+  const max = money(service.price_max)
+  if (service.price_type === 'quote' || (!min && !max)) return 'Sob orçamento'
+  if (service.price_type === 'hourly') return `${min ?? max}/hora`
+  if (service.price_type === 'from') return `A partir de ${min ?? max}`
+  if (min && max && min !== max) return `${min} – ${max}`
+  return min ?? max ?? 'Sob orçamento'
+}
+
+export default async function MasterProfilePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
   const res = await db.query(`
-    SELECT pp.*, 
-           c.name as category_name,
-           d.name as district_name
+    SELECT pp.*, d.name as district_name, p.name as province_name, c.name as category_name,
+           coalesce(c.icon, '⚙') as category_icon, c.slug as category_slug
     FROM provider_profiles pp
-    LEFT JOIN categories c ON pp.primary_category_id = c.id
     LEFT JOIN districts d ON pp.district_id = d.id
-    WHERE pp.slug = $1
-  `, [slug]);
+    LEFT JOIN provinces p ON d.province_id = p.id
+    LEFT JOIN categories c ON pp.primary_category_id = c.id
+    WHERE pp.slug = $1 AND pp.is_published = true
+    LIMIT 1
+  `, [slug])
 
-  const provider = res.rows[0];
+  const row = (res.rows as any[])[0]
+  if (!row) notFound()
 
-  if (!provider) {
-    notFound();
-  }
+  const servicesRes = await db.query(`
+    SELECT ps.id, ps.title, ps.description, ps.price_type, ps.price_min, ps.price_max,
+           c.name as category_name
+    FROM provider_services ps
+    LEFT JOIN categories c ON c.id = ps.category_id
+    WHERE ps.provider_id = $1 AND ps.is_active = true
+    ORDER BY ps.price_min ASC NULLS LAST, ps.title ASC
+  `, [row.profile_id])
+  const services = servicesRes.rows as ProfileService[]
 
-  // Determine color based on category
-  let colorClass = 'pb';
-  if (provider.category_name?.toLowerCase().includes('explica')) colorClass = 'py';
-  if (provider.category_name?.toLowerCase().includes('carpint')) colorClass = 'po';
-  if (provider.category_name?.toLowerCase().includes('pedre')) colorClass = 'pp';
+  const reviewsRes = await db.query(`
+    SELECT r.id, r.rating, r.comment, r.created_at, pr.name as client_name
+    FROM reviews r
+    LEFT JOIN profiles pr ON pr.id = r.client_id
+    WHERE r.provider_id = $1 AND r.is_hidden = false
+    ORDER BY r.created_at DESC
+    LIMIT 10
+  `, [row.profile_id])
+  const reviews = reviewsRes.rows as ProfileReview[]
+
+  const mapRow: SearchMapProvider | null = row.lat != null && row.lng != null
+    ? {
+        id: String(row.profile_id),
+        slug: String(row.slug),
+        name: String(row.business_name),
+        headline: row.headline == null ? null : String(row.headline),
+        categoryName: row.category_name == null ? null : String(row.category_name),
+        categoryIcon: row.category_icon == null ? null : String(row.category_icon),
+        categorySlug: row.category_slug == null ? null : String(row.category_slug),
+        districtName: row.district_name == null ? null : String(row.district_name),
+        rating: Number(row.rating_avg) || 0,
+        ratingCount: Number(row.rating_count) || 0,
+        verified: row.verification === 'approved',
+        available: Boolean(row.is_available),
+        featured: false,
+        lat: Number(row.lat),
+        lng: Number(row.lng),
+        distanceKm: null,
+        priceMin: services.reduce<number | null>((min, service) => {
+          if (service.price_min == null) return min
+          const value = Number(service.price_min)
+          return Number.isFinite(value) && (min == null || value < min) ? value : min
+        }, null),
+      }
+    : null
 
   return (
-    <div className="bg-bg min-h-screen pb-12">
-      <nav className="nav" style={{ background: 'rgba(252,250,248,0.85)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 10 }}>
-        <Link href="/" className="placa pb sm" style={{ transform: 'none' }}>Bué de Mestres</Link>
-        <span className="sp"></span>
-        <Link href="/resultados">Procurar</Link>
-        <Link href="/registar?redirect=/pro/activar" className="btn b1 s">Criar a minha placa</Link>
+    <>
+      <nav className="nav nav--flush">
+        <div className="shell" style={{ display: 'flex', alignItems: 'center', gap: 26, width: '100%' }}>
+          <Link href="/" className="placa pb sm" style={{ transform: 'none' }}>Bué de Mestres</Link>
+          <Link href="/resultados">Voltar à pesquisa</Link>
+          <Link href="/apps/cliente/entrar">Entrar (cliente)</Link>
+          <Link href="/registar?redirect=/pro/activar" className="btn b1 s">Criar a minha placa</Link>
+        </div>
       </nav>
 
-      <div className="max-w-[800px] mx-auto mt-8 px-4">
-        <Link href="/resultados" className="text-[#2444C8] hover:underline mb-4 inline-block font-bold">
-          &larr; Voltar à Pesquisa
-        </Link>
-        
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="p-8">
-            <div className={`placa ${colorClass} mb-6`} style={{ transform: 'rotate(-1deg)', display: 'inline-block' }}>
-              {provider.category_name}
-            </div>
-            
-            <h1 className="h1 mb-2" style={{ fontSize: '2.5rem' }}>{provider.business_name}</h1>
-            <p className="text-xl text-gray-700 mb-4">{provider.headline}</p>
+      <main className="shell" style={{ paddingTop: 28, paddingBottom: 56 }}>
+        <Link href="/resultados" className="btn b2 s">← Voltar</Link>
 
-            <div className="flex gap-6 mb-8 text-sm text-gray-600">
-              <div className="rt"><b>{provider.rating_avg}</b><span>{provider.rating_count} avaliações</span></div>
-              <div className="flex items-center gap-1">📍 {provider.district_name}, {provider.address}</div>
-              {provider.verification === 'approved' && (
-                <div className="text-green-700 font-bold flex items-center gap-1">
-                  ✓ Perfil Verificado
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-4">
-              <RequestServiceModal providerId={provider.profile_id} providerName={provider.business_name} />
+        <section className="master-hero">
+          <div className={`placa ${row.color_class || 'pb'}`} style={{ transform: 'none', minWidth: 180 }}>
+            {row.category_name || 'Mestre'}
+          </div>
+          <div>
+            <h1 className="h1">{row.business_name}</h1>
+            <p className="mut">{row.headline}</p>
+            <p className="mut">{row.district_name || 'Maputo'} {row.province_name ? `· ${row.province_name}` : ''}</p>
+            <div className="tags">
+              <span>★ {Number(row.rating_avg || 0).toFixed(1)} ({row.rating_count || 0})</span>
+              {row.verification === 'approved' && <span>Verificado</span>}
+              {row.is_available && <span>Disponível agora</span>}
             </div>
           </div>
-          
-          <div className="border-t border-gray-100 p-8 bg-gray-50">
-            <h2 className="h2 mb-4 text-xl">Sobre o Mestre</h2>
-            <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-              {provider.bio || "Este profissional ainda não adicionou uma descrição detalhada."}
-            </p>
-          </div>
+          <RequestServiceModal
+            providerId={row.profile_id}
+            providerName={row.business_name}
+            defaultLat={row.lat}
+            defaultLng={row.lng}
+          />
+        </section>
+
+        <div className="master-extra">
+          <section>
+            <h2 className="h2 h2s h2s--flush">Sobre o Mestre</h2>
+            <p className="mut">{row.bio || 'Este mestre ainda não escreveu a sua descrição.'}</p>
+          </section>
+
+          <section>
+            <h2 className="h2 h2s h2s--flush">Serviços e preços</h2>
+            {services.length === 0 ? (
+              <p className="mut">Este mestre ainda não publicou serviços. Pede um orçamento.</p>
+            ) : (
+              <div className="service-list">
+                {services.map((service) => (
+                  <div className="service-row" key={service.id}>
+                    <div>
+                      <strong>{service.title}</strong>
+                      {service.category_name && <span className="mut"> · {service.category_name}</span>}
+                      {service.description && <p className="mut">{service.description}</p>}
+                    </div>
+                    <b>{servicePrice(service)}</b>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section>
+            <h2 className="h2 h2s h2s--flush">Avaliações</h2>
+            {reviews.length === 0 ? (
+              <p className="mut">Ainda sem avaliações publicadas.</p>
+            ) : (
+              <div className="review-list">
+                {reviews.map((review) => (
+                  <div className="review" key={review.id}>
+                    <div className="review-top">
+                      <span className="stars">{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</span>
+                      <span className="mut">{review.client_name || 'Cliente'}</span>
+                      <span className="mut">
+                        {new Date(review.created_at).toLocaleDateString('pt-MZ', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </span>
+                    </div>
+                    {review.comment && <p>{review.comment}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section>
+            <h2 className="h2 h2s h2s--flush">Onde encontrar</h2>
+            {mapRow ? (
+              <HomeMap providers={[mapRow]} />
+            ) : (
+              <p className="mut">Este mestre ainda não partilhou a sua localização no mapa.</p>
+            )}
+          </section>
         </div>
-      </div>
-    </div>
-  );
+      </main>
+    </>
+  )
 }

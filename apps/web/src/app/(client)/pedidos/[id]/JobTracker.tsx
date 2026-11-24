@@ -1,8 +1,20 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { checkDirectJobStatus, cancelJobByClient, type RefundDestination } from './actions'
+import dynamic from 'next/dynamic'
+import {
+  checkDirectJobStatus,
+  cancelJobByClient,
+  getJobTrackingDetails,
+  type RefundDestination,
+  type JobTrackingDetails,
+} from './actions'
 import Link from 'next/link'
+
+const TrackingMapDynamic = dynamic(() => import('@/components/TrackingMap'), {
+  ssr: false,
+  loading: () => <div className="tracking-map-loading">A carregar mapa em tempo real…</div>,
+})
 
 const PENDING = ['pending', 'requested', 'open', 'in_negotiation']
 const IN_PROGRESS = [
@@ -18,6 +30,15 @@ const IN_PROGRESS = [
   'awaiting_confirmation',
 ]
 const FINISHED = ['completed', 'cancelled', 'expired', 'disputed']
+
+const PAYMENT_LABELS: Record<string, string> = {
+  pending_payment: 'Por pagar',
+  held: 'Valor retido',
+  released: 'Pagamento libertado',
+  refunded: 'Estornado',
+  partially_refunded: 'Parcialmente estornado',
+  disputed: 'Em disputa',
+}
 
 function phaseOf(status: string): 'pending' | 'in_progress' | 'finished' {
   if (PENDING.includes(status)) return 'pending'
@@ -42,12 +63,22 @@ function messageFor(status: string) {
   }
 }
 
+function money(value: string | number | null | undefined): string | null {
+  if (value == null) return null
+  const amount = Number(value)
+  if (!Number.isFinite(amount)) return null
+  return `${new Intl.NumberFormat('pt-MZ', { maximumFractionDigits: 0 }).format(amount)} MT`
+}
+
 const CANCELABLE = ['price_agreed', 'en_route', 'arrived']
 
 export default function JobTracker({ jobId }: { jobId: string }) {
   const [status, setStatus] = useState<string>('pending')
+  const [details, setDetails] = useState<JobTrackingDetails | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState(false)
+  const [paymentError, setPaymentError] = useState<string | null>(null)
 
   const handleCancel = async (destination: RefundDestination) => {
     setCancelling(true)
@@ -56,16 +87,59 @@ export default function JobTracker({ jobId }: { jobId: string }) {
     setCancelling(false)
     if (res.ok) {
       setStatus('cancelled')
+      setDetails((current) => current ? { ...current, status: 'cancelled', payment_status: 'refunded' } : current)
     } else {
       setCancelError(res.error ?? 'Não foi possível cancelar o pedido.')
     }
   }
+
+  const handleConfirm = async () => {
+    setConfirming(true)
+    setPaymentError(null)
+    try {
+      const response = await fetch('/api/payments/release', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: details?.id ?? jobId }),
+      })
+      const result = await response.json()
+      if (!response.ok || !result.ok) {
+        setPaymentError(result.error ?? 'Não foi possível libertar o pagamento.')
+        return
+      }
+      setStatus('completed')
+      setDetails((current) => current ? { ...current, status: 'completed', payment_status: 'released' } : current)
+    } catch {
+      setPaymentError('Serviço de pagamentos indisponível. Tenta novamente.')
+    } finally {
+      setConfirming(false)
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false
+    const loadDetails = async () => {
+      const data = await getJobTrackingDetails(jobId)
+      if (cancelled || !data) return
+      setDetails(data)
+      setStatus(data.status)
+    }
+    loadDetails()
+    return () => { cancelled = true }
+  }, [jobId])
 
   useEffect(() => {
     if (FINISHED.includes(status)) return
 
     let cancelled = false
     const tick = async () => {
+      const data = await getJobTrackingDetails(jobId)
+      if (cancelled) return
+      if (data) {
+        setDetails(data)
+        if (data.status) setStatus(data.status)
+        return
+      }
       const currentStatus = await checkDirectJobStatus(jobId)
       if (!cancelled && currentStatus) setStatus(currentStatus)
     }
@@ -80,64 +154,94 @@ export default function JobTracker({ jobId }: { jobId: string }) {
   }, [jobId, status])
 
   const phase = phaseOf(status)
+  const amount = money(details?.agreed_amount ?? details?.payment_amount)
 
   return (
-    <div style={{ backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '8px', padding: '24px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginTop: '32px' }}>
+    <div className="tracking-shell">
+      {details && (
+        <div className="tracking-summary">
+          <div>
+            <span>Mestre</span>
+            <strong>{details.provider_name}</strong>
+            {details.provider_slug && (
+              <Link href={`/mestre/${details.provider_slug}`}>Ver perfil do mestre</Link>
+            )}
+          </div>
+          <div>
+            <span>Serviço</span>
+            <strong>{details.category_name || 'Serviço sob consulta'}</strong>
+          </div>
+          <div>
+            <span>Valor</span>
+            <strong>{amount || 'Por combinar'}</strong>
+          </div>
+          <div>
+            <span>Pagamento</span>
+            <strong>{details.payment_status ? PAYMENT_LABELS[details.payment_status] || details.payment_status : 'Sem registo'}</strong>
+          </div>
+          <div>
+            <span>Local</span>
+            <strong>{[details.address, details.district_name].filter(Boolean).join(' · ') || 'Por confirmar'}</strong>
+          </div>
+        </div>
+      )}
+
+      {details?.lat != null && details?.lng != null && (
+        <div className="tracking-map-panel">
+          <TrackingMapDynamic jobId={details.id} initialLat={details.lat} initialLng={details.lng} />
+        </div>
+      )}
 
       {phase === 'pending' && (
-        <div style={{ textAlign: 'center', padding: '40px 0' }}>
-          <div style={{ width: '64px', height: '64px', backgroundColor: '#e0f2fe', color: '#0284c7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px auto' }}>
-             <svg style={{ width: '32px', height: '32px', animation: 'spin 1s linear infinite' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/>
+        <div className="tracking-state">
+          <div className="tracking-icon tracking-icon--blue">
+            <svg style={{ width: '32px', height: '32px', animation: 'spin 1s linear infinite' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
               <path d="M12 2a10 10 0 0 1 10 10" />
             </svg>
           </div>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold' }}>A contactar o Mestre...</h2>
-          <p style={{ color: '#666', marginTop: '16px', lineHeight: '1.5' }}>
-            O seu pedido tocou no telemóvel do Mestre.<br/>
+          <h2>A contactar o Mestre...</h2>
+          <p>
+            O seu pedido tocou no telemóvel do Mestre.<br />
             Aguarde que ele aceite o serviço.
           </p>
         </div>
       )}
 
       {phase === 'in_progress' && (
-        <div style={{ textAlign: 'center', padding: '40px 0' }}>
-          <div style={{ width: '64px', height: '64px', backgroundColor: '#dcfce7', color: '#16a34a', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px auto' }}>
+        <div className="tracking-state">
+          <div className="tracking-icon tracking-icon--green">
             <svg style={{ width: '32px', height: '32px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
           </div>
-
-          <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: '#047857' }}>
+          <h2 className="tracking-title--green">
             {status === 'awaiting_confirmation' ? 'Serviço terminado!' : 'Pedido Aceite!'}
           </h2>
-          <p style={{ color: '#666', marginTop: '16px', fontSize: '18px' }}>
-            {messageFor(status)}
-          </p>
+          <p>{messageFor(status)}</p>
+
+          {details?.payment_status === 'pending_payment' && (
+            <p className="tracking-note">O pagamento ainda não foi iniciado. Confirma o serviço na app do mestre quando combinarem o valor.</p>
+          )}
+
+          {status === 'awaiting_confirmation' && details?.payment_status === 'held' && (
+            <div className="tracking-confirm">
+              {paymentError && <p className="tracking-error">{paymentError}</p>}
+              <button type="button" className="btn b1" disabled={confirming} onClick={handleConfirm}>
+                {confirming ? 'A libertar pagamento…' : 'Confirmar conclusão e pagar o mestre'}
+              </button>
+            </div>
+          )}
 
           {CANCELABLE.includes(status) && (
-            <div style={{ marginTop: '28px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
-              <p style={{ color: '#666', marginBottom: '12px' }}>
-                Tens urgência ou precisas de outro mestre? Podes cancelar e o valor retido é estornado.
-              </p>
-              {cancelError && (
-                <p style={{ color: '#dc2626', marginBottom: '12px' }}>{cancelError}</p>
-              )}
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  disabled={cancelling}
-                  onClick={() => handleCancel('wallet')}
-                  style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', backgroundColor: '#dc2626', color: 'white', cursor: 'pointer', opacity: cancelling ? 0.6 : 1 }}
-                >
+            <div className="tracking-cancel">
+              <p>Tens urgência ou precisas de outro mestre? Podes cancelar e o valor retido é estornado.</p>
+              {cancelError && <p className="tracking-error">{cancelError}</p>}
+              <div className="tracking-cancel-actions">
+                <button type="button" className="btn b2" disabled={cancelling} onClick={() => handleCancel('wallet')}>
                   {cancelling ? 'A cancelar…' : 'Cancelar → estornar à minha carteira'}
                 </button>
-                <button
-                  type="button"
-                  disabled={cancelling}
-                  onClick={() => handleCancel('paysuite')}
-                  style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #dc2626', backgroundColor: 'white', color: '#dc2626', cursor: 'pointer', opacity: cancelling ? 0.6 : 1 }}
-                >
+                <button type="button" className="btn b2" disabled={cancelling} onClick={() => handleCancel('paysuite')}>
                   Cancelar → devolver por M-Pesa/eMola
                 </button>
               </div>
@@ -147,33 +251,30 @@ export default function JobTracker({ jobId }: { jobId: string }) {
       )}
 
       {phase === 'finished' && status === 'completed' && (
-        <div style={{ textAlign: 'center', padding: '40px 0' }}>
-          <div style={{ width: '64px', height: '64px', backgroundColor: '#dcfce7', color: '#16a34a', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px auto' }}>
+        <div className="tracking-state">
+          <div className="tracking-icon tracking-icon--green">
             <svg style={{ width: '32px', height: '32px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
           </div>
-
-          <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: '#047857' }}>Serviço concluído</h2>
-          <p style={{ color: '#666', marginTop: '16px', fontSize: '18px' }}>
-            {messageFor(status)}
-          </p>
+          <h2 className="tracking-title--green">Serviço concluído</h2>
+          <p>{messageFor(status)}</p>
+          <Link href="/trabalhos" className="btn b1 s">Ver os meus trabalhos</Link>
         </div>
       )}
 
       {phase === 'finished' && status !== 'completed' && (
-        <div style={{ textAlign: 'center', padding: '40px 0' }}>
-          <div style={{ width: '64px', height: '64px', backgroundColor: '#fee2e2', color: '#dc2626', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px auto' }}>
+        <div className="tracking-state">
+          <div className="tracking-icon tracking-icon--red">
             <svg style={{ width: '32px', height: '32px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </div>
-
-          <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: '#dc2626' }}>
+          <h2 className="tracking-title--red">
             {status === 'disputed' ? 'Disputa em análise' : 'Pedido não concluído'}
           </h2>
-          <p style={{ color: '#666', marginTop: '16px', fontSize: '18px' }}>
+          <p>
             {status === 'disputed'
               ? 'O pagamento continua retido enquanto a equipa de apoio analisa o caso.'
               : 'Este pedido foi cancelado ou expirou. Pode tentar contactar outro mestre na plataforma.'}
@@ -181,8 +282,9 @@ export default function JobTracker({ jobId }: { jobId: string }) {
         </div>
       )}
 
-      <div style={{ textAlign: 'center', marginTop: '24px' }}>
-        <Link href="/" style={{ color: '#2563eb', textDecoration: 'underline' }}>Voltar à página inicial</Link>
+      <div className="tracking-footer">
+        <Link href="/">Voltar à página inicial</Link>
+        <Link href="/trabalhos">Os meus trabalhos</Link>
       </div>
 
       <style>{`

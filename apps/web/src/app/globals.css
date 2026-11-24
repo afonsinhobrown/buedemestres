@@ -397,3 +397,54 @@
   .bdm-master-card { min-width: 225px; padding: 10px; }
   .leaflet-bottom.leaflet-left, .leaflet-bottom.leaflet-right { bottom: 235px; }
 }
+
+.home-map-section { margin: 34px 0 10px; }
+.home-map-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.home-map-head p { margin: 4px 0 0; color: var(--color-muted); font-size: 14px; }
+.home-map-preview { height: 420px; border-radius: 18px; overflow: hidden; border: 1px solid var(--color-line); box-shadow: 0 10px 30px rgba(16,43,85,.08); }
+.home-map-preview .bdm-map-canvas { position: relative; }
+.home-map-empty { height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 1px dashed var(--color-line); border-radius: 18px; color: var(--color-muted); background: #fff; }
+.home-map-empty a { color: var(--color-cobalto); font-weight: 800; }
+@media (max-width: 700px) {
+  .home-map-head { display: block; }
+  .home-map-head .btn { margin-top: 12px; }
+  .home-map-preview { height: 340px; }
+}
+
+.master-hero { display: flex; align-items: center; gap: 24px; margin: 24px 0 32px; flex-wrap: wrap; }
+.master-hero > div:nth-child(2) { flex: 1; min-width: 260px; }
+.master-extra { display: grid; gap: 28px; }
+.master-extra section { padding-bottom: 24px; border-bottom: 1px solid var(--color-line); }
+.service-list, .review-list { display: grid; gap: 10px; margin-top: 14px; }
+.service-row { display: flex; justify-content: space-between; gap: 16px; padding: 14px 16px; background: #fff; border: 1px solid var(--color-line); border-radius: 14px; }
+.service-row p { margin: 4px 0 0; font-size: 13px; }
+.service-row > b { white-space: nowrap; color: var(--color-cobalto); }
+.review { padding: 14px 16px; background: #fff; border: 1px solid var(--color-line); border-radius: 14px; }
+.review-top { display: flex; align-items: center; gap: 12px; font-size: 12px; margin-bottom: 6px; }
+.review-top .stars { color: #f7b500; letter-spacing: 2px; font-size: 14px; }
+.review p { margin: 0; font-size: 14px; }
+.master-extra .home-map-preview { height: 300px; }
+
+.tracking-shell { background: #fff; border: 1px solid var(--color-line); border-radius: 14px; padding: 24px; box-shadow: 0 2px 10px rgba(16,43,85,.08); margin-top: 32px; }
+.tracking-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.tracking-summary > div { padding: 12px 14px; border-radius: 12px; background: var(--color-bg); display: flex; flex-direction: column; gap: 3px; }
+.tracking-summary span { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--color-muted); }
+.tracking-summary strong { font-size: 14px; }
+.tracking-summary a { color: var(--color-cobalto); font-size: 12px; text-decoration: underline; }
+.tracking-map-panel { height: 360px; border-radius: 14px; overflow: hidden; margin-bottom: 20px; z-index: 1; }
+.tracking-map-loading { height: 100%; display: flex; align-items: center; justify-content: center; background: var(--color-bg); color: var(--color-muted); }
+.tracking-state { text-align: center; padding: 28px 0; }
+.tracking-icon { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+.tracking-icon--blue { background: #e0f2fe; color: #0284c7; }
+.tracking-icon--green { background: #dcfce7; color: #16a34a; }
+.tracking-icon--red { background: #fee2e2; color: #dc2626; }
+.tracking-state h2 { font-size: 26px; font-weight: 800; }
+.tracking-state > p { color: var(--color-muted); margin-top: 14px; line-height: 1.5; }
+.tracking-title--green { color: #047857; }
+.tracking-title--red { color: #dc2626; }
+.tracking-note { margin-top: 16px; padding: 10px 12px; border-radius: 10px; background: #fff7ed; color: #9a3412; font-size: 13px; }
+.tracking-confirm, .tracking-cancel { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--color-line); }
+.tracking-error { color: #dc2626; margin-bottom: 12px; }
+.tracking-cancel-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
+.tracking-footer { display: flex; gap: 18px; justify-content: center; margin-top: 24px; font-size: 13px; }
+.tracking-footer a { color: var(--color-cobalto); text-decoration: underline; }

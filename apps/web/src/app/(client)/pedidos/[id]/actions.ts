@@ -47,3 +47,44 @@ export async function checkDirectJobStatus(identifier: string) {
 
   return normalizeRequestStatus(request.rows[0]?.status)
 }
+
+export type JobTrackingDetails = {
+  id: string
+  request_id: string | null
+  status: string
+  agreed_amount: string | null
+  provider_name: string
+  provider_slug: string | null
+  category_name: string | null
+  district_name: string | null
+  address: string | null
+  lat: number | null
+  lng: number | null
+  payment_status: string | null
+  payment_amount: string | null
+  scheduled_at: string | null
+  created_at: string
+}
+
+export async function getJobTrackingDetails(identifier: string): Promise<JobTrackingDetails | null> {
+  const { rows } = await db.query<JobTrackingDetails>(
+    `SELECT j.id::text, j.request_id::text, j.status, j.agreed_amount::text,
+            pp.business_name as provider_name, pp.slug as provider_slug,
+            c.name as category_name, d.name as district_name, sr.address,
+            coalesce(ST_Y(sr.location::geometry), pp.lat::float8)::float8 as lat,
+            coalesce(ST_X(sr.location::geometry), pp.lng::float8)::float8 as lng,
+            jp.status as payment_status, jp.amount::text as payment_amount,
+            j.scheduled_at::text, j.created_at::text
+       FROM jobs j
+       JOIN provider_profiles pp ON pp.profile_id = j.provider_id
+       LEFT JOIN service_requests sr ON sr.id = j.request_id
+       LEFT JOIN districts d ON d.id = sr.district_id
+       LEFT JOIN categories c ON c.id = sr.category_id
+       LEFT JOIN job_payments jp ON jp.job_id = j.id
+      WHERE j.id::text = $1 OR j.request_id::text = $1
+      LIMIT 1`,
+    [identifier]
+  )
+
+  return rows[0] ?? null
+}
