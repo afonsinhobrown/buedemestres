@@ -462,3 +462,45 @@
 .tracking-cancel-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
 .tracking-footer { display: flex; gap: 18px; justify-content: center; margin-top: 24px; font-size: 13px; }
 .tracking-footer a { color: var(--color-cobalto); text-decoration: underline; }
+
+.site-chrome {
+  --bdm-navy: #102b55;
+  --bdm-blue: #1d477c;
+  --bdm-yellow: #ffc400;
+  --bdm-ink: #14294a;
+  --bdm-muted: #718096;
+  --bdm-line: #e4eaf2;
+  --bdm-bg: #f5f7fa;
+  position: sticky;
+  top: 0;
+  z-index: 1300;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(16,43,85,.06);
+}
+body:has(.bdm-map-page) .site-chrome { display: none; }
+body:has(.bdm-map-page) .site-main { min-height: 100vh; }
+.site-main { min-height: calc(100vh - 72px); background: #f5f7fa; }
+.app-page-shell { width: 100%; }
+
+.new-page { max-width: 1120px; margin: 0 auto; padding: 46px 20px 76px; }
+.new-hero { max-width: 780px; margin-bottom: 34px; }
+.new-kicker { display: inline-block; color: var(--color-cobalto); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; }
+.new-hero h1 { margin: 12px 0 10px; font: 800 clamp(32px, 5vw, 58px)/1.03 var(--display); color: #102b55; letter-spacing: -.03em; }
+.new-hero p { max-width: 580px; color: #5b6472; font-size: 17px; line-height: 1.6; }
+.new-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 22px; }
+.new-secondary { color: #102b55; font-weight: 700; text-decoration: underline; }
+.new-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.new-card { background: #fff; border: 1px solid #e4eaf2; border-radius: 18px; padding: 22px; box-shadow: 0 8px 24px rgba(16,43,85,.06); }
+.new-step { width: 38px; height: 38px; border-radius: 12px; background: #ffc400; display: grid; place-items: center; font-weight: 900; color: #102b55; }
+.new-card h2 { margin: 18px 0 8px; font-size: 18px; color: #102b55; }
+.new-card p { margin: 0; color: #5b6472; font-size: 14px; line-height: 1.6; }
+.new-banner { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 28px; padding: 24px; border-radius: 20px; background: #102b55; color: #fff; }
+.new-banner h2 { margin: 0 0 5px; font-size: 24px; }
+.new-banner p { margin: 0; color: #d9e4f3; font-size: 14px; }
+@media (max-width: 700px) {
+  .site-main { min-height: calc(100vh - 58px); }
+  .new-page { padding: 28px 15px 56px; }
+  .new-grid { grid-template-columns: 1fr; }
+  .new-banner { display: block; }
+  .new-banner .bdm-top-cta { display: inline-block; margin-top: 16px; }
+}

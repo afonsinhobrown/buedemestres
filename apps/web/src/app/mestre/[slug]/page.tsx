@@ -106,15 +106,6 @@ export default async function MasterProfilePage({ params }: { params: Promise<{ 
 
   return (
     <>
-      <nav className="nav nav--flush">
-        <div className="shell" style={{ display: 'flex', alignItems: 'center', gap: 26, width: '100%' }}>
-          <Link href="/" className="placa pb sm" style={{ transform: 'none' }}>Bué de Mestres</Link>
-          <Link href="/resultados">Voltar à pesquisa</Link>
-          <Link href="/apps/cliente/entrar">Entrar (cliente)</Link>
-          <Link href="/registar?redirect=/pro/activar" className="btn b1 s">Criar a minha placa</Link>
-        </div>
-      </nav>
-
       <main className="shell" style={{ paddingTop: 28, paddingBottom: 56 }}>
         <Link href="/resultados" className="btn b2 s">← Voltar</Link>
 

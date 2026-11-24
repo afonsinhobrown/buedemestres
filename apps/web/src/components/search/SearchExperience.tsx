@@ -104,7 +104,7 @@ export default function SearchExperience({
         </Link>
         <div className="bdm-top-actions">
           <span className="bdm-location-top">📍 {place || 'Todo o país'}</span>
-          <Link href="/inicio#como-funciona" className="bdm-top-link bdm-top-link--optional">Como funciona</Link>
+          <Link href="/como-funciona" className="bdm-top-link bdm-top-link--optional">Como funciona</Link>
           <Link href="/registar?redirect=/pro/activar" className="bdm-top-link">Para mestres</Link>
           <Link href="/ajuda" className="bdm-top-link">Ajuda</Link>
           <Link href={signedIn ? '/painel' : '/entrar'} className="bdm-top-link">{signedIn ? 'Painel' : 'Entrar'}</Link>
@@ -115,12 +115,12 @@ export default function SearchExperience({
       <nav className="bdm-mobile-nav" aria-label="Serviços">
         <Link href="/">Mapa</Link>
         <Link href="/chamar">Chamar agora</Link>
-        <Link href={signedIn ? '/trabalhos' : '/apps/cliente/entrar'}>Trabalhos</Link>
-        <Link href={signedIn ? '/pedidos' : '/apps/cliente/entrar'}>Pedidos</Link>
+        <Link href={signedIn ? '/trabalhos' : '/entrar'}>Trabalhos</Link>
+        <Link href={signedIn ? '/pedidos' : '/entrar'}>Pedidos</Link>
         <Link href="/notificacoes">Notificações</Link>
         <Link href="/pro/trabalhos">Área do mestre</Link>
         <Link href="/ajuda">Ajuda</Link>
-        <Link href="/inicio#como-funciona">Como funciona</Link>
+        <Link href="/como-funciona">Como funciona</Link>
       </nav>
 
       <main className="bdm-app">
@@ -156,11 +156,11 @@ export default function SearchExperience({
             </div>
             <div className="bdm-mini-links">
               <Link href="/chamar">Chamar agora</Link>
-              <Link href={signedIn ? '/trabalhos' : '/apps/cliente/entrar'}>Os meus trabalhos</Link>
-              <Link href={signedIn ? '/pedidos' : '/apps/cliente/entrar'}>Os meus pedidos</Link>
+              <Link href={signedIn ? '/trabalhos' : '/entrar'}>Os meus trabalhos</Link>
+              <Link href={signedIn ? '/pedidos' : '/entrar'}>Os meus pedidos</Link>
               <Link href="/notificacoes">Notificações</Link>
               <Link href="/pro/trabalhos">Área do mestre</Link>
-              <Link href="/inicio">Como funciona</Link>
+              <Link href="/como-funciona">Como funciona</Link>
               <Link href="/ajuda">Ajuda</Link>
             </div>
           </div>
@@ -299,11 +299,11 @@ export default function SearchExperience({
             <strong>Serviços</strong>
             <div className="bdm-service-links">
               <Link href="/chamar">Chamar agora</Link>
-              <Link href={signedIn ? '/trabalhos' : '/apps/cliente/entrar'}>Os meus trabalhos</Link>
-              <Link href={signedIn ? '/pedidos' : '/apps/cliente/entrar'}>Os meus pedidos</Link>
+              <Link href={signedIn ? '/trabalhos' : '/entrar'}>Os meus trabalhos</Link>
+              <Link href={signedIn ? '/pedidos' : '/entrar'}>Os meus pedidos</Link>
               <Link href="/notificacoes">Notificações</Link>
               <Link href="/pro/trabalhos">Área do mestre</Link>
-              <Link href="/inicio#como-funciona">Como funciona</Link>
+              <Link href="/como-funciona">Como funciona</Link>
               <Link href="/ajuda">Ajuda</Link>
             </div>
           </div>

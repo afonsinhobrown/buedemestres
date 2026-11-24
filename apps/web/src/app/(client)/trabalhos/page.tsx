@@ -36,7 +36,7 @@ export default async function ClientJobsPage() {
         <p className="mut" style={{ marginTop: 12 }}>
           Entra na conta do cliente para veres os teus pedidos, o estado do pagamento e a localização do mestre.
         </p>
-        <Link href="/apps/cliente/entrar" className="btn b1" style={{ marginTop: 20 }}>
+        <Link href="/entrar?redirect=/trabalhos" className="btn b1" style={{ marginTop: 20 }}>
           Entrar na conta do cliente
         </Link>
       </main>

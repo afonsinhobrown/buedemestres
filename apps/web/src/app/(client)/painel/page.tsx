@@ -19,10 +19,8 @@ import {
 export default async function PainelPage() {
   const session = await verifySession()
 
-  // Os clientes usam a app web oficial (/apps/cliente), a mesma que o
-  // telemóvel. O painel Next fica reservado a mestres e equipa.
   if (session.role === 'client') {
-    redirect('/apps/cliente/entrar')
+    redirect('/trabalhos')
   }
 
   const { rows: profileRows } = await db.query<Profile>(

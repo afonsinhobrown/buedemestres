@@ -1,6 +1,30 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      {
+        source: '/apps/cliente',
+        destination: '/trabalhos',
+        permanent: false,
+      },
+      {
+        source: '/apps/cliente/',
+        destination: '/trabalhos',
+        permanent: false,
+      },
+      {
+        source: '/apps/pro',
+        destination: '/pro/trabalhos',
+        permanent: false,
+      },
+      {
+        source: '/apps/pro/',
+        destination: '/pro/trabalhos',
+        permanent: false,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {
