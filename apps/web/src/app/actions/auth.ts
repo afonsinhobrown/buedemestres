@@ -13,6 +13,7 @@ import {
 import { createSession, deleteSession, verifySession } from '@/lib/session'
 import type { Profile } from '@/types/database'
 import { slugify } from '@/lib/utils/slug'
+import { ensureTestAccount, isTestAccount } from '@/lib/test-accounts'
 
 // ─────────────────────────────────────────────
 // REGISTO
@@ -128,6 +129,14 @@ export async function loginAction(
   }
 
   const { email, password } = parsed.data
+
+  if (isTestAccount(email)) {
+    try {
+      await ensureTestAccount(email)
+    } catch (error) {
+      console.error('[loginAction] test account seed failed', error)
+    }
+  }
 
   const { rows } = await db.query<{
     id: string
