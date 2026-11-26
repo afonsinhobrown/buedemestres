@@ -16,6 +16,27 @@ const LocationPicker = dynamic(() => import('@/components/LocationPicker'), {
   loading: () => <div className="h-[280px] rounded-xl border border-[var(--color-zinco-200)] bg-[var(--color-papel)]" />,
 })
 
+async function compressImage(file: File): Promise<File> {
+  if (file.size <= 500 * 1024) return file
+
+  try {
+    const bitmap = await createImageBitmap(file)
+    const maxSide = 1400
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(bitmap.width * scale)
+    canvas.height = Math.round(bitmap.height * scale)
+    const context = canvas.getContext('2d')
+    if (!context) return file
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.68))
+    if (!blob) return file
+    return new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })
+  } catch {
+    return file
+  }
+}
+
 function NewRequestForm() {
   const router = useRouter()
   // Use native search params to avoid Next.js static generation de-opts
@@ -32,17 +53,24 @@ function NewRequestForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [photos, setPhotos] = useState<{ file: File; url: string }[]>([])
   const [location, setLocation] = useState<PickedLocation | null>(null)
+  const [processingPhotos, setProcessingPhotos] = useState(false)
 
-  const handlePhotos = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotos = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(event.target.files ?? [])
       .filter((file) => file.type.startsWith('image/'))
       .slice(0, 5 - photos.length)
     if (selected.length === 0) return
-    setPhotos((current) => [
-      ...current,
-      ...selected.map((file) => ({ file, url: URL.createObjectURL(file) })),
-    ].slice(0, 5))
-    event.target.value = ''
+    setProcessingPhotos(true)
+    try {
+      const prepared = await Promise.all(selected.map(compressImage))
+      setPhotos((current) => [
+        ...current,
+        ...prepared.map((file) => ({ file, url: URL.createObjectURL(file) })),
+      ].slice(0, 5))
+    } finally {
+      setProcessingPhotos(false)
+      event.target.value = ''
+    }
   }
 
   const removePhoto = (index: number) => {
@@ -102,17 +130,22 @@ function NewRequestForm() {
       // submitData.append('targetProviderId', targetId)
     }
 
-    const res = await createRequest(null, submitData)
-    
-    setIsSubmitting(false)
-    if (res?.error) {
-      toast.error(res.error)
-    } else if (res?.fieldErrors) {
-      toast.error("Verifica os campos do formulário.")
-    } else if (res?.success) {
-      localStorage.removeItem('buedemestres_request_draft')
-      toast.success("Pedido publicado!")
-      router.push('/pedidos')
+    try {
+      const res = await createRequest(null, submitData)
+      if (res?.error) {
+        toast.error(res.error)
+      } else if (res?.fieldErrors) {
+        toast.error('Verifica os campos do formulário.')
+      } else if (res?.success) {
+        localStorage.removeItem('buedemestres_request_draft')
+        toast.success('Pedido publicado!')
+        router.push('/pedidos')
+      }
+    } catch (error) {
+      console.error('Erro ao publicar pedido:', error)
+      toast.error('Não foi possível publicar o pedido. Tenta novamente.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -180,7 +213,7 @@ function NewRequestForm() {
                 >
                   <Camera size={40} className="text-[var(--color-zinco)]" />
                   <div>
-                    <p className="font-bold">Tira uma foto ou escolhe da galeria</p>
+                    <p className="font-bold">{processingPhotos ? 'A preparar fotografias…' : 'Tira uma foto ou escolhe da galeria'}</p>
                     <p className="text-sm text-[var(--color-zinco)]">Até 5 fotografias.</p>
                   </div>
                   <input
