@@ -1,16 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PageShell } from '@/components/layout/PageShell'
-import { Camera, MapPin, CalendarBlank, CaretLeft } from '@phosphor-icons/react'
+import { Camera, CalendarBlank, CaretLeft } from '@phosphor-icons/react'
 import { createRequest } from '@/app/actions/requests'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import type { PickedLocation } from '@/components/LocationPicker'
 
-import { Suspense } from 'react'
+const LocationPicker = dynamic(() => import('@/components/LocationPicker'), {
+  ssr: false,
+  loading: () => <div className="h-[280px] rounded-xl border border-[var(--color-zinco-200)] bg-[var(--color-papel)]" />,
+})
 
 function NewRequestForm() {
   const router = useRouter()
@@ -27,6 +32,7 @@ function NewRequestForm() {
   const [step, setStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [photos, setPhotos] = useState<{ file: File; url: string }[]>([])
+  const [location, setLocation] = useState<PickedLocation | null>(null)
 
   const handlePhotos = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(event.target.files ?? [])
@@ -87,6 +93,11 @@ function NewRequestForm() {
     const submitData = new FormData()
     Object.entries(formData).forEach(([k, v]) => submitData.append(k, v))
     photos.forEach((photo) => submitData.append('photos', photo.file))
+    if (location) {
+      submitData.append('address', location.address)
+      submitData.append('lat', String(location.lat))
+      submitData.append('lng', String(location.lng))
+    }
     if (mestreSlug) {
       // Idealmente resolveriamos o ID real do provider pelo slug
       // submitData.append('targetProviderId', targetId)
@@ -218,15 +229,7 @@ function NewRequestForm() {
               <h2 className="text-2xl display-wide">Onde e quando?</h2>
               
               <div className="space-y-4">
-                <div className="relative">
-                  <Input
-                    label="Bairro"
-                    defaultValue="Polana, Maputo"
-                    readOnly
-                    className="pl-9"
-                  />
-                  <MapPin className="absolute left-3 top-[34px] text-[var(--color-zinco)]" size={20} />
-                </div>
+                {step === 3 && <LocationPicker value={location} onChange={setLocation} />}
 
                 <div className="relative">
                   <Input

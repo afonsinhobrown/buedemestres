@@ -13,6 +13,8 @@ const createRequestSchema = z.object({
   description: z.string().min(10, 'Descreva melhor o problema (mínimo 10 caracteres)'),
   districtId: z.coerce.number().int().positive('Selecione um distrito/bairro').optional(),
   address: z.string().optional(),
+  lat: z.coerce.number().min(-90).max(90).optional(),
+  lng: z.coerce.number().min(-180).max(180).optional(),
   preferredDate: z.string().optional(),
   budgetMin: z.coerce.number().min(0).optional(),
   budgetMax: z.coerce.number().min(0).optional(),
@@ -101,6 +103,20 @@ export async function createRequest(prevState: any, formData: FormData) {
     }
 
     const requestId = rows[0].id as string
+
+    if (data.lat != null && data.lng != null) {
+      try {
+        await db.query(
+          `update service_requests
+              set location = ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
+            where id = $3`,
+          [data.lng, data.lat, requestId]
+        )
+      } catch (locationError) {
+        console.warn('Localização não guardada:', locationError)
+      }
+    }
+
     const photos = formData.getAll('photos').filter((entry): entry is File => entry instanceof File)
 
     if (photos.length > 0) {
