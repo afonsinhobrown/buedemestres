@@ -57,7 +57,22 @@ export default async function ProviderJobsPage() {
         and (
           r.target_provider_id = $1
           or r.category_id = (select primary_category_id from provider_profiles where profile_id = $1)
-          or r.category_id in (select category_id from provider_categories where provider_id = $1)
+          or r.category_id in (
+            select id from categories
+             where parent_id = (select primary_category_id from provider_profiles where profile_id = $1)
+          )
+          or (select parent_id from categories where id = r.category_id) = (
+            select primary_category_id from provider_profiles where profile_id = $1
+          )
+          or exists (
+            select 1 from provider_categories pc
+             where pc.provider_id = $1
+               and (
+                 pc.category_id = r.category_id
+                 or pc.category_id in (select id from categories where parent_id = r.category_id)
+                 or r.category_id in (select id from categories where parent_id = pc.category_id)
+               )
+          )
         )
       order by r.created_at desc
       limit 20`,

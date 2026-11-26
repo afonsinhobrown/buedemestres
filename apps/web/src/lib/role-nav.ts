@@ -34,6 +34,7 @@ export function roleLinks(role: UserRole | string | null | undefined): RoleLink[
         { href: '/pro/carteira', label: 'Carteira' },
         { href: '/pro/servicos', label: 'Serviços' },
         { href: '/pro/perfil', label: 'Perfil' },
+        { href: '/notificacoes', label: 'Notificações' },
         { href: '/ajuda', label: 'Ajuda' },
       ]
     case 'superadmin':
@@ -42,6 +43,7 @@ export function roleLinks(role: UserRole | string | null | undefined): RoleLink[
         { href: '/tickets', label: 'Tickets' },
         { href: '/superadmin/financeiro', label: 'Financeiro' },
         { href: '/superadmin/socios', label: 'Sócios' },
+        { href: '/notificacoes', label: 'Notificações' },
         { href: '/ajuda', label: 'Ajuda' },
       ]
     case 'admin':
@@ -52,6 +54,7 @@ export function roleLinks(role: UserRole | string | null | undefined): RoleLink[
         { href: '/painel', label: 'Painel' },
         { href: '/tickets', label: 'Tickets' },
         { href: '/pagamentos', label: 'Pagamentos' },
+        { href: '/notificacoes', label: 'Notificações' },
         { href: '/ajuda', label: 'Ajuda' },
       ]
     default:

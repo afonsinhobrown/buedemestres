@@ -49,12 +49,29 @@ function NewRequestForm() {
     }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/categories')
+      .then((response) => response.ok ? response.json() : [])
+      .then((data: { id: number; name: string }[]) => {
+        if (cancelled || !Array.isArray(data)) return
+        setCategories(data)
+        setFormData((current) => {
+          const valid = data.some((category) => String(category.id) === current.categoryId)
+          return valid ? current : { ...current, categoryId: data[0] ? String(data[0].id) : current.categoryId }
+        })
+      })
+      .catch(() => undefined)
+    return () => { cancelled = true }
+  }, [])
+
   const [step, setStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [photos, setPhotos] = useState<{ file: File; url: string }[]>([])
   const [location, setLocation] = useState<PickedLocation | null>(null)
   const [processingPhotos, setProcessingPhotos] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [categories, setCategories] = useState<{ id: number; name: string }[]>([])
 
   const handlePhotos = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(event.target.files ?? [])
@@ -85,7 +102,7 @@ function NewRequestForm() {
   // Rascunho de pedido
   const [formData, setFormData] = useState({
     title: '',
-    categoryId: '1', // Default auto/mecânico para a demo
+    categoryId: '',
     description: '',
     preferredDate: '',
     budgetMin: '',
@@ -195,11 +212,13 @@ function NewRequestForm() {
                     name="categoryId" 
                     value={formData.categoryId} 
                     onChange={handleChange}
+                    required
                     className="h-[52px] rounded-[var(--radius-controlo)] border border-[var(--color-zinco-200)] bg-[var(--color-papel)] px-3"
                   >
-                    <option value="1">Automóvel (Mecânico, etc)</option>
-                    <option value="2">Construção e Reparações</option>
-                    <option value="3">Casa e Limpeza</option>
+                    <option value="" disabled>Escolhe a especialidade</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>{category.name}</option>
+                    ))}
                   </select>
                 </div>
 

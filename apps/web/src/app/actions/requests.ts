@@ -144,9 +144,16 @@ export async function createRequest(prevState: any, formData: FormData) {
             where pp.is_published = true
               and (
                 pp.primary_category_id = $1
+                or pp.primary_category_id in (select id from categories where parent_id = $1)
+                or (select parent_id from categories where id = pp.primary_category_id) = $1
                 or exists (
                   select 1 from provider_categories pc
-                   where pc.provider_id = pp.profile_id and pc.category_id = $1
+                   where pc.provider_id = pp.profile_id
+                     and (
+                       pc.category_id = $1
+                       or pc.category_id in (select id from categories where parent_id = $1)
+                       or $1 in (select id from categories where parent_id = pc.category_id)
+                     )
                 )
               )
             limit 100`,
