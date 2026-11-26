@@ -9,6 +9,53 @@ body:has(.dx-page) .bdm-push {
   display: none !important;
 }
 
+.dx-page.is-home {
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+}
+
+.dx-page.is-home .dx-topbar {
+  position: sticky;
+  top: 0;
+}
+
+.dx-page.is-home .dx-app {
+  flex: none;
+  height: calc(100dvh - 72px);
+  min-height: 620px;
+}
+
+.dx-home-sections {
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.dx-home-content {
+  padding-bottom: 0;
+}
+
+.dx-home-intro {
+  padding-top: 40px;
+  padding-bottom: 10px;
+}
+
+.dx-home-intro .h2 {
+  max-width: 900px;
+  margin-top: 8px;
+}
+
+.dx-home-intro .mut {
+  max-width: 62ch;
+  margin-top: 10px;
+  font-size: 15px;
+}
+
+.dx-home-content #como-funciona,
+.dx-home-content #para-mestres {
+  scroll-margin-top: 92px;
+}
+
 .dx-page {
   --dx-navy: var(--tinta);
   --dx-blue: var(--cobalto);
@@ -1293,6 +1340,15 @@ body:has(.dx-page) .bdm-push {
     padding: 0;
     height: calc(100dvh - 58px);
     position: relative;
+  }
+
+  .dx-page.is-home .dx-app {
+    height: calc(100dvh - 58px);
+    min-height: 0;
+  }
+
+  .dx-home-intro {
+    padding-top: 28px;
   }
 
   .dx-left {

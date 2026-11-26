@@ -21,8 +21,8 @@ const atkinson = Atkinson_Hyperlegible_Next({
 });
 
 export const metadata = {
-  title: 'BuAc de Mestres',
-  description: 'Precisas de um mestre? BuAc deles, no teu bairro.',
+  title: 'Bué de Mestres',
+  description: 'Precisas de um mestre? Bué deles, no teu bairro.',
   manifest: '/manifest.webmanifest',
 };
 

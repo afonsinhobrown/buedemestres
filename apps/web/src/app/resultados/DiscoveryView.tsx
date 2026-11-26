@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import {
   ArrowRight,
@@ -51,6 +51,8 @@ type Props = {
   stats: Stats
   isAuthenticated: boolean
   loadError: boolean
+  home?: boolean
+  children?: ReactNode
 }
 
 function scrollBehavior(): ScrollBehavior {
@@ -148,6 +150,8 @@ export default function DiscoveryView({
   stats,
   isAuthenticated,
   loadError,
+  home = false,
+  children,
 }: Props) {
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [hoveredSlug, setHoveredSlug] = useState<string | null>(null)
@@ -266,7 +270,7 @@ export default function DiscoveryView({
   }, [categoriesOpen])
 
   return (
-    <div className="dx-page">
+    <div className={`dx-page${home ? ' is-home' : ''}`}>
       <header className="dx-topbar">
         <Link href="/" className="dx-brand" aria-label="Bué de Mestres — início">
           <span className="dx-brand-mark" aria-hidden="true">
@@ -698,6 +702,8 @@ export default function DiscoveryView({
           </div>
         </aside>
       </main>
+
+      {children ? <div className="dx-home-sections">{children}</div> : null}
 
       {categoriesOpen && (
         <div
