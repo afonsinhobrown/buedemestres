@@ -1,11 +1,11 @@
 import { useEffect } from 'react'
 import { Slot, router, usePathname } from 'expo-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { View, StyleSheet, AppState } from 'react-native'
+import { View, StyleSheet, AppState, Platform } from 'react-native'
 import { useAuthStore } from '@/lib/useAuthStore'
 import { registerPushToken } from '@/lib/push'
 import { BottomNav, type NavItem } from '@/components/v2'
-import { colors } from '@/lib/theme'
+import { colors, shadows } from '@/lib/theme'
 
 const queryClient = new QueryClient()
 
@@ -53,15 +53,37 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <View style={[styles.root, showNav && styles.rootWithNav]}>
-        <Slot />
-        {showNav ? <BottomNav items={NAV_ITEMS} /> : null}
+      <View style={styles.stage}>
+        <View style={[styles.frame, showNav && styles.frameWithNav]}>
+          <Slot />
+          {showNav ? <BottomNav items={NAV_ITEMS} /> : null}
+        </View>
       </View>
     </QueryClientProvider>
   )
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.paper },
-  rootWithNav: { paddingBottom: 86 },
+  stage: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: Platform.OS === 'web' ? '#E7EBF1' : colors.paper,
+  },
+  frame: {
+    flex: 1,
+    width: '100%',
+    position: 'relative',
+    overflow: 'hidden',
+    backgroundColor: colors.paper,
+    ...(Platform.OS === 'web'
+      ? {
+          maxWidth: 480,
+          borderLeftWidth: 1,
+          borderRightWidth: 1,
+          borderColor: colors.line,
+          ...shadows.floating,
+        }
+      : null),
+  },
+  frameWithNav: { paddingBottom: 86 },
 })
