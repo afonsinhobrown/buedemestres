@@ -6,6 +6,7 @@ import {
   checkDirectJobStatus,
   cancelJobByClient,
   getJobTrackingDetails,
+  respondToProposal,
   type RefundDestination,
   type JobTrackingDetails,
 } from './actions'
@@ -55,7 +56,9 @@ function messageFor(status: string) {
     case 'arrived':
       return 'O mestre chegou ao local e vai iniciar o serviço.'
     case 'price_proposed':
-      return 'Recebeste um orçamento do mestre. Consulta a app para responder.'
+      return 'Recebeste um orçamento do mestre. Concordas ou não com o valor?'
+    case 'price_agreed':
+      return 'Aceitaste o orçamento do mestre. O pagamento será tratado a seguir.'
     case 'completed':
       return 'Serviço concluído e pagamento libertado ao mestre.'
     default:
@@ -79,6 +82,8 @@ export default function JobTracker({ jobId }: { jobId: string }) {
   const [cancelError, setCancelError] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
+  const [responding, setResponding] = useState(false)
+  const [proposalError, setProposalError] = useState<string | null>(null)
 
   const handleCancel = async (destination: RefundDestination) => {
     setCancelling(true)
@@ -113,6 +118,29 @@ export default function JobTracker({ jobId }: { jobId: string }) {
       setPaymentError('Serviço de pagamentos indisponível. Tenta novamente.')
     } finally {
       setConfirming(false)
+    }
+  }
+
+  const handleProposal = async (decision: 'accept' | 'reject') => {
+    setResponding(true)
+    setProposalError(null)
+    const result = await respondToProposal(jobId, decision)
+    setResponding(false)
+    if (!result.ok) {
+      setProposalError(result.error ?? 'Não foi possível responder.')
+      return
+    }
+    if (decision === 'accept') {
+      setStatus('price_agreed')
+      setDetails((current) => current ? {
+        ...current,
+        status: 'price_agreed',
+        agreed_amount: current.proposal_amount,
+        proposal_status: 'accepted',
+      } : current)
+    } else {
+      setStatus('cancelled')
+      setDetails((current) => current ? { ...current, status: 'cancelled', proposal_status: 'rejected' } : current)
     }
   }
 
@@ -219,6 +247,23 @@ export default function JobTracker({ jobId }: { jobId: string }) {
             {status === 'awaiting_confirmation' ? 'Serviço terminado!' : 'Pedido Aceite!'}
           </h2>
           <p>{messageFor(status)}</p>
+
+          {details?.proposal_id && details.proposal_status === 'pending' && (status === 'price_proposed' || status === 'puxado') && (
+            <div className="tracking-proposal">
+              <span>Proposta do mestre</span>
+              <strong>{money(details.proposal_amount) || 'Por combinar'}</strong>
+              {details.proposal_description && <p>{details.proposal_description}</p>}
+              {proposalError && <p className="tracking-error">{proposalError}</p>}
+              <div className="tracking-cancel-actions">
+                <button type="button" className="btn b1" disabled={responding} onClick={() => handleProposal('accept')}>
+                  {responding ? 'A responder…' : 'Concordo com o preço'}
+                </button>
+                <button type="button" className="btn b2" disabled={responding} onClick={() => handleProposal('reject')}>
+                  Não concordo
+                </button>
+              </div>
+            </div>
+          )}
 
           {details?.payment_status === 'pending_payment' && (
             <p className="tracking-note">O pagamento ainda não foi iniciado. Confirma o serviço na app do mestre quando combinarem o valor.</p>

@@ -466,6 +466,10 @@
 .tracking-title--red { color: #dc2626; }
 .tracking-note { margin-top: 16px; padding: 10px 12px; border-radius: 10px; background: #fff7ed; color: #9a3412; font-size: 13px; }
 .tracking-confirm, .tracking-cancel { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--color-line); }
+.tracking-proposal { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 20px; padding: 18px; border-radius: 14px; background: #fff8df; border: 1px solid #ffe18a; }
+.tracking-proposal > span { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #6c5a25; }
+.tracking-proposal > strong { font-size: 28px; color: #102b55; }
+.tracking-proposal > p { color: #5b6472; font-size: 13px; }
 .tracking-error { color: #dc2626; margin-bottom: 12px; }
 .tracking-cancel-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
 .tracking-footer { display: flex; gap: 18px; justify-content: center; margin-top: 24px; font-size: 13px; }

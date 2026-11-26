@@ -246,26 +246,14 @@ function NewRequestForm() {
             </div>
 
             <div className={cn("space-y-6", step !== 4 && "hidden")}>
-              <h2 className="text-2xl display-wide">Orçamento e revisão</h2>
+              <h2 className="text-2xl display-wide">Revisão</h2>
               
               <div className="space-y-4">
-                <div className="flex gap-4 items-end">
-                  <Input
-                    label="Orçamento mín. (opcional)"
-                    name="budgetMin"
-                    type="number"
-                    placeholder="MT"
-                    value={formData.budgetMin}
-                    onChange={handleChange}
-                  />
-                  <Input
-                    label="Orçamento máx. (opcional)"
-                    name="budgetMax"
-                    type="number"
-                    placeholder="MT"
-                    value={formData.budgetMax}
-                    onChange={handleChange}
-                  />
+                <div className="rounded-xl border border-[var(--color-zinco-200)] bg-[#fff8df] p-4 text-sm text-[var(--color-tinta)]">
+                  <strong>O preço é definido pelo mestre.</strong>
+                  <p className="mt-1 text-[var(--color-zinco)]">
+                    Depois de publicares o pedido, o mestre responde com o orçamento. Podes aceitar ou recusar.
+                  </p>
                 </div>
 
                 <div className="bg-[var(--color-papel)] p-4 rounded-[var(--radius-foto)] border border-[var(--color-zinco-200)] space-y-2 mt-6">
