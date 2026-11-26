@@ -10,9 +10,12 @@
 - ✅ `0256_catalog_and_symptoms.sql` — aplicada.
 - ✅ `0257_payment_functions.sql` — aplicada.
 - ✅ `0258_compatibility.sql` — aplicada.
+- ✅ `0259_catalog_modes_and_draft_seed.sql` — aplicada.
 - ✅ Teste transaccional de split, PIN, deslocação e aditamento — passou e foi revertido.
-- ⏭ Próximo: adaptar APIs e apps v2 para usar os campos/funções novos.
-- ⏭ Ainda não há dados de catálogo/sintomas; as tabelas estão vazias para configuração.
+- ✅ Catálogo draft: 15 serviços em 9 categorias, 9 sintomas genéricos e regra global de deslocação (100 MT base + 25 MT/km, 2 km incluídos, mínimo 150, máximo 600).
+- ⚠️ Todos os serviços/sintomas do catálogo estão `active=false`; não há preços fixos inventados.
+- ⏭ Próximo: endpoints e apps v2. Antes de expor endpoints de dinheiro, fechar a autenticação das APIs (P0).
+- ⏭ Preços fixos por categoria continuam por validar com pesquisa de campo.
 
 ---
 
@@ -400,6 +403,13 @@ create table price_benchmarks (
   - `v_job_payments_service` (filtra o pagamento do serviço);
   - `v_job_addenda_extra` (filtra `kind='extra'`).
 - As views são opcionais; o objectivo é as apps antigas continuarem a ler o que já liam.
+
+### `0259_catalog_modes_and_draft_seed.sql`
+- Separar `pricing_mode` (`fixed|quote|hourly|hybrid`) de `fulfillment_mode` (`on_site|remote|pickup|delivery`).
+- Regra global de deslocação: 100 MT base + 25 MT/km, 2 km incluídos, mínimo 150, máximo 600.
+- Seed draft por categoria: diagnóstico/orçamento, explicação online/domicílio, suporte remoto/domicílio, costura pickup e beleza ao domicílio.
+- Sintoma genérico “Não sei o que preciso” por categoria.
+- Tudo `active=false` até validação de preços.
 
 ---
 
