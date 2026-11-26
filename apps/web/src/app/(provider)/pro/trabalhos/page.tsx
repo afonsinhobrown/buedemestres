@@ -5,6 +5,7 @@ import { formatMT } from '@/lib/utils/format-mzn'
 import { CheckCircle, WarningCircle, Handshake, MapPin } from '@phosphor-icons/react/dist/ssr'
 import { JobStatusButtons } from '@/app/(client)/trabalhos/JobStatusButtons'
 import { ProposalForm } from './ProposalForm'
+import { AutoRefresh } from '@/components/AutoRefresh'
 
 type ProviderJob = {
   id: string
@@ -81,6 +82,7 @@ export default async function ProviderJobsPage() {
 
   return (
     <PageShell>
+      <AutoRefresh intervalMs={4000} />
       <div className="max-w-3xl mx-auto p-4 md:p-8 pb-24">
         <header className="mb-8">
           <h1 className="text-2xl display-wide">Agenda de Trabalhos</h1>

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { getOptionalSession } from '@/lib/session'
+import { AutoRefresh } from '@/components/AutoRefresh'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,6 +62,7 @@ export default async function ClientJobsPage() {
 
   return (
     <main className="shell" style={{ paddingTop: 32, paddingBottom: 64 }}>
+      <AutoRefresh intervalMs={5000} />
       <h1 className="h1">Os meus trabalhos</h1>
       <p className="mut" style={{ marginTop: 8 }}>
         Acompanha o estado de cada serviço e confirma o pagamento quando o mestre terminar.
