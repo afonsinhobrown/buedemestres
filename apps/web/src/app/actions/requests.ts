@@ -61,7 +61,12 @@ export async function createRequest(prevState: any, formData: FormData) {
   }
 
   const rawData = Object.fromEntries(formData.entries())
-  
+  const photos = formData.getAll('photos').filter((entry): entry is File => entry instanceof File)
+
+  if (photos.length > 0 && String(rawData.description || '').trim().length < 10) {
+    rawData.description = 'Pedido com fotografias do problema.'
+  }
+
   // Tratar os opcionais vazios
   if (!rawData.budgetMin) delete rawData.budgetMin
   if (!rawData.budgetMax) delete rawData.budgetMax
@@ -117,8 +122,6 @@ export async function createRequest(prevState: any, formData: FormData) {
       }
     }
 
-    const photos = formData.getAll('photos').filter((entry): entry is File => entry instanceof File)
-
     if (photos.length > 0) {
       try {
         await uploadRequestPhotos(requestId, photos)
@@ -129,7 +132,55 @@ export async function createRequest(prevState: any, formData: FormData) {
       }
     }
 
+    try {
+      let providerIds: string[] = []
+      if (data.targetProviderId) {
+        providerIds = [data.targetProviderId]
+      } else {
+        const providerRows = await db.query<{ profile_id: string }>(
+          `select distinct pp.profile_id
+             from provider_profiles pp
+            where pp.is_published = true
+              and (
+                pp.primary_category_id = $1
+                or exists (
+                  select 1 from provider_categories pc
+                   where pc.provider_id = pp.profile_id and pc.category_id = $1
+                )
+              )
+            limit 100`,
+          [data.categoryId]
+        )
+        providerIds = providerRows.rows.map((row) => row.profile_id)
+      }
+
+      if (providerIds.length > 0) {
+        await db.query(
+          `insert into notifications(profile_id, type, title, body, data)
+           select unnest($1::uuid[]), 'new_request', 'Novo pedido disponível', $2, $3::jsonb`,
+          [
+            providerIds,
+            `${data.title} — vê os detalhes e envia o teu orçamento.`,
+            JSON.stringify({ requestId, categoryId: data.categoryId }),
+          ]
+        )
+      }
+
+      await db.query(
+        `insert into notifications(profile_id, type, title, body, data)
+         values ($1, 'request_published', 'Pedido publicado', $2, $3::jsonb)`,
+        [
+          session.userId,
+          'O teu pedido foi publicado. Aguarda a resposta dos mestres.',
+          JSON.stringify({ requestId }),
+        ]
+      )
+    } catch (notificationError) {
+      console.warn('Notificações do pedido não enviadas:', notificationError)
+    }
+
     revalidatePath('/pedidos')
+    revalidatePath('/notificacoes')
     return { success: true, requestId }
   } catch (error: any) {
     console.error('Erro ao criar pedido:', error)

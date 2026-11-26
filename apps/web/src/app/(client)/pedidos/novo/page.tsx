@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { PageShell } from '@/components/layout/PageShell'
 import { Camera, CalendarBlank, CaretLeft } from '@phosphor-icons/react'
 import { createRequest } from '@/app/actions/requests'
-import { toast } from 'sonner'
+import { toast, Toaster } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { PickedLocation } from '@/components/LocationPicker'
 
@@ -54,6 +54,7 @@ function NewRequestForm() {
   const [photos, setPhotos] = useState<{ file: File; url: string }[]>([])
   const [location, setLocation] = useState<PickedLocation | null>(null)
   const [processingPhotos, setProcessingPhotos] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const handlePhotos = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(event.target.files ?? [])
@@ -116,7 +117,8 @@ function NewRequestForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    
+    setSubmitError(null)
+
     const submitData = new FormData()
     Object.entries(formData).forEach(([k, v]) => submitData.append(k, v))
     photos.forEach((photo) => submitData.append('photos', photo.file))
@@ -133,9 +135,13 @@ function NewRequestForm() {
     try {
       const res = await createRequest(null, submitData)
       if (res?.error) {
+        setSubmitError(res.error)
         toast.error(res.error)
       } else if (res?.fieldErrors) {
-        toast.error('Verifica os campos do formulário.')
+        const firstError = Object.values(res.fieldErrors).flat().find(Boolean)
+        const message = firstError || 'Verifica os campos do formulário.'
+        setSubmitError(message)
+        toast.error(message)
       } else if (res?.success) {
         localStorage.removeItem('buedemestres_request_draft')
         toast.success('Pedido publicado!')
@@ -143,7 +149,9 @@ function NewRequestForm() {
       }
     } catch (error) {
       console.error('Erro ao publicar pedido:', error)
-      toast.error('Não foi possível publicar o pedido. Tenta novamente.')
+      const message = 'Não foi possível publicar o pedido. Tenta novamente.'
+      setSubmitError(message)
+      toast.error(message)
     } finally {
       setIsSubmitting(false)
     }
@@ -151,6 +159,7 @@ function NewRequestForm() {
 
   return (
     <PageShell noNav>
+      <Toaster position="top-right" richColors />
       <div className="flex flex-col h-screen max-h-screen bg-[var(--color-cal)]">
         {/* Header Assistente */}
         <header className="flex items-center px-4 h-[60px] bg-[var(--color-papel)] border-b border-[var(--color-zinco-200)] shrink-0">
@@ -281,6 +290,11 @@ function NewRequestForm() {
               <h2 className="text-2xl display-wide">Revisão</h2>
               
               <div className="space-y-4">
+                {submitError && (
+                  <div className="rounded-xl border border-[var(--color-oxido)] bg-red-50 p-4 text-sm font-medium text-[var(--color-oxido)]">
+                    {submitError}
+                  </div>
+                )}
                 <div className="rounded-xl border border-[var(--color-zinco-200)] bg-[#fff8df] p-4 text-sm text-[var(--color-tinta)]">
                   <strong>O preço é definido pelo mestre.</strong>
                   <p className="mt-1 text-[var(--color-zinco)]">
