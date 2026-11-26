@@ -3,7 +3,6 @@
 import { useState, useEffect, Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PageShell } from '@/components/layout/PageShell'
 import { Camera, CalendarBlank, CaretLeft } from '@phosphor-icons/react'
@@ -275,17 +274,18 @@ function NewRequestForm() {
         {/* Footer Assistente */}
         <footer className="p-4 bg-[var(--color-papel)] border-t border-[var(--color-zinco-200)] flex justify-end gap-2 shrink-0 pb-safe">
           {step < 4 ? (
-            <Button onClick={nextStep} className="w-full md:w-auto" size="lg">Continuar</Button>
+            <button type="button" onClick={nextStep} className="btn b1 w-full md:w-auto">
+              Continuar
+            </button>
           ) : (
-            <Button 
-              type="submit" 
-              form="requestForm" 
-              className="w-full md:w-auto" 
-              size="lg"
+            <button
+              type="submit"
+              form="requestForm"
+              className="btn b1 w-full md:w-auto"
               disabled={isSubmitting}
             >
-              Publicar pedido
-            </Button>
+              {isSubmitting ? 'A publicar…' : 'Publicar pedido'}
+            </button>
           )}
         </footer>
       </div>
