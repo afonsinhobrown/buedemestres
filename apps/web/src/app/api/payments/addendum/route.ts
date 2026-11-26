@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { notify } from '@/lib/pusher';
 import { buildPaymentReference } from '@/lib/paysuite';
 import { getSandboxSettings } from '@/lib/sandbox';
+import { requireJobAccess } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,10 @@ export async function POST(req: Request) {
     const description = String(body.description || '').trim();
 
     if (!identifier) return NextResponse.json({ ok: false, error: 'jobId em falta' }, { status: 400 });
+
+    const access = await requireJobAccess(req, identifier, 'provider');
+    if (access.response) return access.response;
+
     if (!Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json({ ok: false, error: 'valor inválido' }, { status: 400 });
     }

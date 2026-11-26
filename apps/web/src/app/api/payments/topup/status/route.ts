@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getPaySuiteChargeByReference } from '@/lib/paysuite';
 import { confirmTopupByReference, failTopupByReference } from '@/lib/wallet-topup';
+import { isStaffRole, requireApiActor } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,12 +12,18 @@ export async function GET(req: Request) {
     const reference = searchParams.get('reference');
     if (!reference) return NextResponse.json({ ok: false, error: 'reference em falta' }, { status: 400 });
 
-    const { rows } = await db.query<{ id: string; status: string; amount: string }>(
-      `select id, status, amount from payments where provider_ref = $1 limit 1`,
+    const auth = await requireApiActor(req);
+    if (!auth.actor) return auth.response;
+
+    const { rows } = await db.query<{ id: string; profile_id: string; status: string; amount: string }>(
+      `select id, profile_id, status, amount from payments where provider_ref = $1 limit 1`,
       [reference]
     );
     const payment = rows[0];
     if (!payment) return NextResponse.json({ ok: true, status: 'none', paid: false, failed: false });
+    if (payment.profile_id !== auth.actor.userId && !isStaffRole(auth.actor.role)) {
+      return NextResponse.json({ ok: false, error: 'Sem permissão.' }, { status: 403 });
+    }
 
     if (payment.status === 'completed') {
       return NextResponse.json({ ok: true, status: 'completed', paid: true, failed: false, amount: payment.amount });

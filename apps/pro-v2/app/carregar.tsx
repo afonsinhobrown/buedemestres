@@ -5,7 +5,7 @@ import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../lib/useAuthStore'
 
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 import { PaySuiteModal } from '../components/PaySuiteModal'
 import { loadSandboxSettings, type SandboxSettings } from '../lib/sandbox'
 
@@ -57,7 +57,7 @@ export default function CarregarScreen() {
 
     try {
       setSubmitting(true)
-      const res = await fetch(`${API_BASE}/api/payments/topup`, {
+      const res = await apiFetch(`/api/payments/topup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ profileId: providerId, amount: value, method }),
@@ -74,8 +74,8 @@ export default function CarregarScreen() {
       const timer = setInterval(async () => {
         tries += 1
         try {
-          const statusRes = await fetch(
-            `${API_BASE}/api/payments/topup/status?reference=${encodeURIComponent(data.reference)}`
+          const statusRes = await apiFetch(
+            `/api/payments/topup/status?reference=${encodeURIComponent(data.reference)}`
           )
           const statusData = await statusRes.json().catch(() => ({}))
           if (statusData?.paid) {

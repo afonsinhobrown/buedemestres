@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../lib/useAuthStore'
 import { loadSandboxSettings } from '../../lib/sandbox'
-import { API_BASE } from '../../lib/api'
+import { apiFetch } from '../../lib/api'
 import { PaySuiteModal } from '../../components/PaySuiteModal'
 
 export default function PropostaPrecoScreen() {
@@ -217,7 +217,7 @@ export default function PropostaPrecoScreen() {
     const timer = setInterval(async () => {
       tries += 1
       try {
-        const r = await fetch(`${API_BASE}/api/payments/status?jobId=${encodeURIComponent(target)}`)
+        const r = await apiFetch(`/api/payments/status?jobId=${encodeURIComponent(target)}`)
         const d = await r.json().catch(() => ({}))
         if (d?.paid) {
           clearInterval(timer)
@@ -278,7 +278,7 @@ export default function PropostaPrecoScreen() {
       setIsSubmitting(true)
       const target = actualJobId || params.jobId
 
-      const res = await fetch(`${API_BASE}/api/payments/charge`, {
+      const res = await apiFetch(`/api/payments/charge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jobId: target, amount: total, method })
@@ -307,7 +307,7 @@ export default function PropostaPrecoScreen() {
     const target = actualJobId || params.jobId
     setPaySuiteModalVisivel(false)
     try {
-      await fetch(`${API_BASE}/api/payments/cancel`, {
+      await apiFetch(`/api/payments/cancel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jobId: target })

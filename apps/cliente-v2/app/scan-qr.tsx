@@ -5,7 +5,7 @@ import { useLocalSearchParams, router } from 'expo-router'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import { useAuthStore } from '@/lib/useAuthStore'
 
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 
 export default function ScanQrScreen() {
   const params = useLocalSearchParams<{ jobId?: string; phase?: string }>()
@@ -23,7 +23,7 @@ export default function ScanQrScreen() {
     lockRef.current = true
     try {
       setProcessing(true)
-      const res = await fetch(`${API_BASE}/api/jobs/qr/validate`, {
+      const res = await apiFetch(`/api/jobs/qr/validate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

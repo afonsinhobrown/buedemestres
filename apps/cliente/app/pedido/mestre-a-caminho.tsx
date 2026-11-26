@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabase'
 import MapaTracking from '../../components/MapaTracking'
 import { parseGeoPoint, distanceMeters, type GeoPoint } from '../../lib/geo'
 
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 import { PaySuiteModal } from '../../components/PaySuiteModal'
 
 export default function MestreACaminhoScreen() {
@@ -149,7 +149,7 @@ export default function MestreACaminhoScreen() {
         }
 
         try {
-          const qrRes = await fetch(`${API_BASE}/api/jobs/qr/status?jobId=${encodeURIComponent(params.jobId)}`)
+          const qrRes = await apiFetch(`/api/jobs/qr/status?jobId=${encodeURIComponent(params.jobId)}`)
           const qrData = await qrRes.json().catch(() => ({}))
           if (qrData?.ok) {
             setQrStartReady(Boolean(qrData.startReady))
@@ -185,7 +185,7 @@ export default function MestreACaminhoScreen() {
     if (!addendum?.id) return
     try {
       setAddendumPagando(true)
-      const res = await fetch(`${API_BASE}/api/payments/addendum/charge`, {
+      const res = await apiFetch(`/api/payments/addendum/charge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ addendumId: addendum.id, method })
@@ -202,8 +202,8 @@ export default function MestreACaminhoScreen() {
       const timer = setInterval(async () => {
         tries += 1
         try {
-          const statusRes = await fetch(
-            `${API_BASE}/api/payments/addendum/status?addendumId=${encodeURIComponent(addendum.id)}`
+          const statusRes = await apiFetch(
+            `/api/payments/addendum/status?addendumId=${encodeURIComponent(addendum.id)}`
           )
           const statusData = await statusRes.json().catch(() => ({}))
           if (statusData?.paid) {

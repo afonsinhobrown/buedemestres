@@ -4,7 +4,7 @@ import { Alert } from '../../lib/alertCompat'
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 
 export default function EmCursoScreen() {
   const router = useRouter();
@@ -60,7 +60,7 @@ export default function EmCursoScreen() {
 
     try {
       setAddendumSubmetendo(true);
-      const res = await fetch(`${API_BASE}/api/payments/addendum`, {
+      const res = await apiFetch(`/api/payments/addendum`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -7,7 +7,6 @@ import { useAuthStore } from '../../lib/useAuthStore';
 import { loadSandboxSettings } from '../../lib/sandbox';
 import { mostrarAlerta } from '../../lib/alerts';
 
-import { API_BASE } from '@/lib/api'
 
 interface ServiceLine {
   id: string;

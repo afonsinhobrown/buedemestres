@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { createPaySuiteCharge, type PaySuiteMethod } from '@/lib/paysuite';
+import { requireJobAccess } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,18 +29,22 @@ export async function POST(req: Request) {
 
     const { rows } = await db.query<{
       id: string;
+      job_id: string;
       amount: string;
       status: string;
       provider_ref: string | null;
       checkout_url: string | null;
       description: string | null;
     }>(
-      `select id, amount, status, provider_ref, checkout_url, description
+      `select id, job_id, amount, status, provider_ref, checkout_url, description
          from job_addenda where id = $1 limit 1`,
       [addendumId]
     );
     const addendum = rows[0];
     if (!addendum) return NextResponse.json({ ok: false, error: 'aditamento não encontrado' }, { status: 404 });
+
+    const access = await requireJobAccess(req, addendum.job_id, 'client');
+    if (access.response) return access.response;
     if (addendum.status !== 'pending_payment') {
       return NextResponse.json({ ok: false, error: 'aditamento já não está pendente' }, { status: 409 });
     }

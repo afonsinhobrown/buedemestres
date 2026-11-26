@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import QRCode from 'qrcode';
 import { db } from '@/lib/db';
+import { requireJobAccess } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,9 @@ export async function POST(req: Request) {
     if (!identifier || !['start', 'finish'].includes(phase || '') || !providerId) {
       return NextResponse.json({ ok: false, error: 'dados em falta' }, { status: 400 });
     }
+
+    const access = await requireJobAccess(req, identifier, 'provider');
+    if (access.response) return access.response;
 
     const { rows } = await db.query<{ id: string; provider_id: string; status: string }>(
       `select id, provider_id, status from jobs where id = $1 or request_id = $1 limit 1`,

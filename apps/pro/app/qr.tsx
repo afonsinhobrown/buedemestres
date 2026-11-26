@@ -5,7 +5,7 @@ import { useLocalSearchParams, router } from 'expo-router'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../lib/useAuthStore'
 
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 
 export default function QrScreen() {
   const params = useLocalSearchParams<{ jobId?: string; phase?: string }>()
@@ -29,7 +29,7 @@ export default function QrScreen() {
       setLoading(true)
       setError(null)
       handledRef.current = false
-      const res = await fetch(`${API_BASE}/api/jobs/qr`, {
+      const res = await apiFetch(`/api/jobs/qr`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jobId, phase, providerId }),

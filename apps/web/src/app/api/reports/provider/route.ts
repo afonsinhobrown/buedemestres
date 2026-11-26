@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { requireJobAccess } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,6 +10,10 @@ export async function POST(req: Request) {
     const identifier: string | undefined = body.jobId || body.requestId;
     const reason: string = String(body.reason || '').trim();
     if (!identifier) return NextResponse.json({ ok: false, error: 'jobId em falta' }, { status: 400 });
+
+    const access = await requireJobAccess(req, identifier, 'client');
+    if (access.response) return access.response;
+
     if (reason.length < 10) return NextResponse.json({ ok: false, error: 'descreve a situação' }, { status: 400 });
 
     const { rows } = await db.query<{

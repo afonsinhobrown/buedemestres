@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { buildPaymentReference, createPaySuiteCharge, type PaySuiteMethod } from '@/lib/paysuite';
 import { getSandboxSettings } from '@/lib/sandbox';
+import { isStaffRole, requireApiActor } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +36,13 @@ export async function POST(req: Request) {
     const minTopup = sandbox.active ? 11 : 50;
 
     if (!profileId) return NextResponse.json({ ok: false, error: 'profileId em falta' }, { status: 400 });
+
+    const auth = await requireApiActor(req);
+    if (!auth.actor) return auth.response;
+    if (auth.actor.userId !== profileId && !isStaffRole(auth.actor.role)) {
+      return NextResponse.json({ ok: false, error: 'Sem permissão para este perfil.' }, { status: 403 });
+    }
+
     if (!Number.isFinite(amount) || amount < minTopup) {
       return NextResponse.json({ ok: false, error: `o carregamento mínimo é MT ${minTopup}` }, { status: 400 });
     }

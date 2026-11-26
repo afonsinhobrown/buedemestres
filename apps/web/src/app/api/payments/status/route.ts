@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getPaySuiteChargeByReference } from '@/lib/paysuite';
 import { confirmJobPaymentByReference, failJobPaymentByReference } from '@/lib/job-payment';
+import { requireJobAccess } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,9 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const identifier = searchParams.get('jobId') || searchParams.get('requestId');
     if (!identifier) return NextResponse.json({ ok: false, error: 'jobId em falta' }, { status: 400 });
+
+    const access = await requireJobAccess(req, identifier, 'either');
+    if (access.response) return access.response;
 
     const { rows } = await db.query<{
       job_id: string;

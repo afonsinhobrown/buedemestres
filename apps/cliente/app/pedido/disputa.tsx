@@ -3,7 +3,7 @@ import { Alert } from '../../lib/alertCompat'
 import { useLocalSearchParams, router } from 'expo-router'
 import { useState } from 'react'
 
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 
 const MOTIVOS = [
   'O trabalho não ficou como combinado',
@@ -32,7 +32,7 @@ export default function DisputaScreen() {
 
     try {
       setIsSubmitting(true)
-      const res = await fetch(`${API_BASE}/api/payments/dispute`, {
+      const res = await apiFetch(`/api/payments/dispute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

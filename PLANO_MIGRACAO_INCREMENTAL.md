@@ -14,7 +14,12 @@
 - ✅ Teste transaccional de split, PIN, deslocação e aditamento — passou e foi revertido.
 - ✅ Catálogo draft: 15 serviços em 9 categorias, 9 sintomas genéricos e regra global de deslocação (100 MT base + 25 MT/km, 2 km incluídos, mínimo 150, máximo 600).
 - ⚠️ Todos os serviços/sintomas do catálogo estão `active=false`; não há preços fixos inventados.
-- ⏭ Próximo: endpoints e apps v2. Antes de expor endpoints de dinheiro, fechar a autenticação das APIs (P0).
+- ✅ Autenticação das APIs: cookie web (`bdm_session`) ou Bearer Supabase JWT.
+- ✅ Apps v1 e v2 passaram a usar `apiFetch`, que envia o access token Supabase.
+- ✅ Endpoints de pagamentos, QR, tracking, top-up, payout dispatch e reports exigem actor autorizado.
+- ⚠️ APKs antigos (v1/v2) precisam de rebuild para enviar o token.
+- ⚠️ RLS/grants da base de dados continuam abertos; a auth das APIs não fecha o acesso directo via anon key.
+- ⏭ Próximo: adaptar os endpoints ao novo fluxo (travel/reclass/PIN) e fechar RLS.
 - ⏭ Preços fixos por categoria continuam por validar com pesquisa de campo.
 
 ---

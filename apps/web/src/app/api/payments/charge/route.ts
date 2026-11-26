@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { buildPaymentReference, createPaySuiteCharge, type PaySuiteMethod } from '@/lib/paysuite';
 import { getSandboxSettings } from '@/lib/sandbox';
 import { getPlatformRates } from '@/lib/rates';
+import { requireJobAccess } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,10 @@ export async function POST(req: Request) {
     const method: string | undefined = body.method;
 
     if (!identifier) return NextResponse.json({ ok: false, error: 'jobId em falta' }, { status: 400 });
+
+    const access = await requireJobAccess(req, identifier, 'client');
+    if (access.response) return access.response;
+
     if (!Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json({ ok: false, error: 'valor inválido' }, { status: 400 });
     }

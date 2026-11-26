@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { notify } from '@/lib/pusher';
+import { requireJobAccess } from '@/lib/api-auth';
 
 export async function POST(req: Request) {
   try {
@@ -9,6 +10,9 @@ export async function POST(req: Request) {
     if (!jobId || lat === undefined || lng === undefined) {
       return NextResponse.json({ error: 'Missing data' }, { status: 400 });
     }
+
+    const access = await requireJobAccess(req, jobId, 'provider');
+    if (access.response) return access.response;
 
     // Dispara o evento de localização pelo Pusher no canal específico deste serviço
     await notify(`job-${jobId}`, 'location-update', {

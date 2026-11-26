@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { notify } from '@/lib/pusher';
+import { requireJobAccess } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,10 @@ export async function POST(req: Request) {
     if (!identifier) {
       return NextResponse.json({ ok: false, error: 'jobId em falta' }, { status: 400 });
     }
+
+    const access = await requireJobAccess(req, identifier, 'client');
+    if (access.response) return access.response;
+
     if (reason.length < 10) {
       return NextResponse.json({ ok: false, error: 'descreve o problema com pelo menos 10 caracteres' }, { status: 400 });
     }

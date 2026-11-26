@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { requireJobAccess } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,6 +9,9 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const identifier = searchParams.get('jobId');
     if (!identifier) return NextResponse.json({ ok: false, error: 'jobId em falta' }, { status: 400 });
+
+    const access = await requireJobAccess(req, identifier, 'either');
+    if (access.response) return access.response;
 
     const { rows } = await db.query<{ id: string }>(
       `select id from jobs where id = $1 or request_id = $1 limit 1`,

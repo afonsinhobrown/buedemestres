@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getPaySuiteChargeByReference } from '@/lib/paysuite';
 import { confirmAddendumByReference, failAddendumByReference } from '@/lib/job-payment';
+import { requireJobAccess } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,9 @@ export async function GET(req: Request) {
     if (!addendum) {
       return NextResponse.json({ ok: true, status: 'none', paid: false, failed: false, addendum: null });
     }
+
+    const access = await requireJobAccess(req, addendum.job_id, 'client');
+    if (access.response) return access.response;
 
     if (addendum.status === 'held' || addendum.status === 'released') {
       return NextResponse.json({ ok: true, status: 'held', paid: true, failed: false, addendum });

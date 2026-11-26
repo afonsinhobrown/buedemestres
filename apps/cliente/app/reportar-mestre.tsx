@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator 
 import { Alert } from '../lib/alertCompat'
 import { useLocalSearchParams, router } from 'expo-router'
 
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 
 export default function ReportarMestreScreen() {
   const params = useLocalSearchParams<{ jobId?: string }>()
@@ -18,7 +18,7 @@ export default function ReportarMestreScreen() {
     }
     try {
       setSubmitting(true)
-      const res = await fetch(`${API_BASE}/api/reports/provider`, {
+      const res = await apiFetch(`/api/reports/provider`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jobId: params.jobId, reason: reason.trim() }),

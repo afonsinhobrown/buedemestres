@@ -3,7 +3,7 @@ import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet, Platform, 
 import { Alert } from '../../lib/alertCompat'
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
-import { API_BASE } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 
 export default function AguardarPagamentoScreen() {
   const router = useRouter();
@@ -150,7 +150,7 @@ export default function AguardarPagamentoScreen() {
 
     const reconciliar = async () => {
       try {
-        await fetch(`${API_BASE}/api/payments/status?jobId=${encodeURIComponent(jobId)}`);
+        await apiFetch(`/api/payments/status?jobId=${encodeURIComponent(jobId)}`);
       } catch {
         // rede instável — o polling à base de dados continua a tentar
       }

@@ -4,7 +4,7 @@ import { useLocalSearchParams, router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 
 export default function ConfirmarServicoScreen() {
   const params = useLocalSearchParams<{ jobId: string }>()
@@ -48,7 +48,7 @@ export default function ConfirmarServicoScreen() {
           onPress: async () => {
             try {
               setIsSubmitting(true)
-              const res = await fetch(`${API_BASE}/api/payments/release`, {
+              const res = await apiFetch(`/api/payments/release`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ jobId: params.jobId })

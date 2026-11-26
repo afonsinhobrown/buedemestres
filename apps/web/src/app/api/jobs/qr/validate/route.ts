@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { notify } from '@/lib/pusher';
+import { requireApiActor } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,12 +14,15 @@ export async function POST(req: Request) {
     let token = rawToken.startsWith(QR_PREFIX) ? rawToken.slice(QR_PREFIX.length) : rawToken;
     const manualCode = String(body.code || '').toUpperCase();
     const jobIdentifier: string | undefined = body.jobId || body.requestId;
-    const clientId: string | undefined = body.clientId;
     const phase: string | undefined = body.phase;
 
-    if ((!token && !manualCode) || !clientId || !['start', 'finish'].includes(phase || '')) {
+    if ((!token && !manualCode) || !['start', 'finish'].includes(phase || '')) {
       return NextResponse.json({ ok: false, error: 'dados em falta' }, { status: 400 });
     }
+
+    const auth = await requireApiActor(req);
+    if (!auth.actor) return auth.response;
+    const clientId = auth.actor.userId;
 
     if (!token && manualCode && jobIdentifier) {
       const { rows: codeRows } = await db.query<{ token: string }>(
