@@ -69,7 +69,7 @@ export default async function MasterProfilePage({ params }: { params: Promise<{ 
   const services = servicesRes.rows as ProfileService[]
 
   const reviewsRes = await db.query(`
-    SELECT r.id, r.rating, r.comment, r.created_at, pr.name as client_name
+    SELECT r.id, r.rating, r.comment, r.created_at, pr.full_name as client_name
     FROM reviews r
     LEFT JOIN profiles pr ON pr.id = r.client_id
     WHERE r.provider_id = $1 AND r.is_hidden = false
