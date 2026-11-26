@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bué de Mestres — Encontrar serviços perto de ti</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+:root{--navy:#102b55;--blue:#1d477c;--yellow:#ffc400;--ink:#14294a;--muted:#718096;--line:#e4eaf2;--bg:#f5f7fa;--green:#16a765;--shadow:0 8px 28px rgba(16,43,85,.10)}
+*{box-sizing:border-box}html,body{margin:0;height:100%;font-family:Inter,system-ui,sans-serif;color:var(--ink);background:var(--bg)}button,input{font:inherit}button{cursor:pointer;border:0}
+.topbar{height:72px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:relative;z-index:1000}.brand{display:flex;align-items:center;gap:12px;min-width:245px}.brand-mark{width:43px;height:43px;border-radius:13px;background:var(--yellow);display:grid;place-items:center;font-size:25px}.brand-name{font-size:21px;font-weight:800;line-height:1.05;letter-spacing:-.7px}.brand-name span{display:block;font-size:10px;color:var(--muted);font-weight:500;letter-spacing:0;margin-top:4px}.top-actions{display:flex;align-items:center;gap:24px}.location-top{font-weight:700;font-size:13px}.link{background:none;color:var(--ink);font-size:13px;font-weight:600}.btn-yellow{background:var(--yellow);color:#13294a;border-radius:13px;padding:13px 20px;font-size:13px;font-weight:800;box-shadow:0 3px 0 rgba(172,126,0,.12)}
+.app{height:calc(100vh - 72px);min-height:590px;display:grid;grid-template-columns:245px minmax(420px,1fr) 270px;gap:14px;padding:16px 18px 18px;max-width:1800px;margin:auto}.panel{background:#fff;border:1px solid var(--line);border-radius:17px;box-shadow:0 2px 8px rgba(16,43,85,.04);overflow:hidden}.left-panel{display:flex;flex-direction:column;min-height:0}.panel-heading{background:var(--navy);color:#fff;padding:17px 18px;font-size:14px;font-weight:800;display:flex;justify-content:space-between;align-items:center}.category-list{padding:9px;overflow:auto}.category{display:flex;align-items:center;gap:12px;width:100%;padding:12px 11px;border-radius:11px;background:transparent;color:var(--ink);text-align:left;font-weight:650;font-size:13px;margin:2px 0}.category .ico{width:24px;text-align:center;font-size:18px}.category .chev{margin-left:auto;color:#8291a7}.category:hover,.category.active{background:#fff5d3}.category.active{color:#173d70}.category-footer{margin:auto 12px 12px;padding-top:10px;border-top:1px solid var(--line)}.small-note{font-size:11px;color:var(--muted);line-height:1.55;padding:8px 5px 2px}
+.center{display:flex;flex-direction:column;min-width:0;min-height:0;gap:10px}.map-shell{position:relative;flex:1;min-height:330px;border-radius:18px;overflow:hidden;background:#dce8e5;border:1px solid #d7e1eb;box-shadow:var(--shadow)}#map{position:absolute;inset:0;z-index:1}.map-top-search{position:absolute;z-index:500;top:16px;left:50%;transform:translateX(-50%);width:min(760px,calc(100% - 36px));background:#fff;border-radius:16px;box-shadow:0 7px 24px rgba(16,43,85,.20);display:flex;align-items:center;padding:7px;gap:8px}.search-icon{font-size:21px;padding-left:10px}.map-top-search input{min-width:0;flex:1;border:0;outline:0;padding:10px 4px;font-size:14px;color:var(--ink)}.map-city{border-left:1px solid var(--line);padding:9px 12px;font-size:13px;font-weight:700;white-space:nowrap}.search-btn{background:var(--yellow);padding:13px 21px;border-radius:11px;font-size:13px;font-weight:800;white-space:nowrap}.map-tools{position:absolute;z-index:500;left:15px;top:17px;display:flex;flex-direction:column;gap:7px}.map-tool{width:39px;height:39px;background:#fff;border-radius:11px;box-shadow:0 3px 12px #102b5524;color:var(--navy);font-size:19px;font-weight:700}.map-status{position:absolute;right:16px;top:86px;z-index:500;background:#fff;padding:10px 14px;border-radius:30px;box-shadow:0 3px 12px #102b5524;font-size:12px;font-weight:700}.green-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:7px}.locate{position:absolute;z-index:500;bottom:17px;left:16px;background:#fff;padding:11px 15px;border-radius:12px;box-shadow:0 3px 12px #102b5524;font-size:12px;font-weight:750;color:var(--navy)}.map-legend{position:absolute;z-index:500;bottom:17px;right:16px;background:#fff;padding:10px 12px;border-radius:11px;box-shadow:0 3px 12px #102b5524;font-size:10px;color:#52647d;display:flex;gap:12px}.legend-item{display:flex;align-items:center;gap:5px}.legend-dot{width:9px;height:9px;border-radius:50%;background:var(--blue)}.legend-dot.yellow{background:#f3b500}.legend-dot.green{background:var(--green)}
+.results{height:218px;flex-shrink:0;display:flex;flex-direction:column;min-height:0}.results-head{display:flex;align-items:center;justify-content:space-between;padding:3px 3px 8px}.results-title{font-size:15px;font-weight:800}.results-count{font-size:11px;color:var(--muted);margin-left:7px;font-weight:500}.filters{display:flex;gap:7px;overflow:auto;padding:0 0 9px}.chip{background:#fff;border:1px solid var(--line);border-radius:30px;padding:8px 12px;font-size:11px;font-weight:700;color:#435674;white-space:nowrap}.chip.active{background:var(--navy);border-color:var(--navy);color:#fff}.result-list{display:flex;gap:9px;overflow:auto;padding:0 1px 5px}.master-card{min-width:215px;max-width:245px;flex:1;background:#fff;border:1px solid var(--line);border-radius:13px;padding:12px;display:grid;grid-template-columns:40px 1fr auto;gap:9px;align-items:center;cursor:pointer;transition:.15s}.master-card:hover,.master-card.selected{border-color:var(--yellow);box-shadow:0 3px 12px rgba(16,43,85,.08)}.master-icon{width:40px;height:40px;border-radius:12px;background:#edf3fb;display:grid;place-items:center;font-size:21px}.master-info strong{display:block;font-size:12px}.master-info span{display:block;font-size:10px;color:var(--muted);margin-top:4px}.master-meta{text-align:right;font-size:10px;color:#40536f;white-space:nowrap}.master-meta b{color:#e3a900}.availability{font-size:9px;color:var(--green);font-weight:800;margin-top:5px}
+.right-panel{display:flex;flex-direction:column;gap:12px;min-height:0}.promo{background:var(--navy);color:#fff;border-radius:17px;padding:19px 17px;min-height:185px;position:relative;overflow:hidden}.promo:after{content:'⚒';position:absolute;right:10px;bottom:-16px;font-size:94px;color:#ffffff12;transform:rotate(-15deg)}.eyebrow{font-size:9px;text-transform:uppercase;letter-spacing:1.1px;font-weight:800;color:#9db4d4}.promo h2{font-size:22px;line-height:1.13;margin:12px 0 8px;max-width:190px}.promo h2 em{font-style:normal;color:var(--yellow)}.promo p{font-size:11px;line-height:1.5;color:#d9e4f3;max-width:190px}.promo .btn-yellow{margin-top:8px;padding:11px 14px}.info-card{padding:15px;border-radius:15px;background:#fff;border:1px solid var(--line)}.info-card h3{font-size:13px;margin:0 0 7px}.info-card p{font-size:11px;line-height:1.5;color:var(--muted);margin:0}.verified{display:flex;align-items:center;gap:11px}.verified-icon{width:40px;height:40px;border-radius:12px;background:#e6f8ef;color:var(--green);display:grid;place-items:center;font-size:21px}.ad-slot{border:1px dashed #c6d2e1;border-radius:14px;padding:14px;background:#f9fbfd;min-height:100px}.ad-slot strong{font-size:12px}.ad-slot p{font-size:10px;color:var(--muted);margin:5px 0 0;line-height:1.45}.help{margin-top:auto;text-align:center;background:#fff8df;border:1px solid #ffe18a;padding:14px;border-radius:15px}.help strong{font-size:12px}.help p{font-size:10px;color:#6c5a25;margin:5px 0 10px}.help button{background:#13b76a;color:#fff;border-radius:22px;padding:9px 15px;font-size:11px;font-weight:800}
+/* custom map markers */.map-pin{width:36px;height:36px;border-radius:50% 50% 50% 8px;transform:rotate(-45deg);display:grid;place-items:center;border:3px solid #fff;box-shadow:0 3px 9px #102b5540;color:#fff;font-size:16px;font-weight:800}.map-pin span{transform:rotate(45deg)}.map-pin.blue{background:#214d83}.map-pin.yellow{background:#f2b600;color:#17345d}.map-pin.green{background:#18a765}.leaflet-control-attribution{font-size:8px!important}
+.mobile-bottom{display:none}
+@media(max-width:1050px){.app{grid-template-columns:205px minmax(360px,1fr);}.right-panel{display:none}.topbar{padding:0 18px}}
+@media(max-width:700px){html,body{height:100%;overflow:hidden}.topbar{height:58px;padding:0 13px}.brand{min-width:0;gap:8px}.brand-mark{width:35px;height:35px;font-size:20px}.brand-name{font-size:17px}.brand-name span,.top-actions .link,.location-top{display:none}.top-actions{gap:8px}.top-actions .btn-yellow{padding:10px 12px;font-size:11px}.app{height:calc(100dvh - 58px);min-height:0;display:block;padding:0;position:relative}.left-panel{display:none}.center{height:100%;display:block}.map-shell{height:100%;min-height:0;border:0;border-radius:0;box-shadow:none}.map-top-search{top:12px;width:calc(100% - 24px);padding:5px;border-radius:13px}.map-top-search input{font-size:12px}.map-city{display:none}.search-btn{padding:12px 13px;font-size:11px}.map-tools{top:82px;left:12px}.map-status{top:84px;right:12px;font-size:10px}.locate{bottom:245px;left:12px;padding:10px 12px}.map-legend{display:none}.results{position:absolute;z-index:700;bottom:0;left:0;right:0;height:228px;background:#fff;border-radius:19px 19px 0 0;padding:13px 13px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -8px 28px rgba(16,43,85,.15)}.results:before{content:'';width:38px;height:4px;border-radius:5px;background:#d5dce6;position:absolute;top:6px;left:calc(50% - 19px)}.results-head{padding:6px 2px 8px}.results-title{font-size:14px}.filters{padding-bottom:8px}.chip{padding:7px 10px}.result-list{overflow-x:auto}.master-card{min-width:225px;padding:10px}.right-panel{display:none}.leaflet-bottom.leaflet-right{bottom:235px}.leaflet-bottom.leaflet-left{bottom:235px}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><div class="brand-mark">🛠️</div><div class="brand-name">Bué de Mestres<span>O serviço certo, na hora certa, perto de si.</span></div></div>
+  <div class="top-actions"><span class="location-top">📍 Maputo ▾</span><button class="link">Como funciona</button><button class="link">Para mestres</button><button class="link">Entrar</button><button class="btn-yellow">Criar conta</button></div>
+</header>
+<main class="app">
+  <aside class="left-panel panel">
+    <div class="panel-heading"><span>☷ &nbsp; Categorias</span><span>⌄</span></div>
+    <nav class="category-list" id="categories">
+      <button class="category active" data-category="Todos"><span class="ico">⌕</span>Todos os serviços<span class="chev">›</span></button>
+      <button class="category" data-category="Mecânicos"><span class="ico">🚗</span>Mecânicos<span class="chev">›</span></button>
+      <button class="category" data-category="Electricistas"><span class="ico">ϟ</span>Electricistas<span class="chev">›</span></button>
+      <button class="category" data-category="Canalizadores"><span class="ico">🚰</span>Canalizadores<span class="chev">›</span></button>
+      <button class="category" data-category="Carpinteiros"><span class="ico">🪚</span>Carpinteiros<span class="chev">›</span></button>
+      <button class="category" data-category="Pedreiros"><span class="ico">🧱</span>Pedreiros<span class="chev">›</span></button>
+      <button class="category" data-category="Explicadores"><span class="ico">📚</span>Explicadores<span class="chev">›</span></button>
+      <button class="category" data-category="Limpeza"><span class="ico">🧹</span>Limpeza<span class="chev">›</span></button>
+      <button class="category" data-category="Transportes"><span class="ico">🚚</span>Transportes<span class="chev">›</span></button>
+      <button class="category" data-category="Pintores"><span class="ico">🖌️</span>Pintores<span class="chev">›</span></button>
+      <button class="category" data-category="Outros serviços"><span class="ico">⚙️</span>Outros serviços<span class="chev">›</span></button>
+    </nav>
+    <div class="category-footer"><button class="category" style="justify-content:center;background:#f1f6ff;color:#214d83">＋ Ver todas as categorias</button><div class="small-note">Escolhe uma especialidade para veres os profissionais disponíveis no mapa.</div></div>
+  </aside>
+  <section class="center">
+    <div class="map-shell">
+      <div id="map" aria-label="Mapa de profissionais disponíveis em Maputo"></div>
+      <div class="map-tools"><button class="map-tool" id="zoomIn" title="Aumentar zoom">＋</button><button class="map-tool" id="zoomOut" title="Diminuir zoom">−</button><button class="map-tool" id="locateBtn" title="A minha localização">◎</button></div>
+      <form class="map-top-search" id="searchForm"><span class="search-icon">⌕</span><input id="searchInput" placeholder="Ex.: mecânico, canalizador, electricista..." autocomplete="off"><div class="map-city">📍 Maputo ▾</div><button class="search-btn" type="submit">Pesquisar</button></form>
+      <div class="map-status"><span class="green-dot"></span>Profissionais próximos</div>
+      <button class="locate" id="locateBtn2">◎ &nbsp; A minha localização</button>
+      <div class="map-legend"><span class="legend-item"><i class="legend-dot"></i>Mecânico</span><span class="legend-item"><i class="legend-dot yellow"></i>Electricista</span><span class="legend-item"><i class="legend-dot green"></i>Outros</span></div>
+    </div>
+    <section class="results">
+      <div class="results-head"><div><span class="results-title">Mestres disponíveis perto de ti</span><span class="results-count" id="resultCount">8 encontrados</span></div><button class="link" id="clearFilter">Limpar filtros</button></div>
+      <div class="filters" id="chips">
+        <button class="chip active" data-category="Todos">Todos</button><button class="chip" data-category="Mecânicos">🚗 Mecânicos</button><button class="chip" data-category="Electricistas">ϟ Electricistas</button><button class="chip" data-category="Canalizadores">🚰 Canalizadores</button><button class="chip" data-category="Carpinteiros">🪚 Carpinteiros</button><button class="chip" data-category="Pedreiros">🧱 Pedreiros</button>
+      </div>
+      <div class="result-list" id="resultList"></div>
+    </section>
+  </section>
+  <aside class="right-panel">
+    <div class="promo"><div class="eyebrow">Faz parte da plataforma</div><h2>Queres ser <em>Mestre?</em></h2><p>Regista-te e recebe pedidos de serviços de clientes perto de ti.</p><button class="btn-yellow">Registar agora →</button></div>
+    <div class="info-card"><div class="verified"><div class="verified-icon">✓</div><div><h3>Mestres verificados</h3><p>Mais confiança em cada serviço.</p></div></div></div>
+    <div class="ad-slot"><strong>Espaço para parceiros</strong><p>Publicidade discreta, sem retirar protagonismo ao mapa e à procura de serviços.</p></div>
+    <div class="help"><strong>Precisas de ajuda?</strong><p>Estamos disponíveis para te apoiar.</p><button>WhatsApp</button></div>
+  </aside>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// Dados demonstrativos: substituir pelos profissionais reais vindos da API.
+const masters=[
+{id:1,name:'Oficina do Zito',category:'Mecânicos',service:'Mecânica geral',rating:'4.9',distance:'1.2 km',status:'Disponível agora',lat:-25.9652,lng:32.5831,icon:'🔧',color:'blue'},
+{id:2,name:'Carlos Mavume',category:'Electricistas',service:'Instalações eléctricas',rating:'4.8',distance:'1.8 km',status:'Disponível agora',lat:-25.9574,lng:32.5962,icon:'ϟ',color:'yellow'},
+{id:3,name:'Canalizações Maputo',category:'Canalizadores',service:'Canalização e reparações',rating:'4.7',distance:'2.1 km',status:'Disponível hoje',lat:-25.9731,lng:32.6081,icon:'🚰',color:'green'},
+{id:4,name:'Mestre Alberto',category:'Carpinteiros',service:'Móveis e montagem',rating:'4.9',distance:'2.6 km',status:'Disponível agora',lat:-25.9490,lng:32.5754,icon:'🪚',color:'blue'},
+{id:5,name:'Electro Serviços',category:'Electricistas',service:'Reparações eléctricas',rating:'4.6',distance:'3.0 km',status:'Disponível agora',lat:-25.9810,lng:32.5914,icon:'ϟ',color:'yellow'},
+{id:6,name:'Auto Socorro 24h',category:'Mecânicos',service:'Diagnóstico e assistência',rating:'4.8',distance:'3.4 km',status:'Disponível agora',lat:-25.9435,lng:32.6130,icon:'🔧',color:'blue'},
+{id:7,name:'Canalizador Júnior',category:'Canalizadores',service:'Fugas e manutenção',rating:'4.5',distance:'3.8 km',status:'Disponível hoje',lat:-25.9870,lng:32.5705,icon:'🚰',color:'green'},
+{id:8,name:'Obras & Reparações',category:'Pedreiros',service:'Pequenas obras',rating:'4.7',distance:'4.2 km',status:'Disponível agora',lat:-25.9530,lng:32.6240,icon:'🧱',color:'green'}
+];
+const map=L.map('map',{zoomControl:false}).setView([-25.9655,32.5900],13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+const markerLayer=L.layerGroup().addTo(map);let activeCategory='Todos';let selectedId=null;
+function markerIcon(m){return L.divIcon({className:'',html:`<div class="map-pin ${m.color}"><span>${m.icon}</span></div>`,iconSize:[36,36],iconAnchor:[18,34],popupAnchor:[0,-34]})}
+function selectMaster(id,pan=true){selectedId=id;const m=masters.find(x=>x.id===id);if(!m)return;if(pan)map.setView([m.lat,m.lng],15);renderList();}
+function renderMap(){markerLayer.clearLayers();masters.filter(m=>activeCategory==='Todos'||m.category===activeCategory).forEach(m=>{const marker=L.marker([m.lat,m.lng],{icon:markerIcon(m)}).addTo(markerLayer);marker.bindTooltip(`<b>${m.name}</b><br>${m.category} · ★ ${m.rating}`,{direction:'top'});marker.on('click',()=>selectMaster(m.id,false));});}
+function renderList(){const visible=masters.filter(m=>(activeCategory==='Todos'||m.category===activeCategory));document.getElementById('resultCount').textContent=`${visible.length} encontrados`;document.getElementById('resultList').innerHTML=visible.map(m=>`<article class="master-card ${selectedId===m.id?'selected':''}" data-id="${m.id}"><div class="master-icon">${m.icon}</div><div class="master-info"><strong>${m.name}</strong><span>${m.category} · ${m.service}</span><div class="availability">● ${m.status}</div></div><div class="master-meta"><b>★ ${m.rating}</b><br>${m.distance}</div></article>`).join('');document.querySelectorAll('.master-card').forEach(el=>el.addEventListener('click',()=>selectMaster(Number(el.dataset.id))));}
+function setCategory(cat){activeCategory=cat;document.querySelectorAll('.category').forEach(b=>b.classList.toggle('active',b.dataset.category===cat));document.querySelectorAll('.chip').forEach(b=>b.classList.toggle('active',b.dataset.category===cat));renderMap();renderList();}
+document.querySelectorAll('[data-category]').forEach(b=>b.addEventListener('click',()=>setCategory(b.dataset.category)));
+document.getElementById('clearFilter').addEventListener('click',()=>setCategory('Todos'));
+document.getElementById('searchForm').addEventListener('submit',e=>{e.preventDefault();const q=document.getElementById('searchInput').value.trim().toLowerCase();const match=masters.find(m=>(m.category+' '+m.service+' '+m.name).toLowerCase().includes(q));if(match){setCategory('Todos');selectMaster(match.id);}else if(q){alert('Não encontrámos resultados de demonstração para essa pesquisa. Na implementação, ligar esta pesquisa à API de serviços.');}});
+document.getElementById('zoomIn').onclick=()=>map.zoomIn();document.getElementById('zoomOut').onclick=()=>map.zoomOut();
+function locate(){map.setView([-25.9655,32.5900],15);}
+document.getElementById('locateBtn').onclick=locate;document.getElementById('locateBtn2').onclick=locate;
+renderMap();renderList();setTimeout(()=>map.invalidateSize(),250);
+</script>
+</body>
+</html>
