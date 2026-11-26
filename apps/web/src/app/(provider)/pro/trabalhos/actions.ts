@@ -54,6 +54,12 @@ export async function sendPriceProposalAction(
         throw new Error('O teu perfil de mestre ainda não está publicado.')
       }
 
+      try {
+        await client.query('select expire_stale_negotiations()')
+      } catch {
+        // A função pode não existir em bases antigas.
+      }
+
       const jobRes = await client.query<{ id: string }>(
         `insert into jobs(
            request_id, client_id, provider_id, status, price_proposed,
@@ -121,6 +127,13 @@ export async function sendPriceProposalAction(
     return { success: true }
   } catch (error) {
     console.error('[sendPriceProposalAction]', error)
-    return { error: error instanceof Error ? error.message : 'Não foi possível enviar o orçamento.' }
+    const message = error instanceof Error ? error.message : ''
+    if (message.includes('provider_busy')) {
+      return { error: 'Já tens um serviço ativo. Conclui ou cancela esse serviço antes de responderes a outro pedido.' }
+    }
+    if (message.includes('sandbox_limit_exceeded')) {
+      return { error: 'No modo sandbox, o orçamento tem de estar entre 1 e 10 MT.' }
+    }
+    return { error: message || 'Não foi possível enviar o orçamento.' }
   }
 }
