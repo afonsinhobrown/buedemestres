@@ -20,6 +20,14 @@ export default async function PedidosPage() {
     pedidos = rows
   }
 
+  // Fallback para design caso não esteja autenticado para visualização
+  if (!session?.userId) {
+    pedidos = [
+      { id: '1', title: 'Motor do carro não liga', status: 'open', created_at: new Date().toISOString(), category_name: 'Automóvel' },
+      { id: '2', title: 'Fuga de água na cozinha', status: 'completed', created_at: new Date(Date.now() - 86400000).toISOString(), category_name: 'Casa e Limpeza' }
+    ]
+  }
+
   return (
     <PageShell>
       <div className="max-w-2xl mx-auto p-4 md:p-8 pb-24">

@@ -210,6 +210,18 @@ export const SETTING_FIELDS: SettingField[] = [
     type: 'boolean',
     group: 'socios',
   },
+  // Sandbox
+  { key: 'sandbox_mode', label: 'Modo sandbox ativo', type: 'boolean', group: 'sandbox' },
+  { key: 'sandbox_min_price', label: 'Preço mínimo', type: 'number', group: 'sandbox', min: 0, unit: 'MT' },
+  {
+    key: 'sandbox_max_price',
+    label: 'Preço máximo',
+    type: 'number',
+    group: 'sandbox',
+    min: 0,
+    max: 10,
+    unit: 'MT',
+  },
 ];
 
 export const FIELD_BY_KEY = new Map(SETTING_FIELDS.map((f) => [f.key, f]));
@@ -235,6 +247,9 @@ export const DEFAULTS: Record<string, unknown> = {
   platform_withdraw_pct: 0.5,
   platform_retain_pct: 0.5,
   platform_withdrawal_approval: true,
+  sandbox_mode: true,
+  sandbox_min_price: 11,
+  sandbox_max_price: 11,
 };
 
 export type SettingValue = number | boolean | string;

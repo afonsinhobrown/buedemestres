@@ -6,6 +6,7 @@ import { getOptionalSession } from '@/lib/session';
 import { canTransitionJob } from '@/lib/job-flow';
 import { redirect } from 'next/navigation';
 
+// Ponto por omissão (Maputo) enquanto o formulário web não recolhe GPS.
 const DEFAULT_LAT = -25.9666;
 const DEFAULT_LNG = 32.5833;
 
@@ -14,10 +15,6 @@ export async function requestServiceAction(formData: FormData) {
   const clientName = formData.get('clientName') as string;
   const clientPhone = formData.get('clientPhone') as string;
   const problemDescription = formData.get('problem') as string;
-  const rawLat = Number(formData.get('lat'));
-  const rawLng = Number(formData.get('lng'));
-  const lat = Number.isFinite(rawLat) ? rawLat : DEFAULT_LAT;
-  const lng = Number.isFinite(rawLng) ? rawLng : DEFAULT_LNG;
 
   const session = await getOptionalSession();
 
@@ -75,8 +72,8 @@ export async function requestServiceAction(formData: FormData) {
           title,
           problemDescription || 'Pedido de serviço',
           providerId,
-          lng,
-          lat,
+          DEFAULT_LNG,
+          DEFAULT_LAT,
         ]
       );
 
@@ -93,8 +90,8 @@ export async function requestServiceAction(formData: FormData) {
     requestId,
     clientName,
     problemDescription,
-    lat,
-    lng,
+    lat: DEFAULT_LAT,
+    lng: DEFAULT_LNG,
   });
 
   redirect(`/pedidos/${requestId}`);

@@ -1,41 +1,16 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
-import dynamic from 'next/dynamic'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PageShell } from '@/components/layout/PageShell'
-import { Camera, CalendarBlank, CaretLeft } from '@phosphor-icons/react'
+import { Camera, MapPin, CalendarBlank, CaretLeft } from '@phosphor-icons/react'
 import { createRequest } from '@/app/actions/requests'
-import { toast, Toaster } from 'sonner'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import type { PickedLocation } from '@/components/LocationPicker'
 
-const LocationPicker = dynamic(() => import('@/components/LocationPicker'), {
-  ssr: false,
-  loading: () => <div className="h-[280px] rounded-xl border border-[var(--color-zinco-200)] bg-[var(--color-papel)]" />,
-})
-
-async function compressImage(file: File): Promise<File> {
-  if (file.size <= 500 * 1024) return file
-
-  try {
-    const bitmap = await createImageBitmap(file)
-    const maxSide = 1400
-    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height))
-    const canvas = document.createElement('canvas')
-    canvas.width = Math.round(bitmap.width * scale)
-    canvas.height = Math.round(bitmap.height * scale)
-    const context = canvas.getContext('2d')
-    if (!context) return file
-    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.68))
-    if (!blob) return file
-    return new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })
-  } catch {
-    return file
-  }
-}
+import { Suspense } from 'react'
 
 function NewRequestForm() {
   const router = useRouter()
@@ -49,60 +24,13 @@ function NewRequestForm() {
     }
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/categories')
-      .then((response) => response.ok ? response.json() : [])
-      .then((data: { id: number; name: string }[]) => {
-        if (cancelled || !Array.isArray(data)) return
-        setCategories(data)
-        setFormData((current) => {
-          const valid = data.some((category) => String(category.id) === current.categoryId)
-          return valid ? current : { ...current, categoryId: data[0] ? String(data[0].id) : current.categoryId }
-        })
-      })
-      .catch(() => undefined)
-    return () => { cancelled = true }
-  }, [])
-
   const [step, setStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [photos, setPhotos] = useState<{ file: File; url: string }[]>([])
-  const [location, setLocation] = useState<PickedLocation | null>(null)
-  const [processingPhotos, setProcessingPhotos] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [categories, setCategories] = useState<{ id: number; name: string }[]>([])
-
-  const handlePhotos = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(event.target.files ?? [])
-      .filter((file) => file.type.startsWith('image/'))
-      .slice(0, 5 - photos.length)
-    if (selected.length === 0) return
-    setProcessingPhotos(true)
-    try {
-      const prepared = await Promise.all(selected.map(compressImage))
-      setPhotos((current) => [
-        ...current,
-        ...prepared.map((file) => ({ file, url: URL.createObjectURL(file) })),
-      ].slice(0, 5))
-    } finally {
-      setProcessingPhotos(false)
-      event.target.value = ''
-    }
-  }
-
-  const removePhoto = (index: number) => {
-    setPhotos((current) => {
-      const photo = current[index]
-      if (photo) URL.revokeObjectURL(photo.url)
-      return current.filter((_, i) => i !== index)
-    })
-  }
-
+  
   // Rascunho de pedido
   const [formData, setFormData] = useState({
     title: '',
-    categoryId: '',
+    categoryId: '1', // Default auto/mecânico para a demo
     description: '',
     preferredDate: '',
     budgetMin: '',
@@ -134,50 +62,30 @@ function NewRequestForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    setSubmitError(null)
-
+    
     const submitData = new FormData()
     Object.entries(formData).forEach(([k, v]) => submitData.append(k, v))
-    photos.forEach((photo) => submitData.append('photos', photo.file))
-    if (location) {
-      submitData.append('address', location.address)
-      submitData.append('lat', String(location.lat))
-      submitData.append('lng', String(location.lng))
-    }
     if (mestreSlug) {
       // Idealmente resolveriamos o ID real do provider pelo slug
       // submitData.append('targetProviderId', targetId)
     }
 
-    try {
-      const res = await createRequest(null, submitData)
-      if (res?.error) {
-        setSubmitError(res.error)
-        toast.error(res.error)
-      } else if (res?.fieldErrors) {
-        const firstError = Object.values(res.fieldErrors).flat().find(Boolean)
-        const message = firstError || 'Verifica os campos do formulário.'
-        setSubmitError(message)
-        toast.error(message)
-      } else if (res?.success) {
-        localStorage.removeItem('buedemestres_request_draft')
-        toast.success('Pedido publicado!')
-        if (res.warning) toast.warning(res.warning, { duration: 8000 })
-        router.push('/pedidos')
-      }
-    } catch (error) {
-      console.error('Erro ao publicar pedido:', error)
-      const message = 'Não foi possível publicar o pedido. Tenta novamente.'
-      setSubmitError(message)
-      toast.error(message)
-    } finally {
-      setIsSubmitting(false)
+    const res = await createRequest(null, submitData)
+    
+    setIsSubmitting(false)
+    if (res?.error) {
+      toast.error(res.error)
+    } else if (res?.fieldErrors) {
+      toast.error("Verifica os campos do formulário.")
+    } else if (res?.success) {
+      localStorage.removeItem('buedemestres_request_draft')
+      toast.success("Pedido publicado!")
+      router.push('/pedidos')
     }
   }
 
   return (
     <PageShell noNav>
-      <Toaster position="top-right" richColors />
       <div className="flex flex-col h-screen max-h-screen bg-[var(--color-cal)]">
         {/* Header Assistente */}
         <header className="flex items-center px-4 h-[60px] bg-[var(--color-papel)] border-b border-[var(--color-zinco-200)] shrink-0">
@@ -212,13 +120,11 @@ function NewRequestForm() {
                     name="categoryId" 
                     value={formData.categoryId} 
                     onChange={handleChange}
-                    required
                     className="h-[52px] rounded-[var(--radius-controlo)] border border-[var(--color-zinco-200)] bg-[var(--color-papel)] px-3"
                   >
-                    <option value="" disabled>Escolhe a especialidade</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>{category.name}</option>
-                    ))}
+                    <option value="1">Automóvel (Mecânico, etc)</option>
+                    <option value="2">Construção e Reparações</option>
+                    <option value="3">Casa e Limpeza</option>
                   </select>
                 </div>
 
@@ -236,41 +142,13 @@ function NewRequestForm() {
               <h2 className="text-2xl display-wide">Mostra-nos.</h2>
               
               <div className="space-y-4">
-                <label
-                  htmlFor="request-photos"
-                  className="border-2 border-dashed border-[var(--color-zinco-200)] rounded-[var(--radius-foto)] p-8 flex flex-col items-center justify-center text-center gap-3 bg-[var(--color-papel)] cursor-pointer hover:bg-[var(--color-cal)]"
-                >
+                <div className="border-2 border-dashed border-[var(--color-zinco-200)] rounded-[var(--radius-foto)] p-8 flex flex-col items-center justify-center text-center gap-3 bg-[var(--color-papel)] cursor-pointer hover:bg-[var(--color-cal)]">
                   <Camera size={40} className="text-[var(--color-zinco)]" />
                   <div>
-                    <p className="font-bold">{processingPhotos ? 'A preparar fotografias…' : 'Tira uma foto ou escolhe da galeria'}</p>
+                    <p className="font-bold">Tira uma foto ou escolhe da galeria</p>
                     <p className="text-sm text-[var(--color-zinco)]">Até 5 fotografias.</p>
                   </div>
-                  <input
-                    id="request-photos"
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="sr-only"
-                    onChange={handlePhotos}
-                  />
-                </label>
-
-                {photos.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2">
-                    {photos.map((photo, index) => (
-                      <div key={photo.url} className="relative overflow-hidden rounded-xl border border-[var(--color-zinco-200)] bg-white">
-                        <img src={photo.url} alt={`Fotografia ${index + 1}`} className="h-24 w-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => removePhoto(index)}
-                          className="absolute right-1 top-1 rounded-full bg-black/70 px-2 py-0.5 text-xs font-bold text-white"
-                        >
-                          Remover
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                </div>
 
                 <div className="flex flex-col gap-1">
                   <label className="text-sm font-medium text-[var(--color-tinta)]">Descrição (opcional se meteres foto)</label>
@@ -290,7 +168,15 @@ function NewRequestForm() {
               <h2 className="text-2xl display-wide">Onde e quando?</h2>
               
               <div className="space-y-4">
-                {step === 3 && <LocationPicker value={location} onChange={setLocation} />}
+                <div className="relative">
+                  <Input
+                    label="Bairro"
+                    defaultValue="Polana, Maputo"
+                    readOnly
+                    className="pl-9"
+                  />
+                  <MapPin className="absolute left-3 top-[34px] text-[var(--color-zinco)]" size={20} />
+                </div>
 
                 <div className="relative">
                   <Input
@@ -307,19 +193,26 @@ function NewRequestForm() {
             </div>
 
             <div className={cn("space-y-6", step !== 4 && "hidden")}>
-              <h2 className="text-2xl display-wide">Revisão</h2>
+              <h2 className="text-2xl display-wide">Orçamento e revisão</h2>
               
               <div className="space-y-4">
-                {submitError && (
-                  <div className="rounded-xl border border-[var(--color-oxido)] bg-red-50 p-4 text-sm font-medium text-[var(--color-oxido)]">
-                    {submitError}
-                  </div>
-                )}
-                <div className="rounded-xl border border-[var(--color-zinco-200)] bg-[#fff8df] p-4 text-sm text-[var(--color-tinta)]">
-                  <strong>O preço é definido pelo mestre.</strong>
-                  <p className="mt-1 text-[var(--color-zinco)]">
-                    Depois de publicares o pedido, o mestre responde com o orçamento. Podes aceitar ou recusar.
-                  </p>
+                <div className="flex gap-4 items-end">
+                  <Input
+                    label="Orçamento mín. (opcional)"
+                    name="budgetMin"
+                    type="number"
+                    placeholder="MT"
+                    value={formData.budgetMin}
+                    onChange={handleChange}
+                  />
+                  <Input
+                    label="Orçamento máx. (opcional)"
+                    name="budgetMax"
+                    type="number"
+                    placeholder="MT"
+                    value={formData.budgetMax}
+                    onChange={handleChange}
+                  />
                 </div>
 
                 <div className="bg-[var(--color-papel)] p-4 rounded-[var(--radius-foto)] border border-[var(--color-zinco-200)] space-y-2 mt-6">
@@ -341,18 +234,17 @@ function NewRequestForm() {
         {/* Footer Assistente */}
         <footer className="p-4 bg-[var(--color-papel)] border-t border-[var(--color-zinco-200)] flex justify-end gap-2 shrink-0 pb-safe">
           {step < 4 ? (
-            <button type="button" onClick={nextStep} className="btn b1 w-full md:w-auto">
-              Continuar
-            </button>
+            <Button onClick={nextStep} className="w-full md:w-auto" size="lg">Continuar</Button>
           ) : (
-            <button
-              type="submit"
-              form="requestForm"
-              className="btn b1 w-full md:w-auto"
+            <Button 
+              type="submit" 
+              form="requestForm" 
+              className="w-full md:w-auto" 
+              size="lg"
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'A publicar…' : 'Publicar pedido'}
-            </button>
+              Publicar pedido
+            </Button>
           )}
         </footer>
       </div>

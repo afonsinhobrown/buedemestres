@@ -23,12 +23,16 @@ export function ConfiguracoesForm({
   plans: Plan[]
 }) {
   const [active, setActive] = useState(sandbox.active)
+  const [min, setMin] = useState(String(sandbox.min))
+  const [max, setMax] = useState(String(sandbox.max))
   const [saving, setSaving] = useState(false)
 
   async function saveSandbox() {
     setSaving(true)
     const form = new FormData()
     if (active) form.set('active', 'on')
+    form.set('min', min)
+    form.set('max', max)
     const res = await updateSandbox(form)
     setSaving(false)
     if (res.error) toast.error(res.error)
@@ -46,14 +50,21 @@ export function ConfiguracoesForm({
       <section className="bg-white border rounded-2xl p-6 shadow-sm">
         <h2 className="text-xl font-bold text-gray-900 mb-2">Modo Sandbox</h2>
         <p className="text-sm text-gray-500 mb-4">
-          Quando ativo, todos os serviços são cobrados a {sandbox.min} MT (valor fixo exigido pelos pagamentos).
+          Quando ativo, todos os serviços são limitados ao intervalo definido (por defeito 1–10 MT).
         </p>
         <label className="flex items-center gap-3 mb-4">
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="w-5 h-5" />
           <span className="font-semibold text-gray-800">Modo sandbox ativo</span>
         </label>
-        <div className="mb-4 rounded-lg bg-gray-50 border border-gray-100 p-3 text-sm text-gray-700">
-          Valor do serviço: <strong>{sandbox.min} MT</strong>
+        <div className="flex gap-4 mb-4">
+          <div>
+            <label className="text-sm text-gray-500">Preço mínimo (MT)</label>
+            <input value={min} onChange={(e) => setMin(e.target.value)} type="number" className="block mt-1 border rounded-lg p-2" />
+          </div>
+          <div>
+            <label className="text-sm text-gray-500">Preço máximo (MT)</label>
+            <input value={max} onChange={(e) => setMax(e.target.value)} type="number" className="block mt-1 border rounded-lg p-2" />
+          </div>
         </div>
         <button onClick={saveSandbox} disabled={saving} className="bg-gray-900 text-white px-5 py-2 rounded-lg font-bold disabled:opacity-50">
           Guardar sandbox

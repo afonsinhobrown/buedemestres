@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import { verifySession } from '@/lib/session'
 import { markAllNotificationsRead } from './actions'
-import { AutoRefresh } from '@/components/AutoRefresh'
 
 type Row = {
   id: string
@@ -35,7 +34,6 @@ export default async function NotificacoesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <AutoRefresh intervalMs={5000} />
       <div className="bg-[#12163A] text-white px-5 pt-10 pb-6">
         <Link href={home} className="text-[#FFC61A] text-sm font-bold">
           ← Voltar
