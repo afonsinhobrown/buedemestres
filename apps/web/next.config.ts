@@ -12,8 +12,16 @@ const nextConfig: NextConfig = {
         destination: '/apps/cliente/index.html',
       },
       {
+        source: '/apps/pro-v2',
+        destination: '/apps/pro-v2/index.html',
+      },
+      {
         source: '/apps/pro-v2/:path((?!_expo|.*\\..*).*)',
         destination: '/apps/pro-v2/index.html',
+      },
+      {
+        source: '/apps/cliente-v2',
+        destination: '/apps/cliente-v2/index.html',
       },
       {
         source: '/apps/cliente-v2/:path((?!_expo|.*\\..*).*)',
