@@ -26,7 +26,28 @@ function NewRequestForm() {
 
   const [step, setStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  
+  const [photos, setPhotos] = useState<{ file: File; url: string }[]>([])
+
+  const handlePhotos = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(event.target.files ?? [])
+      .filter((file) => file.type.startsWith('image/'))
+      .slice(0, 5 - photos.length)
+    if (selected.length === 0) return
+    setPhotos((current) => [
+      ...current,
+      ...selected.map((file) => ({ file, url: URL.createObjectURL(file) })),
+    ].slice(0, 5))
+    event.target.value = ''
+  }
+
+  const removePhoto = (index: number) => {
+    setPhotos((current) => {
+      const photo = current[index]
+      if (photo) URL.revokeObjectURL(photo.url)
+      return current.filter((_, i) => i !== index)
+    })
+  }
+
   // Rascunho de pedido
   const [formData, setFormData] = useState({
     title: '',
@@ -65,6 +86,7 @@ function NewRequestForm() {
     
     const submitData = new FormData()
     Object.entries(formData).forEach(([k, v]) => submitData.append(k, v))
+    photos.forEach((photo) => submitData.append('photos', photo.file))
     if (mestreSlug) {
       // Idealmente resolveriamos o ID real do provider pelo slug
       // submitData.append('targetProviderId', targetId)
@@ -142,13 +164,41 @@ function NewRequestForm() {
               <h2 className="text-2xl display-wide">Mostra-nos.</h2>
               
               <div className="space-y-4">
-                <div className="border-2 border-dashed border-[var(--color-zinco-200)] rounded-[var(--radius-foto)] p-8 flex flex-col items-center justify-center text-center gap-3 bg-[var(--color-papel)] cursor-pointer hover:bg-[var(--color-cal)]">
+                <label
+                  htmlFor="request-photos"
+                  className="border-2 border-dashed border-[var(--color-zinco-200)] rounded-[var(--radius-foto)] p-8 flex flex-col items-center justify-center text-center gap-3 bg-[var(--color-papel)] cursor-pointer hover:bg-[var(--color-cal)]"
+                >
                   <Camera size={40} className="text-[var(--color-zinco)]" />
                   <div>
                     <p className="font-bold">Tira uma foto ou escolhe da galeria</p>
                     <p className="text-sm text-[var(--color-zinco)]">Até 5 fotografias.</p>
                   </div>
-                </div>
+                  <input
+                    id="request-photos"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="sr-only"
+                    onChange={handlePhotos}
+                  />
+                </label>
+
+                {photos.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {photos.map((photo, index) => (
+                      <div key={photo.url} className="relative overflow-hidden rounded-xl border border-[var(--color-zinco-200)] bg-white">
+                        <img src={photo.url} alt={`Fotografia ${index + 1}`} className="h-24 w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(index)}
+                          className="absolute right-1 top-1 rounded-full bg-black/70 px-2 py-0.5 text-xs font-bold text-white"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div className="flex flex-col gap-1">
                   <label className="text-sm font-medium text-[var(--color-tinta)]">Descrição (opcional se meteres foto)</label>
