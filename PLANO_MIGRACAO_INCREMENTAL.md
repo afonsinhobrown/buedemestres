@@ -17,7 +17,13 @@
 - ✅ Autenticação das APIs: cookie web (`bdm_session`) ou Bearer Supabase JWT.
 - ✅ Apps v1 e v2 passaram a usar `apiFetch`, que envia o access token Supabase.
 - ✅ Endpoints de pagamentos, QR, tracking, top-up, payout dispatch e reports exigem actor autorizado.
-- ⚠️ APKs antigos (v1/v2) precisam de rebuild para enviar o token.
+- ✅ Testado: sem token → 401; cookie web e Bearer Supabase → acesso (404 só porque o job de teste não existe).
+- ✅ APKs v1 e v2 reconstruídos com `apiFetch`/JWT:
+  - `apk/BueDeMestres-Cliente-arm64.apk`
+  - `apk/BueDeMestres-Pro-arm64.apk`
+  - `apk/BueDeMestres-Cliente-v2-arm64.apk`
+  - `apk/BueDeMestres-Pro-v2-arm64.apk`
+- ⚠️ APKs já instalados nos telemóveis têm de ser substituídos por estes.
 - ⚠️ RLS/grants da base de dados continuam abertos; a auth das APIs não fecha o acesso directo via anon key.
 - ⏭ Próximo: adaptar os endpoints ao novo fluxo (travel/reclass/PIN) e fechar RLS.
 - ⏭ Preços fixos por categoria continuam por validar com pesquisa de campo.
