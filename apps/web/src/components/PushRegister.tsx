@@ -102,7 +102,7 @@ export function PushRegister() {
       <button
         onClick={activate}
         disabled={busy}
-        className="fixed bottom-4 right-4 z-50 bg-[#12163A] text-white text-sm font-bold px-4 py-3 rounded-xl shadow-lg border-2 border-[#FFC61A] disabled:opacity-60"
+        className="bdm-push fixed bottom-4 right-4 z-50 bg-[#12163A] text-white text-sm font-bold px-4 py-3 rounded-xl shadow-lg border-2 border-[#FFC61A] disabled:opacity-60"
       >
         {busy ? 'A ativar...' : '🔔 Ativar notificações'}
         {message && <span className="block text-[10px] font-normal text-red-200 mt-1">{message}</span>}
@@ -112,7 +112,7 @@ export function PushRegister() {
 
   if (state === 'denied') {
     return (
-      <div className="fixed bottom-4 right-4 z-40 max-w-xs bg-white border border-red-200 text-red-700 text-xs rounded-xl shadow-lg px-4 py-3">
+      <div className="bdm-push fixed bottom-4 right-4 z-40 max-w-xs bg-white border border-red-200 text-red-700 text-xs rounded-xl shadow-lg px-4 py-3">
         Notificações bloqueadas no navegador. Ativa-as nas definições do site para receberes avisos.
       </div>
     )

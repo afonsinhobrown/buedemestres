@@ -1,106 +1,213 @@
-import React from 'react';
-import Link from 'next/link';
-import { db } from '@/lib/db';
-import MapDynamic from '@/components/MapDynamic';
+import type { Metadata } from 'next'
+import { db } from '@/lib/db'
+import { getOptionalSession } from '@/lib/session'
+import {
+  buildCategoryTree,
+  findCategoryBySlug,
+  type CategoryNode,
+  type CategoryRow,
+  type DiscoveryDistrict,
+  type DiscoveryProvider,
+} from '@/lib/discovery'
+import DiscoveryView from './DiscoveryView'
+import './discovery.css'
 
-export const dynamic = 'force-dynamic';
-export default async function ResultadosPage({ searchParams }: { searchParams: Promise<{ q?: string, onde?: string }> }) {
-  const sp = await searchParams;
-  const query = sp.q || '';
-  const onde = sp.onde || '';
+export const dynamic = 'force-dynamic'
 
-  // Use the search_providers function from Postgres
-  const res = await db.query(`
-    SELECT profile_id, slug, business_name, headline, rating_avg, rating_count, verified, rank,
-           (SELECT name FROM districts d JOIN provider_profiles pp2 ON pp2.district_id = d.id WHERE pp2.profile_id = sp.profile_id) as district_name,
-           (SELECT lat FROM provider_profiles pp2 WHERE pp2.profile_id = sp.profile_id) as lat,
-           (SELECT lng FROM provider_profiles pp2 WHERE pp2.profile_id = sp.profile_id) as lng,
-           (SELECT c.name FROM provider_profiles pp2 JOIN categories c ON pp2.primary_category_id = c.id WHERE pp2.profile_id = sp.profile_id) as category_name
-    FROM search_providers($1) sp
-  `, [query]);
-  
-  let providers = res.rows;
+export const metadata: Metadata = {
+  title: 'Encontrar mestres perto de ti — Bué de Mestres',
+  description:
+    'Pesquisa mecânicos, electricistas, canalizadores, explicadores e outros mestres verificados perto de ti. Compara avaliações e pede orçamento na Bué de Mestres.',
+}
 
-  // Fallback se a pesquisa de texto não retornar nada
-  if (providers.length === 0) {
-    const fallback = await db.query(`
-      SELECT pp.profile_id, pp.slug, pp.business_name, pp.headline, pp.rating_avg, pp.rating_count, 
-             (pp.verification = 'approved') as verified, d.name as district_name,
-             pp.lat, pp.lng, c.name as category_name, 0 as rank
-      FROM provider_profiles pp
-      JOIN districts d ON pp.district_id = d.id
-      JOIN categories c ON pp.primary_category_id = c.id
-      WHERE pp.is_published = true
-      ORDER BY pp.rating_avg DESC
-      LIMIT 10
-    `);
-    providers = fallback.rows;
+type ProviderRow = {
+  profile_id: string
+  slug: string
+  business_name: string
+  headline: string | null
+  rating_avg: number
+  rating_count: number
+  verified: boolean
+  available: boolean
+  featured: boolean
+  lat: number | null
+  lng: number | null
+  category_id: number
+  category_name: string
+  category_icon: string
+  district_name: string | null
+  province_name: string | null
+  jobs_completed: number
+}
+
+type Stats = {
+  total: number
+  verified: number
+  available: number
+}
+
+function firstString(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? ''
+  return value ?? ''
+}
+
+function toPositiveInt(value: string): number | null {
+  const number = Number(value)
+  if (!Number.isFinite(number) || number <= 0) return null
+  return Math.trunc(number)
+}
+
+export default async function ResultadosPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const params = await searchParams
+  const q = firstString(params.q).trim()
+  const categoryValue = firstString(params.categoria).trim()
+  const districtValue = firstString(params.distrito).trim()
+  const districtId = toPositiveInt(districtValue)
+  const verifiedOnly = firstString(params.verificado) === '1'
+  const availableOnly = firstString(params.disponivel) === '1'
+
+  let categories: CategoryNode[] = []
+  let providers: DiscoveryProvider[] = []
+  let districts: DiscoveryDistrict[] = []
+  let stats: Stats = { total: 0, verified: 0, available: 0 }
+  let loadError = false
+
+  try {
+    const [categoryRows, districtRows, statsRows] = await Promise.all([
+      db.query<CategoryRow>(`
+        select c.id, c.slug, c.name, c.icon, c.parent_id,
+               (
+                 select count(*)::int
+                   from provider_profiles pp
+                  where pp.is_published
+                    and pp.primary_category_id = c.id
+               ) as provider_count
+          from categories c
+         where c.is_active
+         order by c.parent_id nulls first, c.sort_order, c.name
+      `),
+      db.query<DiscoveryDistrict>(`
+        select d.id, d.name, p.name as province
+          from districts d
+          join provinces p on p.id = d.province_id
+         order by p.name, d.name
+      `),
+      db.query<Stats>(`
+        select count(*)::int as total,
+               count(*) filter (where verification = 'approved')::int as verified,
+               count(*) filter (where is_available)::int as available
+          from provider_profiles
+         where is_published
+      `),
+    ])
+
+    categories = buildCategoryTree(categoryRows.rows)
+    districts = districtRows.rows
+    stats = statsRows.rows[0] ?? stats
+
+    const selected = findCategoryBySlug(categories, categoryValue)
+    const selectedCategoryId = selected?.category.id ?? null
+
+    const providerRows = await db.query<ProviderRow>(
+      `
+        select pp.profile_id,
+               pp.slug,
+               pp.business_name,
+               pp.headline,
+               pp.rating_avg::float8 as rating_avg,
+               pp.rating_count,
+               (pp.verification = 'approved') as verified,
+               pp.is_available as available,
+               exists (
+                 select 1
+                   from boosts b
+                  where b.provider_id = pp.profile_id
+                    and b.type = 'featured'
+                    and b.ends_at > now()
+                    and (b.category_id is null or b.category_id = $2::int)
+               ) as featured,
+               pp.lat::float8 as lat,
+               pp.lng::float8 as lng,
+               c.id as category_id,
+               c.name as category_name,
+               coalesce(c.icon, parent.icon, '🛠️') as category_icon,
+               d.name as district_name,
+               p.name as province_name,
+               pp.jobs_completed
+          from provider_profiles pp
+          join categories c on c.id = pp.primary_category_id
+          left join categories parent on parent.id = c.parent_id
+          left join districts d on d.id = pp.district_id
+          left join provinces p on p.id = d.province_id
+         where pp.is_published
+           and (
+             $1 = ''
+             or pp.search_document @@ websearch_to_tsquery('portuguese', unaccent($1))
+             or pp.business_name ilike '%' || $1 || '%'
+             or coalesce(pp.headline, '') ilike '%' || $1 || '%'
+             or c.name ilike '%' || $1 || '%'
+           )
+           and ($2::int is null or pp.primary_category_id = $2::int or c.parent_id = $2::int)
+           and ($3::int is null or pp.district_id = $3::int)
+           and (not $4::boolean or pp.verification = 'approved')
+           and (not $5::boolean or pp.is_available)
+         order by featured desc, pp.rating_avg desc, pp.jobs_completed desc, pp.business_name
+         limit 60
+      `,
+      [q, selectedCategoryId, districtId, verifiedOnly, availableOnly]
+    )
+
+    providers = providerRows.rows.map((row) => ({
+      profileId: row.profile_id,
+      slug: row.slug,
+      businessName: row.business_name,
+      headline: row.headline,
+      ratingAvg: Number(row.rating_avg ?? 0),
+      ratingCount: Number(row.rating_count ?? 0),
+      verified: Boolean(row.verified),
+      available: Boolean(row.available),
+      featured: Boolean(row.featured),
+      lat: row.lat === null ? null : Number(row.lat),
+      lng: row.lng === null ? null : Number(row.lng),
+      categoryId: row.category_id,
+      categoryName: row.category_name,
+      categoryIcon: row.category_icon || '🛠️',
+      districtName: row.district_name,
+      provinceName: row.province_name,
+      jobsCompleted: Number(row.jobs_completed ?? 0),
+    }))
+  } catch (error) {
+    console.error('[resultados] falha ao carregar a descoberta:', error)
+    loadError = true
   }
 
+  const selected = findCategoryBySlug(categories, categoryValue)
+  const selectedDistrict = districtId ? districts.find((district) => district.id === districtId) : null
+  const hasFilters = Boolean(
+    q || selected || districtId || verifiedOnly || availableOnly
+  )
+
+  const session = await getOptionalSession().catch(() => null)
+
   return (
-    <>
-      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
-        <symbol id="selo" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="10.5" fill="#FFC61A" stroke="#12163A" strokeWidth="2" />
-          <circle cx="12" cy="12" r="7.6" fill="none" stroke="#12163A" strokeWidth="1" strokeDasharray="2 1.6" />
-          <path d="M7.6 12.4l3 3 5.8-6.4" fill="none" stroke="#12163A" strokeWidth="2.4" strokeLinecap="square" />
-        </symbol>
-      </svg>
-
-      <div className="sites" style={{ padding: '0', maxWidth: 'none', height: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <nav className="nav" style={{ flexShrink: 0, background: 'rgba(252,250,248,0.85)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 10 }}>
-          <Link href="/" className="placa pb sm" style={{ transform: 'none' }}>Bué de Mestres</Link>
-          <form className="search" style={{ margin: '0', flex: 1, maxWidth: '600px' }} action="/resultados" method="GET">
-            <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-              <input className="inp" name="q" placeholder="O que precisas?" defaultValue={query} style={{ flex: 1 }} />
-              <input className="inp" name="onde" placeholder="Onde?" defaultValue={onde} style={{ width: '120px' }} />
-              <button type="submit" className="btn b1 s">Procurar</button>
-            </div>
-          </form>
-          <span className="sp"></span>
-          <Link href="/apps/cliente/entrar">Entrar (cliente)</Link>
-          <Link href="/entrar">Equipa</Link>
-        </nav>
-
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-          {/* Lado Esquerdo: Lista */}
-          <div style={{ width: '50%', overflowY: 'auto', padding: '24px', background: '#FCFAF8' }}>
-            <h1 className="h2 h2s">Mestres encontrados perto de ti</h1>
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', overflowX: 'auto', paddingBottom: '8px' }}>
-              <span className="btn s" style={{ background: '#12163A', color: 'white' }}>Mais bem avaliados</span>
-              <span className="btn s" style={{ background: '#E6E6E6' }}>Preço mais baixo</span>
-              <span className="btn s" style={{ background: '#E6E6E6' }}>Aberto agora</span>
-            </div>
-
-            <div className="cards" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {providers.map((p) => (
-                <Link href={`/mestre/${p.slug}`} key={p.slug} className="ficha block cursor-pointer hover:shadow-lg transition-shadow">
-                  <div className="placa pb" style={{ transform: 'none', display: 'inline-block' }}>{p.category_name}</div>
-                  <div className="fi">
-                    <h3 style={{ fontSize: '20px', margin: '4px 0' }}>{p.business_name}</h3>
-                    <div className="rt" style={{ marginBottom: '4px' }}><b>{p.rating_avg}</b><span>{p.rating_count} avaliações</span></div>
-                    <p className="mut" style={{ marginBottom: '8px' }}>{p.district_name} {p.lat && p.lng ? "📍" : ""}</p>
-                    <p style={{ fontSize: '14px', marginBottom: '8px' }}>{p.headline}</p>
-                    {p.verified && (
-                      <div className="tags" style={{ marginBottom: '8px' }}>
-                        <svg className="selo"><use href="#selo"/></svg>Verificado
-                      </div>
-                    )}
-                  </div>
-                  <div className="acts" style={{ marginTop: '12px' }}>
-                    <span className="btn b1 s" style={{ flex: 1, textAlign: 'center' }}>Chamar agora</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Lado Direito: Mapa Leaflet dinâmico */}
-          <div style={{ width: '50%', position: 'relative', borderLeft: '2px solid #12163A', zIndex: 1 }}>
-             <MapDynamic providers={providers} />
-          </div>
-        </div>
-      </div>
-    </>
-  );
+    <DiscoveryView
+      q={q}
+      categories={categories}
+      providers={providers}
+      districts={districts}
+      selectedCategorySlug={selected?.category.slug ?? ''}
+      selectedDistrictId={districtId}
+      selectedDistrictName={selectedDistrict?.name ?? null}
+      verifiedOnly={verifiedOnly}
+      availableOnly={availableOnly}
+      hasFilters={hasFilters}
+      stats={stats}
+      isAuthenticated={Boolean(session?.userId)}
+      loadError={loadError}
+    />
+  )
 }
