@@ -1,0 +1,61 @@
+{
+  "expo": {
+    "name": "Bué de Mestres Cliente v2",
+    "slug": "bue-de-mestres-cliente-v2",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#12163A"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "mz.buedemestres.cliente.v2",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Precisamos da tua localização para encontrar os mestres mais próximos.",
+        "NSCameraUsageDescription": "Permite-nos fotografar o teu problema para enviar ao mestre.",
+        "NSPhotoLibraryUsageDescription": "Permite-nos escolher fotos do teu problema para enviar ao mestre."
+      },
+      "backgroundColor": "#12163A"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundColor": "#12163A"
+      },
+      "package": "mz.buedemestres.cliente.v2",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-location",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#2444C8"
+        }
+      ]
+    ],
+    "scheme": "buedemestrescliente2",
+    "extra": {
+      "router": {
+        "origin": false
+      }
+    },
+    "experiments": {
+      "baseUrl": "/apps/cliente-v2"
+    },
+    "owner": "incubadoraservicoss-team"
+  }
+}

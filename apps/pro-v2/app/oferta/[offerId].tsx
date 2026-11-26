@@ -1,0 +1,161 @@
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native'
+import { Alert } from '../../lib/alertCompat'
+import { useLocalSearchParams, router } from 'expo-router'
+import { useEffect, useRef, useState } from 'react'
+import { supabase } from '../../lib/supabase'
+
+const OFERTA_EXPIRA_SEG = 60
+
+export default function OfertaPedidoScreen() {
+  const params = useLocalSearchParams<{
+    offerId: string; categoriaEmoji: string; categoriaNome: string
+    descricao: string; distanciaM: string; etaSeg: string; fotos: string
+  }>()
+
+  const [segundos, setSegundos] = useState(OFERTA_EXPIRA_SEG)
+  const [respondido, setRespondido] = useState(false)
+  const [aAceitar, setAAceitar] = useState(false)
+  const barraAnim = useRef(new Animated.Value(1)).current
+
+  // Contagem regressiva
+  useEffect(() => {
+    Animated.timing(barraAnim, { toValue: 0, duration: OFERTA_EXPIRA_SEG * 1000, useNativeDriver: false }).start()
+    const iv = setInterval(() => {
+      setSegundos(s => {
+        if (s <= 1) { clearInterval(iv); router.back(); return 0 }
+        return s - 1
+      })
+    }, 1000)
+    return () => clearInterval(iv)
+  }, [])
+
+  const handleAceitar = async () => {
+    if (!params.offerId || respondido || aAceitar) return
+    setAAceitar(true)
+    setRespondido(true)
+    try {
+      const etaSeg = parseInt(params.etaSeg ?? '480', 10)
+      const { data: jobId, error } = await supabase.rpc('accept_offer', {
+        p_offer: params.offerId,
+        p_eta_s: Number.isFinite(etaSeg) ? etaSeg : null,
+      })
+      if (error) throw error
+      if (!jobId) throw new Error('Não foi possível aceitar a oferta.')
+
+      router.replace({
+        pathname: '/trabalho/propor-preco',
+        params: { jobId: String(jobId) },
+      })
+    } catch (err: any) {
+      setRespondido(false)
+      const msg = String(err?.message || err || '')
+      const amigavel =
+        msg.includes('offer_unavailable') ? 'Esta oferta já expirou ou foi atribuída.' :
+        msg.includes('request_taken') ? 'Outro mestre aceitou este pedido primeiro.' :
+        msg.includes('provider_busy') ? 'Já tens um serviço activo. Conclui-o antes de aceitar outro.' :
+        'Não foi possível aceitar a oferta. Tenta novamente.'
+      Alert.alert('Oferta indisponível', amigavel, [
+        { text: 'OK', onPress: () => router.back() },
+      ])
+    } finally {
+      setAAceitar(false)
+    }
+  }
+
+  const handleRecusar = () => {
+    Alert.alert('Recusar oferta?', 'Recusas reduzem o teu índice de fiabilidade.', [
+      { text: 'Cancelar' },
+      {
+        text: 'Recusar',
+        style: 'destructive',
+        onPress: async () => {
+          setRespondido(true)
+          try {
+            const {
+              data: { user },
+            } = await supabase.auth.getUser()
+            if (user?.id && params.offerId) {
+              await supabase
+                .from('request_offers')
+                .update({ status: 'declined', responded_at: new Date().toISOString() })
+                .eq('id', params.offerId)
+                .eq('provider_id', user.id)
+            }
+          } catch (error) {
+            console.warn('Erro ao registar recusa:', error)
+          }
+          router.back()
+        },
+      },
+    ])
+  }
+
+  const distKm = ((parseInt(params.distanciaM ?? '3000')) / 1000).toFixed(1)
+  const etaMin = Math.round(parseInt(params.etaSeg ?? '480') / 60)
+
+  return (
+    <View style={styles.container}>
+      {/* Barra de contagem */}
+      <Animated.View style={[styles.barra, { scaleX: barraAnim, backgroundColor: segundos > 20 ? '#F2C94C' : '#EF4444' }]} />
+
+      <View style={styles.timer}>
+        <Text style={[styles.timerNum, { color: segundos > 20 ? '#F2C94C' : '#EF4444' }]}>{segundos}s</Text>
+        <Text style={styles.timerLabel}>para expirar</Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.catEmoji}>{params.categoriaEmoji ?? '🔧'}</Text>
+        <Text style={styles.catNome}>{params.categoriaNome ?? 'Mecânico'}</Text>
+        <Text style={styles.descricao}>{params.descricao ?? 'Motor não arranca. Bateria em dia.'}</Text>
+
+        <View style={styles.metaRow}>
+          <View style={styles.metaItem}>
+            <Text style={styles.metaValor}>{distKm} km</Text>
+            <Text style={styles.metaLabel}>Distância</Text>
+          </View>
+          <View style={styles.metaDivider} />
+          <View style={styles.metaItem}>
+            <Text style={styles.metaValor}>{etaMin} min</Text>
+            <Text style={styles.metaLabel}>Tempo chegada</Text>
+          </View>
+          <View style={styles.metaDivider} />
+          <View style={styles.metaItem}>
+            <Text style={styles.metaValor}>🔴 SOS</Text>
+            <Text style={styles.metaLabel}>Urgência</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.btns}>
+        <TouchableOpacity style={styles.btnAceitar} onPress={handleAceitar} disabled={respondido || aAceitar}>
+          <Text style={styles.btnAceitarText}>{aAceitar ? 'A aceitar…' : '✓ Aceitar'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.btnRecusar} onPress={handleRecusar} disabled={respondido || aAceitar}>
+          <Text style={styles.btnRecusarText}>✕ Recusar</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#1A1A2E', padding: 24, paddingTop: 0 },
+  barra: { height: 5, width: '100%', marginBottom: 24, transformOrigin: 'left' },
+  timer: { alignItems: 'center', marginBottom: 32 },
+  timerNum: { fontSize: 64, fontWeight: '900', lineHeight: 68 },
+  timerLabel: { color: 'rgba(255,255,255,0.45)', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
+  card: { backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 12, padding: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', marginBottom: 32, alignItems: 'center' },
+  catEmoji: { fontSize: 52, marginBottom: 8 },
+  catNome: { fontSize: 22, fontWeight: '900', color: '#F5F0E8', marginBottom: 10 },
+  descricao: { fontSize: 14, color: 'rgba(255,255,255,0.6)', textAlign: 'center', lineHeight: 22, marginBottom: 20 },
+  metaRow: { flexDirection: 'row', width: '100%' },
+  metaItem: { flex: 1, alignItems: 'center' },
+  metaValor: { fontSize: 16, fontWeight: '900', color: '#F2C94C', marginBottom: 4 },
+  metaLabel: { fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 0.5 },
+  metaDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.1)' },
+  btns: { gap: 12 },
+  btnAceitar: { backgroundColor: '#166534', borderRadius: 8, paddingVertical: 22, alignItems: 'center', borderWidth: 2, borderColor: '#4ADE80' },
+  btnAceitarText: { color: '#fff', fontWeight: '900', fontSize: 18, textTransform: 'uppercase', letterSpacing: 2 },
+  btnRecusar: { backgroundColor: 'transparent', borderRadius: 8, paddingVertical: 18, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  btnRecusarText: { color: 'rgba(255,255,255,0.45)', fontWeight: '700', fontSize: 15 },
+})

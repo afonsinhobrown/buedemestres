@@ -21,7 +21,7 @@ export default function EmCursoScreen() {
   useEffect(() => {
     if (!jobId) return;
 
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setInterval>;
 
     const carregar = async () => {
       const { data: job } = await supabase

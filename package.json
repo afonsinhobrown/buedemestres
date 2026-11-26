@@ -14,7 +14,8 @@
   "devDependencies": {
     "prettier": "^3.2.5",
     "tsx": "^4.19.2",
-    "turbo": "^2.1.2"
+    "turbo": "^2.1.2",
+    "@types/react": "18.3.31"
   },
   "engines": {
     "node": ">=20.0.0"
