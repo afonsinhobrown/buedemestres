@@ -145,6 +145,7 @@ function NewRequestForm() {
       } else if (res?.success) {
         localStorage.removeItem('buedemestres_request_draft')
         toast.success('Pedido publicado!')
+        if (res.warning) toast.warning(res.warning, { duration: 8000 })
         router.push('/pedidos')
       }
     } catch (error) {

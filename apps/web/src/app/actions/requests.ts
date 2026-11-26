@@ -122,13 +122,14 @@ export async function createRequest(prevState: any, formData: FormData) {
       }
     }
 
+    let photoWarning: string | null = null
+
     if (photos.length > 0) {
       try {
         await uploadRequestPhotos(requestId, photos)
       } catch (photoError) {
         console.error('Erro ao carregar fotografias:', photoError)
-        await db.query('delete from service_requests where id = $1', [requestId])
-        return { error: 'Não foi possível carregar as fotografias. Tenta novamente.' }
+        photoWarning = 'O pedido foi publicado, mas as fotografias não foram carregadas. Podes descrever o problema ao mestre pelo chat.'
       }
     }
 
@@ -181,7 +182,7 @@ export async function createRequest(prevState: any, formData: FormData) {
 
     revalidatePath('/pedidos')
     revalidatePath('/notificacoes')
-    return { success: true, requestId }
+    return { success: true, requestId, warning: photoWarning }
   } catch (error: any) {
     console.error('Erro ao criar pedido:', error)
     return { error: 'Ocorreu um erro interno ao processar o seu pedido.' }
