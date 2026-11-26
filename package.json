@@ -9,7 +9,8 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "test": "tsx --test \"tests/*.test.ts\"",
     "bootstrap:superadmin": "tsx scripts/bootstrap-superadmin.ts",
-    "sim": "turbo run web --parallel --filter=cliente --filter=pro"
+    "sim": "turbo run web --parallel --filter=cliente --filter=pro",
+    "db:migrate:new": "node scripts/apply-new-migrations.mjs"
   },
   "devDependencies": {
     "prettier": "^3.2.5",

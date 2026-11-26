@@ -3,6 +3,17 @@
 **Data:** 26 Nov 2026  
 **Objectivo:** evoluir o sistema existente para suportar pagamento por pedido, escrow, split, catálogo fixo, orçamento variável, reclassificação e saques em lote — **sem criar uma plataforma paralela**.
 
+## Estado da execução
+
+- ✅ `0254_payment_split_foundation.sql` — aplicada.
+- ✅ `0255_payout_batches.sql` — aplicada.
+- ✅ `0256_catalog_and_symptoms.sql` — aplicada.
+- ✅ `0257_payment_functions.sql` — aplicada.
+- ✅ `0258_compatibility.sql` — aplicada.
+- ✅ Teste transaccional de split, PIN, deslocação e aditamento — passou e foi revertido.
+- ⏭ Próximo: adaptar APIs e apps v2 para usar os campos/funções novos.
+- ⏭ Ainda não há dados de catálogo/sintomas; as tabelas estão vazias para configuração.
+
 ---
 
 ## 0. Princípio
