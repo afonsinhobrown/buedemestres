@@ -143,7 +143,14 @@ export default async function VerificacoesAdminPage() {
               pp.created_at::text
          from provider_profiles pp
          join profiles p on p.id = pp.profile_id
-        where pp.verification <> 'approved' or pp.temporary_access_until is not null
+        where pp.verification <> 'approved'
+           or pp.temporary_access_until is not null
+           or not exists (
+                select 1
+                  from verification_documents v
+                 where v.provider_id = pp.profile_id
+                   and v.status in ('pending', 'approved')
+              )
         order by pp.created_at desc
         limit 50`
     )
