@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "357221464697",
+    "project_id": "buedemestres",
+    "storage_bucket": "buedemestres.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:357221464697:android:6c4e36c3b9462e2a18b2a8",
+        "android_client_info": {
+          "package_name": "mz.buedemestres.cliente.v2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD-HmX8ag3hXnlNcm6-p-Cee89vmhUYVoM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
