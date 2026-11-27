@@ -84,9 +84,23 @@ export default async function VerificacoesAdminPage() {
     redirect('/entrar')
   }
 
-  await db.query('select expire_temporary_provider_access()').catch((error) => {
-    console.warn('Expiração de acessos temporários indisponível:', error)
-  })
+  const featureRes = await db.query<{ has_columns: boolean; has_function: boolean }>(
+    `select
+       exists (
+         select 1 from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'provider_profiles'
+            and column_name = 'temporary_access_until'
+       ) as has_columns,
+       to_regprocedure('public.expire_temporary_provider_access()') is not null as has_function`
+  )
+  const temporaryFeature = featureRes.rows[0] ?? { has_columns: false, has_function: false }
+
+  if (temporaryFeature.has_function) {
+    await db.query('select expire_temporary_provider_access()').catch((error) => {
+      console.warn('Expiração de acessos temporários indisponível:', error)
+    })
+  }
 
   const res = await db.query(`
     SELECT 
@@ -105,33 +119,36 @@ export default async function VerificacoesAdminPage() {
     selfie_url: item.selfie_url ?? null,
   }))
 
-  const temporaryRes = await db.query<{
-    id: string
-    full_name: string
-    business_name: string
-    verification: string
-    temporary_access_until: string | null
-    pending_docs: number
-    created_at: string
-  }>(
-    `select pp.profile_id::text as id,
-            p.full_name,
-            pp.business_name,
-            pp.verification::text,
-            pp.temporary_access_until::text,
-            (
-              select count(*)::int
-                from verification_documents v
-               where v.provider_id = pp.profile_id and v.status = 'pending'
-            ) as pending_docs,
-            pp.created_at::text
-       from provider_profiles pp
-       join profiles p on p.id = pp.profile_id
-      where pp.verification <> 'approved' or pp.temporary_access_until is not null
-      order by pp.created_at desc
-      limit 50`
-  )
-  const temporaryItems = temporaryRes.rows as TemporaryAccessItem[]
+  let temporaryItems: TemporaryAccessItem[] = []
+  if (temporaryFeature.has_columns) {
+    const temporaryRes = await db.query<{
+      id: string
+      full_name: string
+      business_name: string
+      verification: string
+      temporary_access_until: string | null
+      pending_docs: number
+      created_at: string
+    }>(
+      `select pp.profile_id::text as id,
+              p.full_name,
+              pp.business_name,
+              pp.verification::text,
+              pp.temporary_access_until::text,
+              (
+                select count(*)::int
+                  from verification_documents v
+                 where v.provider_id = pp.profile_id and v.status = 'pending'
+              ) as pending_docs,
+              pp.created_at::text
+         from provider_profiles pp
+         join profiles p on p.id = pp.profile_id
+        where pp.verification <> 'approved' or pp.temporary_access_until is not null
+        order by pp.created_at desc
+        limit 50`
+    )
+    temporaryItems = temporaryRes.rows as TemporaryAccessItem[]
+  }
 
   return (
     <div className="p-8 max-w-6xl mx-auto bg-gray-50 min-h-screen">
@@ -149,15 +166,21 @@ export default async function VerificacoesAdminPage() {
       
       <VerificacoesList items={items} />
 
-      <section className="mt-10">
-        <div className="mb-4">
-          <h2 className="text-xl font-bold text-gray-900">Mestres pendentes sem documentos</h2>
-          <p className="text-sm text-gray-500">
-            Podes dar acesso temporário para o mestre começar a usar a plataforma enquanto completa os documentos.
-          </p>
+      {temporaryFeature.has_columns ? (
+        <section className="mt-10">
+          <div className="mb-4">
+            <h2 className="text-xl font-bold text-gray-900">Mestres pendentes sem documentos</h2>
+            <p className="text-sm text-gray-500">
+              Podes dar acesso temporário para o mestre começar a usar a plataforma enquanto completa os documentos.
+            </p>
+          </div>
+          <TemporaryAccessList items={temporaryItems} />
+        </section>
+      ) : (
+        <div className="mt-8 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          Acesso temporário indisponível: falta aplicar a migration `0260_temporary_provider_access.sql` na base de dados.
         </div>
-        <TemporaryAccessList items={temporaryItems} />
-      </section>
+      )}
     </div>
   )
 }
