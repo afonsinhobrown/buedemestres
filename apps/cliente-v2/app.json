@@ -52,11 +52,14 @@
     "extra": {
       "router": {
         "origin": false
+      },
+      "eas": {
+        "projectId": "2e92f85b-5cfd-4338-9918-09bd84ab3e45"
       }
     },
     "experiments": {
       "baseUrl": "/apps/cliente-v2"
     },
-    "owner": "incubadoraservicoss-team"
+    "owner": "afonsinhobrown"
   }
 }

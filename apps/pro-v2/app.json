@@ -64,11 +64,14 @@
     "extra": {
       "router": {
         "origin": false
+      },
+      "eas": {
+        "projectId": "81688f2d-0124-43a8-b6d0-c36ae9ec7d6c"
       }
     },
     "experiments": {
       "baseUrl": "/apps/pro-v2"
     },
-    "owner": "incubadoraservicoss-team"
+    "owner": "afonsinhobrown"
   }
 }
