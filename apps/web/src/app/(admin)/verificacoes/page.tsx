@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
 import { verifySession } from '@/lib/session'
 import { VerificacoesList } from './VerificacoesList'
+import { TemporaryAccessList, type TemporaryAccessItem } from './TemporaryAccessList'
 import { Toaster } from 'sonner'
 import { redirect } from 'next/navigation'
 
@@ -79,9 +80,13 @@ async function withSignedUrls(rows: VerificationRow[]): Promise<VerificationRow[
 export default async function VerificacoesAdminPage() {
   const session = await verifySession()
   
-  if (session.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(session.role)) {
     redirect('/entrar')
   }
+
+  await db.query('select expire_temporary_provider_access()').catch((error) => {
+    console.warn('Expiração de acessos temporários indisponível:', error)
+  })
 
   const res = await db.query(`
     SELECT 
@@ -100,6 +105,34 @@ export default async function VerificacoesAdminPage() {
     selfie_url: item.selfie_url ?? null,
   }))
 
+  const temporaryRes = await db.query<{
+    id: string
+    full_name: string
+    business_name: string
+    verification: string
+    temporary_access_until: string | null
+    pending_docs: number
+    created_at: string
+  }>(
+    `select pp.profile_id::text as id,
+            p.full_name,
+            pp.business_name,
+            pp.verification::text,
+            pp.temporary_access_until::text,
+            (
+              select count(*)::int
+                from verification_documents v
+               where v.provider_id = pp.profile_id and v.status = 'pending'
+            ) as pending_docs,
+            pp.created_at::text
+       from provider_profiles pp
+       join profiles p on p.id = pp.profile_id
+      where pp.verification <> 'approved' or pp.temporary_access_until is not null
+      order by pp.created_at desc
+      limit 50`
+  )
+  const temporaryItems = temporaryRes.rows as TemporaryAccessItem[]
+
   return (
     <div className="p-8 max-w-6xl mx-auto bg-gray-50 min-h-screen">
       <Toaster position="top-right" richColors />
@@ -115,6 +148,16 @@ export default async function VerificacoesAdminPage() {
       </div>
       
       <VerificacoesList items={items} />
+
+      <section className="mt-10">
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-gray-900">Mestres pendentes sem documentos</h2>
+          <p className="text-sm text-gray-500">
+            Podes dar acesso temporário para o mestre começar a usar a plataforma enquanto completa os documentos.
+          </p>
+        </div>
+        <TemporaryAccessList items={temporaryItems} />
+      </section>
     </div>
   )
 }
